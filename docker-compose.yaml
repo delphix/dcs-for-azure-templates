@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  build-template-artifacts:
+    image: ubuntu:22.04
+    working_dir: /dcs-for-azure-templates
+    volumes:
+      - $PWD:/dcs-for-azure-templates
+    command: >
+      sh -c "
+             apt-get update &&
+             apt-get install -y zip &&
+             zip dcsazure_Snowflake_to_Snowflake_prof_pl.zip dcsazure_Snowflake_to_Snowflake_prof_pl/* &&
+             zip dcsazure_Snowflake_to_Snowflake_mask_pl.zip dcsazure_Snowflake_to_Snowflake_mask_pl/* &&
+             zip dcsazure_Databricks_to_Databricks_prof_pl.zip dcsazure_Databricks_to_Databricks_prof_pl/* &&
+             zip dcsazure_Databricks_to_Databricks_mask_pl.zip dcsazure_Databricks_to_Databricks_mask_pl/* &&
+             mv *.zip releases/."

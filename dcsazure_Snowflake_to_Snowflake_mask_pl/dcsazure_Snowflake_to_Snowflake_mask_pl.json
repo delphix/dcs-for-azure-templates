@@ -1,0 +1,998 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "factoryName": {
+      "type": "string",
+      "metadata": "Data Factory name"
+    },
+    "BlobStoreStagingArea": {
+      "type": "string"
+    },
+    "Metadata Datastore": {
+      "type": "string"
+    },
+    "Test Snowflake Instance": {
+      "type": "string"
+    },
+    "ProdDCSForAzureService": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+  },
+  "resources": [
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_mask_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "activities": [
+          {
+            "name": "Select Tables That Require Masking",
+            "type": "Lookup",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_Snowflake_to_Snowflake_metadata_mask_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": "lnguyen",
+                  "DS_METADATA_TABLE": "discovered_metadata"
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "For Each Table To Mask",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Select Tables That Require Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Tables That Require Masking').output.value",
+                "type": "Expression"
+              },
+              "isSequential": false,
+              "activities": [
+                {
+                  "name": "Get Masking Parameters",
+                  "type": "ExecuteDataFlow",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataflow": {
+                      "referenceName": "dcsazure_Snowflake_to_Snowflake_mask_params_df",
+                      "type": "DataFlowReference",
+                      "parameters": {
+                        "runId": {
+                          "value": "'@{pipeline().RunId}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_DATABASE": {
+                          "value": "'@{item().source_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_SCHEMA": {
+                          "value": "'@{item().source_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_TABLE": {
+                          "value": "'@{item().source_table}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_SCHEMA": {
+                          "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_RULESET_TABLE": {
+                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
+                          "value": "'@{pipeline().parameters.P_METADATA_ADF_TYPE_MAPPING_TABLE}'",
+                          "type": "Expression"
+                        }
+                      },
+                      "datasetParameters": {
+                        "Ruleset": {},
+                        "TypeMapping": {},
+                        "MaskingParameterOutput": {}
+                      }
+                    },
+                    "staging": {},
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
+                    "traceLevel": "None",
+                    "cacheSinks": {}
+                  }
+                },
+                {
+                  "name": "Perform Masking Per Table",
+                  "type": "ExecuteDataFlow",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Masking Parameters",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataflow": {
+                      "referenceName": "dcsazure_Snowflake_to_Snowflake_mask_df",
+                      "type": "DataFlowReference",
+                      "parameters": {
+                        "runId": {
+                          "value": "'@{pipeline().RunId}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_SCHEMA": {
+                          "value": "'@{item().source_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_TABLE": {
+                          "value": "'@{item().source_table}'",
+                          "type": "Expression"
+                        },
+                        "DF_SINK_SCHEMA": {
+                          "value": "'@{item().sink_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_SINK_TABLE": {
+                          "value": "'@{item().sink_table}'",
+                          "type": "Expression"
+                        },
+                        "DF_FIELD_ALGORITHM_ASSIGNMENT": {
+                          "value": "'@{activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}'",
+                          "type": "Expression"
+                        },
+                        "DF_COLUMNS_TO_MASK": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask",
+                          "type": "Expression"
+                        },
+                        "DF_BODY_TYPE_MAPPING": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping",
+                          "type": "Expression"
+                        },
+                        "DF_NUMBER_OF_BATCHES": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches",
+                          "type": "Expression"
+                        },
+                        "DF_TRIM_LENGTHS": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths",
+                          "type": "Expression"
+                        }
+                      },
+                      "datasetParameters": {
+                        "SnowflakeSource": {},
+                        "SnowflakeSink": {}
+                      },
+                      "linkedServiceParameters": {
+                        "SnowflakeSource": {
+                          "linkedService": {
+                            "LS_DATABASE": {
+                              "value": "@item().source_database",
+                              "type": "Expression"
+                            },
+                            "LS_WAREHOUSE": {
+                              "value": "JL_WH",
+                              "type": "Expression"
+                            },
+                            "LS_ROLE": {
+                              "value": "SYSADMIN",
+                              "type": "Expression"
+                            }
+                          }
+                        },
+                        "SnowflakeSink": {
+                          "linkedService": {
+                            "LS_DATABASE": {
+                              "value": "@item().sink_database",
+                              "type": "Expression"
+                            },
+                            "LS_WAREHOUSE": {
+                              "value": "JL_WH",
+                              "type": "Expression"
+                            },
+                            "LS_ROLE": {
+                              "value": "SYSADMIN",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "staging": {},
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
+                    "traceLevel": "None",
+                    "cacheSinks": {}
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Select Tables Without Required Masking",
+            "type": "Lookup",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\nWHERE source_dataset = 'DATABRICKS'\nAND sink_dataset = 'DATABRICKS'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\n\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_Snowflake_to_Snowflake_metadata_mask_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": "lnguyen",
+                  "DS_METADATA_TABLE": "discovered_metadata"
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "Filter If Copy Unmasked Enabled",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Select Tables Without Required Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Tables Without Required Masking').output.value",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@pipeline().parameters.P_COPY_UNMASKED_TABLES",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "For Each Table With No Masking",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Filter If Copy Unmasked Enabled",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Filter If Copy Unmasked Enabled').output.value",
+                "type": "Expression"
+              },
+              "isSequential": false,
+              "activities": [
+                {
+                  "name": "If Copy Via Dataflow",
+                  "description": "Determine if we should copy using a dataflow activity or a copy activity",
+                  "type": "IfCondition",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@pipeline().parameters.P_COPY_USE_DATAFLOW",
+                      "type": "Expression"
+                    },
+                    "ifFalseActivities": [
+                      {
+                        "name": "Snowflake Copy via Copy Activity",
+                        "type": "Copy",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "source": {
+                            "type": "SnowflakeSource",
+                            "exportSettings": {
+                              "type": "SnowflakeExportCopyCommand"
+                            }
+                          },
+                          "sink": {
+                            "type": "SnowflakeSink",
+                            "importSettings": {
+                              "type": "SnowflakeImportCopyCommand"
+                            }
+                          },
+                          "enableStaging": true,
+                          "stagingSettings": {
+                            "linkedServiceName": {
+                              "referenceName": "[parameters('BlobStoreStagingArea')]",
+                              "type": "LinkedServiceReference"
+                            },
+                            "path": {
+                              "value": "@pipeline().parameters.P_STAGING_STORAGE_PATH",
+                              "type": "Expression"
+                            }
+                          }
+                        },
+                        "inputs": [
+                          {
+                            "referenceName": "dcsazure_Snowflake_to_Snowflake_source_ds",
+                            "type": "DatasetReference",
+                            "parameters": {
+                              "DS_SCHEMA": "@item().source_schema",
+                              "DS_TABLE": "@item().source_table"
+                            }
+                          }
+                        ],
+                        "outputs": [
+                          {
+                            "referenceName": "dcsazure_Snowflake_to_Snowflake_source_ds",
+                            "type": "DatasetReference",
+                            "parameters": {
+                              "DS_SCHEMA": "@item().sink_schema",
+                              "DS_TABLE": "@item().sink_table"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "ifTrueActivities": [
+                      {
+                        "name": "Snowflake Copy via Dataflow Activity",
+                        "type": "ExecuteDataFlow",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "dataflow": {
+                            "referenceName": "dcsazure_Snowflake_to_Snowflake_copy_df",
+                            "type": "DataFlowReference",
+                            "parameters": {
+                              "runId": {
+                                "value": "'@{pipeline().RunId}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_SCHEMA": {
+                                "value": "'@{item().source_schema}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_TABLE": {
+                                "value": "'@{item().source_table}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_SCHEMA": {
+                                "value": "'@{item().sink_schema}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_TABLE": {
+                                "value": "'@{item().sink_table}'",
+                                "type": "Expression"
+                              }
+                            },
+                            "datasetParameters": {
+                              "SnowflakeSource": {},
+                              "SnowflakeSink": {}
+                            }
+                          },
+                          "staging": {},
+                          "compute": {
+                            "coreCount": 8,
+                            "computeType": "General"
+                          },
+                          "traceLevel": "None",
+                          "cacheSinks": {}
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_SOURCE_DATABASE": {
+            "type": "string"
+          },
+          "P_SINK_DATABASE": {
+            "type": "string"
+          },
+          "P_METADATA_SCHEMA": {
+            "type": "string",
+            "defaultValue": "dbo"
+          },
+          "P_METADATA_RULESET_TABLE": {
+            "type": "string",
+            "defaultValue": "discovered_ruleset"
+          },
+          "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
+            "type": "string",
+            "defaultValue": "adf_data_mapping"
+          },
+          "P_METADATA_ADF_TYPE_MAPPING_TABLE": {
+            "type": "string",
+            "defaultValue": "adf_type_mapping"
+          },
+          "P_COPY_UNMASKED_TABLES": {
+            "type": "bool",
+            "defaultValue": false
+          },
+          "P_COPY_USE_DATAFLOW": {
+            "type": "bool",
+            "defaultValue": false
+          },
+          "P_STAGING_STORAGE_PATH": {
+            "type": "string"
+          },
+          "P_SOURCE_SCHEMA": {
+            "type": "string"
+          },
+          "P_SINK_SCHEMA": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_Snowflake_to_Snowflake"
+        },
+        "annotations": [],
+        "lastPublishTime": "2024-02-14T19:53:35Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_metadata_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_mask_df')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_source_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_copy_df')]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_metadata_mask_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('Metadata Datastore')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_METADATA_SCHEMA": {
+            "type": "string",
+            "defaultValue": "lnguyen"
+          },
+          "DS_METADATA_TABLE": {
+            "type": "string",
+            "defaultValue": "discovered_metadata"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_Snowflake_to_Snowflake"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [
+          {
+            "name": "source_database",
+            "type": "varchar"
+          },
+          {
+            "name": "source_schema",
+            "type": "varchar"
+          },
+          {
+            "name": "source_table",
+            "type": "varchar"
+          },
+          {
+            "name": "source_column",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_database",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_schema",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_table",
+            "type": "varchar"
+          }
+        ],
+        "typeProperties": {
+          "schema": {
+            "value": "@dataset().DS_METADATA_SCHEMA",
+            "type": "Expression"
+          },
+          "table": {
+            "value": "@dataset().DS_METADATA_TABLE",
+            "type": "Expression"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_mask_params_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_Snowflake_to_Snowflake"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "Ruleset"
+            },
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "TypeMapping"
+            }
+          ],
+          "sinks": [
+            {
+              "name": "MaskingParameterOutput",
+              "description": "Export data to cache"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "FilterToSingleTable"
+            },
+            {
+              "name": "RulesetWithTypes"
+            },
+            {
+              "name": "RulesetWithAlgorithmTypeMapping"
+            },
+            {
+              "name": "GenerateMaskParameters"
+            },
+            {
+              "name": "ModifyNumberOfBatches"
+            },
+            {
+              "name": "FilterSnowflakeType"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_DATABASE as string (''),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_METADATA_SCHEMA as string (''),",
+            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping')",
+            "}",
+            "source(output(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          row_count as long,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED') ~> Ruleset",
+            "source(output(",
+            "          dataset as string,",
+            "          dataset_type as string,",
+            "          adf_type as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_ADF_TYPE_MAPPING_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED') ~> TypeMapping",
+            "Ruleset filter(equalsIgnoreCase(dataset, 'SNOWFLAKE')",
+            "&& equalsIgnoreCase(specified_database, $DF_SOURCE_DATABASE)",
+            "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_SCHEMA)",
+            "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)",
+            "&& !equalsIgnoreCase(assigned_algorithm, '')",
+            "&& !isNull(assigned_algorithm)) ~> FilterToSingleTable",
+            "FilterToSingleTable, FilterSnowflakeType join(identified_column_type <=> dataset_type,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'left')~> RulesetWithTypes",
+            "RulesetWithTypes derive(adf_type_conversion = concat(identified_column, ' as ', adf_type)) ~> RulesetWithAlgorithmTypeMapping",
+            "RulesetWithAlgorithmTypeMapping aggregate(FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
+            "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
+            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    '[])', \"'\"),",
+            "          NumberOfBatches = toInteger(ceil((avg(row_count) / (avg(identified_column_max_length) / count(identified_column) * 100)))),",
+            "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
+            "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
+            "TypeMapping filter(equalsIgnoreCase(dataset, 'SNOWFLAKE')) ~> FilterSnowflakeType",
+            "ModifyNumberOfBatches sink(validateSchema: false,",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     store: 'cache',",
+            "     format: 'inline',",
+            "     output: true,",
+            "     saveOrder: 1) ~> MaskingParameterOutput"
+          ]
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_mask_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "description": "Performing masking leveraging typeof",
+        "folder": {
+          "name": "dcsazure_Snowflake_to_Snowflake"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "SnowflakeSource",
+              "description": "Add source dataset"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "SnowflakeSink"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "DCSForAzureAPI",
+              "linkedService": {
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "type": "LinkedServiceReference"
+              }
+            },
+            {
+              "name": "AddSortKey"
+            },
+            {
+              "name": "SortBySortKey",
+              "description": "Sorting rows on column 'DELPHIX_COMPLIANCE_SERVICE_ROW_ID'"
+            },
+            {
+              "name": "CreateSurrogateKey"
+            },
+            {
+              "name": "WrapValuesInArray",
+              "description": "Wrap all columns as an array so that ."
+            },
+            {
+              "name": "SelectColumnsUnmasked"
+            },
+            {
+              "name": "AggregateColumnsByBatch",
+              "description": "Aggregate columns to be masked by Batch size."
+            },
+            {
+              "name": "FlattenValuesOutOfArray",
+              "description": "Flattening all columns to no longer be an array."
+            },
+            {
+              "name": "AssertNoFailures",
+              "description": "Check if there are any failed request"
+            },
+            {
+              "name": "FlattenAggregateData"
+            },
+            {
+              "name": "JoinMaskedAndUnmaskedData"
+            },
+            {
+              "name": "TrimMaskedStrings"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_SINK_SCHEMA as string (''),",
+            "     DF_SINK_TABLE as string (''),",
+            "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
+            "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
+            "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
+            "     DF_NUMBER_OF_BATCHES as integer (100),",
+            "     DF_TRIM_LENGTHS as integer[] ([1000])",
+            "}",
+            "source(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     tableName: (upper($DF_SOURCE_TABLE)),",
+            "     schemaName: (upper($DF_SOURCE_SCHEMA)),",
+            "     store: 'snowflake',",
+            "     partitionBy('roundRobin', 32)) ~> SnowflakeSource",
+            "FlattenValuesOutOfArray call(mapColumn(",
+            "          each(match(name!='DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP'))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     output(",
+            "          headers as [string,string],",
+            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[]),",
+            "          status as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     format: 'rest',",
+            "     store: 'restservice',",
+            "     timeout: 30,",
+            "     requestInterval: 0,",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT],",
+            "     httpMethod: 'POST',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     headerColumnName: 'headers',",
+            "     bodyColumnName: 'body',",
+            "     statusColumnName: 'status',",
+            "     addResponseCode: true,",
+            "     requestFormat: ['type' -> 'json'],",
+            "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
+            "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
+            "SnowflakeSource derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
+            "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
+            "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
+            "     startAt: 1L,",
+            "     stepValue: 1L) ~> CreateSurrogateKey",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), $$ = array($$))) ~> WrapValuesInArray",
+            "CreateSurrogateKey select(mapColumn(",
+            "          each(match(!contains($DF_COLUMNS_TO_MASK,#item==name)))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
+            "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
+            "     abort: true) ~> AssertNoFailures",
+            "AssertNoFailures foldDown(unroll(body.items),",
+            "     mapColumn(",
+            "          every(body.items,match(true()))",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
+            "SelectColumnsUnmasked, TrimMaskedStrings join(SelectColumnsUnmasked@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID == FlattenAggregateData@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
+            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "JoinMaskedAndUnmaskedData sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     tableName: (upper($DF_SINK_TABLE)),",
+            "     schemaName: (upper($DF_SINK_SCHEMA)),",
+            "     deletable: false,",
+            "     insertable: true,",
+            "     updateable: false,",
+            "     upsertable: false,",
+            "     truncate: true,",
+            "     store: 'snowflake',",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     stageInsert: true,",
+            "     mapColumn(",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
+            "     )) ~> SnowflakeSink"
+          ]
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_source_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('Test Snowflake Instance')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_SCHEMA": {
+            "type": "string",
+            "defaultValue": "SALES"
+          },
+          "DS_TABLE": {
+            "type": "string",
+            "defaultValue": "CUSTOMERS"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_Snowflake_to_Snowflake"
+        },
+        "annotations": [],
+        "type": "SnowflakeTable",
+        "schema": [],
+        "typeProperties": {
+          "schema": {
+            "value": "@dataset().DS_SCHEMA",
+            "type": "Expression"
+          },
+          "table": {
+            "value": "@dataset().DS_TABLE",
+            "type": "Expression"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_copy_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_Snowflake_to_Snowflake"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "SnowflakeSource",
+              "description": "Add source dataset"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "SnowflakeSink"
+            }
+          ],
+          "transformations": [],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_SINK_SCHEMA as string (''),",
+            "     DF_SINK_TABLE as string ('')",
+            "}",
+            "source(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     tableName: (upper($DF_SOURCE_TABLE)),",
+            "     schemaName: (upper($DF_SOURCE_SCHEMA)),",
+            "     store: 'snowflake',",
+            "     partitionBy('roundRobin', 32)) ~> SnowflakeSource",
+            "SnowflakeSource sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     tableName: (upper($DF_SINK_TABLE)),",
+            "     schemaName: (upper($DF_SINK_SCHEMA)),",
+            "     deletable: false,",
+            "     insertable: true,",
+            "     updateable: false,",
+            "     upsertable: false,",
+            "     truncate: true,",
+            "     store: 'snowflake',",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     stageInsert: true) ~> SnowflakeSink"
+          ]
+        }
+      },
+      "dependsOn": []
+    }
+  ]
+}
