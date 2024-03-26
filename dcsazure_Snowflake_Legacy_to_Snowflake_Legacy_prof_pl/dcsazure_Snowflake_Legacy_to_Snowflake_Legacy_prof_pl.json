@@ -9,7 +9,7 @@
     "BlobStoreStagingArea": {
       "type": "string"
     },
-    "Test Snowflake Instance": {
+    "Snowflake_Source_Legacy": {
       "type": "string"
     },
     "Metadata Datastore": {
@@ -24,7 +24,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_prof_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -177,7 +177,7 @@
             },
             "inputs": [
               {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_source_ds",
+                "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_source_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SCHEMA": "INFORMATION_SCHEMA",
@@ -187,7 +187,7 @@
             ],
             "outputs": [
               {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_metadata_prof_ds",
+                "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -232,7 +232,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_metadata_prof_ds",
+                "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -280,7 +280,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_Snowflake_to_Snowflake_prof_df",
+                      "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -358,25 +358,30 @@
           }
         },
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
-        "lastPublishTime": "2024-02-12T23:43:06Z"
+        "lastPublishTime": "2024-03-26T18:51:29Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_source_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_metadata_prof_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_prof_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_source_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_source_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_source_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Test Snowflake Instance')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Snowflake_Source_Legacy')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": "DEMO_DB",
+            "LS_WAREHOUSE": "JL_WH",
+            "LS_ROLE": "SYSADMIN"
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
@@ -389,7 +394,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
         "type": "SnowflakeTable",
@@ -408,7 +413,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_metadata_prof_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_metadata_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -418,16 +423,14 @@
         },
         "parameters": {
           "DS_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "lnguyen"
+            "type": "string"
           },
           "DS_METADATA_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_metadata"
+            "type": "string"
           }
         },
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -475,19 +478,19 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_prof_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "referenceName": "[parameters('Snowflake_Source_Legacy')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSource1MillRowDataSampling",

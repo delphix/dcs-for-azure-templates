@@ -12,7 +12,10 @@
     "Metadata Datastore": {
       "type": "string"
     },
-    "Test Snowflake Instance": {
+    "Snowflake_Source_Legacy": {
+      "type": "string"
+    },
+    "Snowflake_Sink_Legacy": {
       "type": "string"
     },
     "ProdDCSForAzureService": {
@@ -24,7 +27,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_mask_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -52,11 +55,17 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_metadata_mask_ds",
+                "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
-                  "DS_METADATA_SCHEMA": "lnguyen",
-                  "DS_METADATA_TABLE": "discovered_metadata"
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "type": "Expression"
+                  }
                 }
               },
               "firstRowOnly": false
@@ -95,7 +104,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_Snowflake_to_Snowflake_mask_params_df",
+                      "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_params_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -163,7 +172,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_Snowflake_to_Snowflake_mask_df",
+                      "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -210,40 +219,6 @@
                       "datasetParameters": {
                         "SnowflakeSource": {},
                         "SnowflakeSink": {}
-                      },
-                      "linkedServiceParameters": {
-                        "SnowflakeSource": {
-                          "linkedService": {
-                            "LS_DATABASE": {
-                              "value": "@item().source_database",
-                              "type": "Expression"
-                            },
-                            "LS_WAREHOUSE": {
-                              "value": "JL_WH",
-                              "type": "Expression"
-                            },
-                            "LS_ROLE": {
-                              "value": "SYSADMIN",
-                              "type": "Expression"
-                            }
-                          }
-                        },
-                        "SnowflakeSink": {
-                          "linkedService": {
-                            "LS_DATABASE": {
-                              "value": "@item().sink_database",
-                              "type": "Expression"
-                            },
-                            "LS_WAREHOUSE": {
-                              "value": "JL_WH",
-                              "type": "Expression"
-                            },
-                            "LS_ROLE": {
-                              "value": "SYSADMIN",
-                              "type": "Expression"
-                            }
-                          }
-                        }
                       }
                     },
                     "staging": {},
@@ -274,18 +249,24 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\nWHERE source_dataset = 'DATABRICKS'\nAND sink_dataset = 'DATABRICKS'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\n\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\nWHERE source_dataset = 'SNOWFLAKE'\nAND sink_dataset = 'SNOWFLAKE'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\n\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_metadata_mask_ds",
+                "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
-                  "DS_METADATA_SCHEMA": "lnguyen",
-                  "DS_METADATA_TABLE": "discovered_metadata"
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "type": "Expression"
+                  }
                 }
               },
               "firstRowOnly": false
@@ -384,7 +365,7 @@
                         },
                         "inputs": [
                           {
-                            "referenceName": "dcsazure_Snowflake_to_Snowflake_source_ds",
+                            "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_source_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_SCHEMA": "@item().source_schema",
@@ -394,7 +375,7 @@
                         ],
                         "outputs": [
                           {
-                            "referenceName": "dcsazure_Snowflake_to_Snowflake_source_ds",
+                            "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_source_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_SCHEMA": "@item().sink_schema",
@@ -419,7 +400,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_Snowflake_to_Snowflake_copy_df",
+                            "referenceName": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_copy_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -509,21 +490,21 @@
           }
         },
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
-        "lastPublishTime": "2024-02-14T19:53:35Z"
+        "lastPublishTime": "2024-03-26T18:10:13Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_metadata_mask_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_mask_params_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_mask_df')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_source_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_copy_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_df')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_source_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_copy_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_metadata_mask_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_metadata_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -533,16 +514,14 @@
         },
         "parameters": {
           "DS_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "lnguyen"
+            "type": "string"
           },
           "DS_METADATA_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_metadata"
+            "type": "string"
           }
         },
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -590,12 +569,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_mask_params_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -721,20 +700,20 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Performing masking leveraging typeof",
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "referenceName": "[parameters('Snowflake_Source_Legacy')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSource",
@@ -744,7 +723,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "referenceName": "[parameters('Snowflake_Sink_Legacy')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSink"
@@ -893,13 +872,18 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_source_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_source_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Test Snowflake Instance')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Snowflake_Source_Legacy')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": "DEMO_DB",
+            "LS_WAREHOUSE": "JL_WH",
+            "LS_ROLE": "SYSADMIN"
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
@@ -912,7 +896,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
         "type": "SnowflakeTable",
@@ -931,19 +915,19 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_copy_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_copy_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_Snowflake_to_Snowflake"
+          "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "referenceName": "[parameters('Snowflake_Source_Legacy')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSource",
@@ -953,7 +937,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Test Snowflake Instance')]",
+                "referenceName": "[parameters('Snowflake_Sink_Legacy')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSink"
