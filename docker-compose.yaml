@@ -10,8 +10,8 @@ services:
       sh -c "
              apt-get update &&
              apt-get install -y zip &&
-             zip dcsazure_Snowflake_to_Snowflake_prof_pl.zip dcsazure_Snowflake_to_Snowflake_prof_pl/* &&
-             zip dcsazure_Snowflake_to_Snowflake_mask_pl.zip dcsazure_Snowflake_to_Snowflake_mask_pl/* &&
+             zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl/* &&
+             zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl/* &&
              zip dcsazure_Databricks_to_Databricks_prof_pl.zip dcsazure_Databricks_to_Databricks_prof_pl/* &&
              zip dcsazure_Databricks_to_Databricks_mask_pl.zip dcsazure_Databricks_to_Databricks_mask_pl/* &&
              mv *.zip releases/."
