@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.2
+* Add support for DCS for Azure Snowflake to Snowflake Profile Pipeline (with Snowflake linked service type)
+* Add support for DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)
+
 # 0.0.1
 * Rename DCS for Azure Snowflake to Snowflake Profile Pipeline to reflect that it uses the Snowflake (Legacy) linked service type
 * Rename DCS for Azure Snowflake to Snowflake Masking Pipeline to reflect that it uses the Snowflake (Legacy) linked service type
