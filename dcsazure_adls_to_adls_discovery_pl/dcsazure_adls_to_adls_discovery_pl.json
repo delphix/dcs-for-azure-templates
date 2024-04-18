@@ -21,7 +21,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_prof_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -29,7 +29,14 @@
           {
             "name": "Identify Nested Schemas",
             "type": "GetMetadata",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "Check If We Should Rediscover Data",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -40,11 +47,11 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_adls_container_and_directory_prof_ds",
+                "referenceName": "dcsazure_adls_container_and_directory_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_CONTAINER": {
-                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                     "type": "Expression"
                   },
                   "DS_DIRECTORY": {
@@ -164,7 +171,7 @@
               "isSequential": false,
               "activities": [
                 {
-                  "name": "Identifiy Files In Homogeneous Schema",
+                  "name": "Identify Files In Homogeneous Schema",
                   "type": "GetMetadata",
                   "dependsOn": [],
                   "policy": {
@@ -177,11 +184,11 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_adls_sub_directory_prof_ds",
+                      "referenceName": "dcsazure_adls_sub_directory_discovery_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
-                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                           "type": "Expression"
                         },
                         "DS_SUB_DIRECTORY": {
@@ -196,6 +203,14 @@
                     "storeSettings": {
                       "type": "AzureBlobFSReadSettings",
                       "recursive": true,
+                      "modifiedDatetimeStart": {
+                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
+                        "type": "Expression"
+                      },
+                      "modifiedDatetimeEnd": {
+                        "value": "@if(greater(variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS'),0),addHours(variables('FILE_UPLOAD_DATE_TIME'),variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')),utcNow())",
+                        "type": "Expression"
+                      },
                       "enablePartitionDiscovery": false
                     },
                     "formatSettings": {
@@ -208,7 +223,7 @@
                   "type": "Filter",
                   "dependsOn": [
                     {
-                      "activity": "Identifiy Files In Homogeneous Schema",
+                      "activity": "Identify Files In Homogeneous Schema",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -217,7 +232,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "items": {
-                      "value": "@activity('Identifiy Files In Homogeneous Schema').output.childItems",
+                      "value": "@activity('Identify Files In Homogeneous Schema').output.childItems",
                       "type": "Expression"
                     },
                     "condition": {
@@ -231,7 +246,7 @@
                   "type": "Filter",
                   "dependsOn": [
                     {
-                      "activity": "Identifiy Files In Homogeneous Schema",
+                      "activity": "Identify Files In Homogeneous Schema",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -240,7 +255,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "items": {
-                      "value": "@activity('Identifiy Files In Homogeneous Schema').output.childItems",
+                      "value": "@activity('Identify Files In Homogeneous Schema').output.childItems",
                       "type": "Expression"
                     },
                     "condition": {
@@ -266,7 +281,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "pipeline": {
-                      "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                      "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                       "type": "PipelineReference"
                     },
                     "waitOnCompletion": true,
@@ -280,7 +295,7 @@
                         "type": "Expression"
                       },
                       "P_STORAGE_CONTAINER": {
-                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                         "type": "Expression"
                       },
                       "P_DIRECTORY": {
@@ -307,6 +322,14 @@
                       "P_ESCAPE_CHARACTER": {
                         "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.escape_character",
                         "type": "Expression"
+                      },
+                      "P_FILE_UPLOAD_DATE_TIME": {
+                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
+                        "type": "Expression"
+                      },
+                      "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+                        "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
+                        "type": "Expression"
                       }
                     }
                   }
@@ -328,7 +351,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "pipeline": {
-                      "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                      "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                       "type": "PipelineReference"
                     },
                     "waitOnCompletion": true,
@@ -342,7 +365,7 @@
                         "type": "Expression"
                       },
                       "P_STORAGE_CONTAINER": {
-                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                         "type": "Expression"
                       },
                       "P_DIRECTORY": {
@@ -369,6 +392,14 @@
                       "P_ESCAPE_CHARACTER": {
                         "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.escape_character",
                         "type": "Expression"
+                      },
+                      "P_FILE_UPLOAD_DATE_TIME": {
+                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
+                        "type": "Expression"
+                      },
+                      "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+                        "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
+                        "type": "Expression"
                       }
                     }
                   }
@@ -378,7 +409,7 @@
                   "type": "Filter",
                   "dependsOn": [
                     {
-                      "activity": "Identifiy Files In Homogeneous Schema",
+                      "activity": "Identify Files In Homogeneous Schema",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -387,7 +418,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "items": {
-                      "value": "@activity('Identifiy Files In Homogeneous Schema').output.childItems",
+                      "value": "@activity('Identify Files In Homogeneous Schema').output.childItems",
                       "type": "Expression"
                     },
                     "condition": {
@@ -413,7 +444,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "pipeline": {
-                      "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                      "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                       "type": "PipelineReference"
                     },
                     "waitOnCompletion": true,
@@ -427,7 +458,7 @@
                         "type": "Expression"
                       },
                       "P_STORAGE_CONTAINER": {
-                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                         "type": "Expression"
                       },
                       "P_DIRECTORY": {
@@ -453,6 +484,14 @@
                       },
                       "P_ESCAPE_CHARACTER": {
                         "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.escape_character",
+                        "type": "Expression"
+                      },
+                      "P_FILE_UPLOAD_DATE_TIME": {
+                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
+                        "type": "Expression"
+                      },
+                      "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+                        "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
                         "type": "Expression"
                       }
                     }
@@ -490,14 +529,14 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table,\n    metadata\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}')\nAND dataset = 'ADLS'",
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\nLOWER(dataset) = LOWER('@{variables('DATASET')}')\nAND LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\nAND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_adls_to_adls_metadata_prof_ds",
+                "referenceName": "dcsazure_adls_to_adls_metadata_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -527,7 +566,7 @@
             "userProperties": [],
             "typeProperties": {
               "items": {
-                "value": "@if(greater(length(activity('Determine All Heterogeneous Schemas').output.resultSets), 0), activity('Determine All Heterogeneous Schemas').output.resultSets[0].rows, json('[]'))",
+                "value": "@if(greater(length(activity('Determine All Heterogeneous Schemas').output.resultSets),0),activity('Determine All Heterogeneous Schemas').output.resultSets[0].rows,json('[]'))",
                 "type": "Expression"
               },
               "isSequential": false,
@@ -553,7 +592,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "pipeline": {
-                            "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                            "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                             "type": "PipelineReference"
                           },
                           "waitOnCompletion": true,
@@ -567,7 +606,7 @@
                               "type": "Expression"
                             },
                             "P_STORAGE_CONTAINER": {
-                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
@@ -601,6 +640,14 @@
                             "P_ESCAPE_CHARACTER": {
                               "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.escape_character",
                               "type": "Expression"
+                            },
+                            "P_FILE_UPLOAD_DATE_TIME": {
+                              "value": "@variables('FILE_UPLOAD_DATE_TIME')",
+                              "type": "Expression"
+                            },
+                            "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+                              "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
+                              "type": "Expression"
                             }
                           }
                         }
@@ -629,7 +676,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "pipeline": {
-                            "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                            "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                             "type": "PipelineReference"
                           },
                           "waitOnCompletion": true,
@@ -643,7 +690,7 @@
                               "type": "Expression"
                             },
                             "P_STORAGE_CONTAINER": {
-                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
@@ -677,6 +724,14 @@
                             "P_ESCAPE_CHARACTER": {
                               "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.escape_character",
                               "type": "Expression"
+                            },
+                            "P_FILE_UPLOAD_DATE_TIME": {
+                              "value": "@variables('FILE_UPLOAD_DATE_TIME')",
+                              "type": "Expression"
+                            },
+                            "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+                              "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
+                              "type": "Expression"
                             }
                           }
                         }
@@ -705,7 +760,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "pipeline": {
-                            "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                            "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                             "type": "PipelineReference"
                           },
                           "waitOnCompletion": true,
@@ -719,7 +774,7 @@
                               "type": "Expression"
                             },
                             "P_STORAGE_CONTAINER": {
-                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
@@ -752,6 +807,14 @@
                             },
                             "P_ESCAPE_CHARACTER": {
                               "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.escape_character",
+                              "type": "Expression"
+                            },
+                            "P_FILE_UPLOAD_DATE_TIME": {
+                              "value": "@variables('FILE_UPLOAD_DATE_TIME')",
+                              "type": "Expression"
+                            },
+                            "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+                              "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
                               "type": "Expression"
                             }
                           }
@@ -841,9 +904,16 @@
               },
               "activities": [
                 {
-                  "name": "Profile",
+                  "name": "Discover Sensitive Data",
                   "type": "ExecuteDataFlow",
-                  "dependsOn": [],
+                  "dependsOn": [
+                    {
+                      "activity": "Get Source Metadata",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
                   "policy": {
                     "timeout": "0.12:00:00",
                     "retry": 0,
@@ -854,14 +924,17 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_adls_to_adls_delimited_prof_df",
+                      "referenceName": "dcsazure_adls_to_adls_delimited_data_discovery_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
                           "value": "'@{pipeline().RunId}'",
                           "type": "Expression"
                         },
-                        "DF_NUM_ROWS_TO_PROFILE": "1000",
+                        "DF_NUM_ROWS_TO_PROFILE": {
+                          "value": "@variables('NUMBER_OF_ROWS_TO_PROFILE')",
+                          "type": "Expression"
+                        },
                         "DF_METADATA_SCHEMA": {
                           "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
@@ -875,19 +948,19 @@
                           "type": "Expression"
                         },
                         "DF_COLUMN_DELIMITER": {
-                          "value": "'@{json(item().metadata).column_delimiter}'",
+                          "value": "'@{json(activity('Get Source Metadata').output.firstRow.metadata).column_delimiter}'",
                           "type": "Expression"
                         },
                         "DF_QUOTE_CHARACTER": {
-                          "value": "'@{json(item().metadata).quote_character}'",
+                          "value": "'@{json(activity('Get Source Metadata').output.firstRow.metadata).quote_character}'",
                           "type": "Expression"
                         },
                         "DF_ESCAPE_CHARACTER": {
-                          "value": "'@{json(item().metadata).escape_character}'",
+                          "value": "'@{json(activity('Get Source Metadata').output.firstRow.metadata).escape_character}'",
                           "type": "Expression"
                         },
                         "DF_NULL_VALUE": {
-                          "value": "'@{json(item().metadata).null_value}'",
+                          "value": "'@{json(activity('Get Source Metadata').output.firstRow.metadata).null_value}'",
                           "type": "Expression"
                         },
                         "DF_SCHEMA": {
@@ -912,6 +985,345 @@
                     },
                     "traceLevel": "Fine"
                   }
+                },
+                {
+                  "name": "Get Source Metadata",
+                  "type": "Lookup",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "source": {
+                      "type": "AzureSqlSource",
+                      "sqlReaderQuery": {
+                        "value": "SELECT TOP 1 metadata\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{item().specified_database}'\n    AND specified_schema = '@{item().specified_schema}'\n    AND identified_table = '@{item().identified_table}'",
+                        "type": "Expression"
+                      },
+                      "queryTimeout": "02:00:00",
+                      "partitionOption": "None"
+                    },
+                    "dataset": {
+                      "referenceName": "dcsazure_adls_to_adls_metadata_discovery_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_METADATA_SCHEMA": {
+                          "value": "@variables('METADATA_SCHEMA')",
+                          "type": "Expression"
+                        },
+                        "DS_METADATA_TABLE": {
+                          "value": "@variables('METADATA_RULESET_TABLE')",
+                          "type": "Expression"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "Update Discovery State",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Discover Sensitive Data",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ActivityRunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "error_message": {
+                        "value": null,
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionStartTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "{\"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')}}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@pipeline().Pipeline",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@pipeline().RunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "pipeline_success": {
+                        "value": "true",
+                        "type": "Boolean"
+                      },
+                      "source_database": {
+                        "value": {
+                          "value": "@item().specified_database",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_dataset": {
+                        "value": {
+                          "value": "@variables('DATASET')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_metadata": {
+                        "value": {
+                          "value": "@activity('Get Source Metadata').output.firstRow.metadata",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_schema": {
+                        "value": {
+                          "value": "@item().specified_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_table": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Fail After Updating Discovery State",
+                  "type": "Fail",
+                  "dependsOn": [
+                    {
+                      "activity": "Update Discovery State Failed",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "Failed to discover @{item().identified_table}",
+                      "type": "Expression"
+                    },
+                    "errorCode": "500"
+                  }
+                },
+                {
+                  "name": "Update Discovery State Failed",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Discover Sensitive Data",
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ActivityRunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').Error.message",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionStartTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "{\"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')}}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@pipeline().Pipeline",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@pipeline().RunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "pipeline_success": {
+                        "value": "false",
+                        "type": "Boolean"
+                      },
+                      "source_database": {
+                        "value": {
+                          "value": "@item().specified_database",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_dataset": {
+                        "value": {
+                          "value": "@variables('DATASET')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_metadata": {
+                        "value": {
+                          "value": "@activity('Get Source Metadata').output.firstRow.metadata",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_schema": {
+                        "value": {
+                          "value": "@item().specified_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_table": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Check If We Should Rediscover Data",
+            "type": "IfCondition",
+            "dependsOn": [],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@pipeline().parameters.P_REDISCOVER",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Mark Tables Undiscovered",
+                  "description": "Mark all tables in this database and schema as undiscovered so that we can re-discover sensitive data in them",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "UPDATE @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nSET discovery_complete = CAST(0 AS BIT)\nWHERE\n    LOWER(dataset) = LOWER('@{variables('DATASET')}')\n    AND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\n    AND LOWER(specified_schema) LIKE LOWER('@{pipeline().parameters.P_DIRECTORY}/%')",
+                          "type": "Expression"
+                        }
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
+                  }
                 }
               ]
             }
@@ -921,7 +1333,7 @@
           "elapsedTimeMetric": {}
         },
         "parameters": {
-          "P_STORAGE_CONTAINER_TO_PROFILE": {
+          "P_STORAGE_CONTAINER_TO_SCAN": {
             "type": "String"
           },
           "P_DIRECTORY": {
@@ -973,6 +1385,10 @@
                 ]
               }
             }
+          },
+          "P_REDISCOVER": {
+            "type": "bool",
+            "defaultValue": true
           }
         },
         "variables": {
@@ -995,24 +1411,44 @@
           "HETEROGENEOUS_SCHEMAS_TO_CHECK": {
             "type": "Array",
             "defaultValue": []
+          },
+          "DATASET": {
+            "type": "String",
+            "defaultValue": "ADLS"
+          },
+          "METADATA_EVENT_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "insert_adf_discovery_event"
+          },
+          "NUMBER_OF_ROWS_TO_PROFILE": {
+            "type": "Integer",
+            "defaultValue": 1000
+          },
+          "FILE_UPLOAD_DATE_TIME": {
+            "type": "String",
+            "defaultValue": "1900-01-01T00:00:00Z"
+          },
+          "UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+            "type": "Integer",
+            "defaultValue": -1
           }
         },
         "folder": {
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-06-12T17:35:47Z"
+        "lastPublishTime": "2024-10-18T16:56:11Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_prof_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory_prof_ds')]",
-        "[concat(variables('factoryId'), '/pipelines/dcsazure_adls_to_adls_prof_file_pl')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_prof_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_adls_to_adls_file_schema_discovery_pl')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_data_discovery_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory_prof_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1059,7 +1495,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_metadata_prof_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_metadata_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1168,7 +1604,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_sub_directory_prof_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_sub_directory_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1215,7 +1651,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_prof_file_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_file_schema_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1234,7 +1670,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_adls_container_and_directory_prof_ds",
+                "referenceName": "dcsazure_adls_container_and_directory_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_CONTAINER": {
@@ -1253,6 +1689,14 @@
               "storeSettings": {
                 "type": "AzureBlobFSReadSettings",
                 "recursive": true,
+                "modifiedDatetimeStart": {
+                  "value": "@pipeline().parameters.P_FILE_UPLOAD_DATE_TIME",
+                  "type": "Expression"
+                },
+                "modifiedDatetimeEnd": {
+                  "value": "@if(greater(pipeline().parameters.P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS, 0), addHours(pipeline().parameters.P_FILE_UPLOAD_DATE_TIME,pipeline().parameters.P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS), utcNow())",
+                  "type": "Expression"
+                },
                 "enablePartitionDiscovery": false
               },
               "formatSettings": {
@@ -1338,7 +1782,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_adls_delimited_header_prof_ds",
+                      "referenceName": "dcsazure_adls_delimited_header_file_schema_discovery_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_STORAGE_CONTAINER": {
@@ -1512,21 +1956,27 @@
           },
           "P_ESCAPE_CHARACTER": {
             "type": "string"
+          },
+          "P_FILE_UPLOAD_DATE_TIME": {
+            "type": "string"
+          },
+          "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+            "type": "int"
           }
         },
         "folder": {
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-05-07T16:13:34Z"
+        "lastPublishTime": "2024-09-03T21:36:47Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_delimited_header_prof_ds')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_delimited_header_file_schema_discovery_ds')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_prof_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_data_discovery_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1566,7 +2016,6 @@
           "transformations": [
             {
               "name": "CallDCSForAzureProfiling",
-              "description": "Call DCS for Azure services, using /v1/discovery/profileByColumn, where the data from the CreateItemsList is included in the request body and the format of the response is specified",
               "linkedService": {
                 "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
@@ -1797,7 +2246,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_delimited_header_prof_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_delimited_header_file_schema_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {

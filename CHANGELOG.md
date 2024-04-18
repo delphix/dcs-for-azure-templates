@@ -1,5 +1,11 @@
 # CHANGELOG
 
+# 0.0.12
+* Add support for checkpointing and error handling to all pipelines
+* Rename `profiling` components to `discovery` to be consistent with industry-standard terminology
+* Add feature to `dcsazure_adls_to_adls_discovery_pl` to support profiling files in directories with a large number of
+  files
+
 # 0.0.11
 * Add support for conditional masking to the following pipelines:
   * `dcsazure_adls_to_adls_mask_pl`

@@ -5,7 +5,7 @@ This pipeline will perform masking of data from your Azure Data Lake (ADLS) Data
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.08.25.0`+).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.10.24.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage service associated with your ADLS source data.
 1. Configure the Azure Data Lake Storage service associated with your ADLS sink data.
@@ -19,50 +19,71 @@ These linked services types are needed for the following steps:
 
 `Azure Data Lake Storage` (source) - Linked service associated with ADLS source data. This will be used for the
 following steps:
-* Switch On Copy Methodology And Supported Write (Switch activity)
-* dcsazure_adls_to_adls_mask_df/adlsSource (dataFlow)
-* dcsazure_adls_to_adls_copy_df/adlsSource (dataFlow)
+* dcsazure_adls_to_adls_delimited_filter_test_utility_df/Source (dataFlow)
+* dcsazure_adls_container_and_directory_mask_ds (DelimitedText dataset)
+* dcsazure_adls_to_adls_delimited_unfiltered_mask_df/Source (dataFlow)
+* dcsazure_adls_to_adls_delimited_filtered_mask_df/Source (dataFlow)
+* dcsazure_adls_to_adls_delimited_copy_df/Source (dataFlow)
 
 `Azure Data Lake Storage` (sink) - Linked service associated with ADLS sink data. This will be used for the
 following steps:
-* dcsazure_adls_to_adls_mask_df/adlsSink (dataFlow)
-* dcsazure_adls_to_adls_copy_df/adlsSink (dataFlow)
-
-`Azure ADLS ` (source) - Linked service associated with ADLS. This will be used for the
-following steps:
-* dcsazure_adls_to_adls_for_mask_query_ds (Azure adls  dataset)
-* dcsazure_adls_to_adls_copy_ds (Azure adls  dataset)
+* dcsazure_adls_to_adls_delimited_filter_test_utility_df/Sink (dataFlow)
+* dcsazure_adls_to_adls_delimited_unfiltered_mask_df/Sink (dataFlow)
+* dcsazure_adls_to_adls_delimited_filtered_mask_df/Sink (dataFlow)
+* dcsazure_adls_to_adls_delimited_copy_df/Sink (dataFlow)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
+* Check For Conditional Masking (If Condition activity)
+* If Copy Via Dataflow (If Condition activity)
+* Check If We Should Reapply Mapping (If Condition activity)
+* Configure Masked Status (Script activity)
 * dcsazure_adls_to_adls_metadata_mask_ds (Azure SQL Database dataset)
-* dcsazure_adls_to_adls_mask_params_df/Ruleset (dataFlow)
-* dcsazure_adls_to_adls_mask_params_df/TypeMapping (dataFlow)
+* dcsazure_adls_to_adls_unfiltered_mask_params_df/Ruleset (dataFlow)
+* dcsazure_adls_to_adls_unfiltered_mask_params_df/TypeMapping (dataFlow)
+* dcsazure_adls_to_adls_filtered_mask_params_df/Ruleset (dataFlow)
+* dcsazure_adls_to_adls_filtered_mask_params_df/TypeMapping (dataFlow)
 
 `REST` (DCS for Azure) - Linked service associated with calling DCS for Azure. This will be used for the following
 steps:
-* dcsazure_adls_to_adls_mask_df (dataFlow)
+* dcsazure_adls_to_adls_delimited_unfiltered_mask_df (dataFlow)
+* dcsazure_adls_to_adls_delimited_filtered_mask_df (dataFlow)
 
 ### How It Works
+* Check If We Should Reapply Mapping
+  * If we should, Mark Table Mapping Incomplete. This is done by updating the metadata store to indicate that tables
+    have not had their mapping applied
+* Select Directories We Should Purge
+  * Select sink directories with an incomplete mapping and based on the value of `P_TRUNCATE_SINK_BEFORE_WRITE`, create
+    a list of directories that we should purge 
+    * For Each Directory To Purge:
+      * Check For The Directory
+      * If the directory exists, delete everything in that directory
 * Select Tables Without Required Masking. This is done by querying the metadata store.
   * Filter If Copy Unmask Enabled. This is done by applying a filter based on the value of `P_COPY_UNMASKED_TABLES`
     * For Each Table With No Masking. Provided we have any rows left after applying the filter
       * If Copy Via Dataflow - based on the value of `P_COPY_USE_DATAFLOW`
         * If the data flow is to be used for copy then call `dcsazure_adls_to_adls_copy_df`
+          * Update the mapped status based on the success of this dataflow, and fail accordingly
         * If the data flow is not to be used for copy, then use a copy activity
+          * Update the mapped status based on the success of this dataflow, and fail accordingly
 * Select Tables That Require Masking. This is done by querying the metadata store. This will provide a list of tables
   that need masking, and if they need to be masked leveraging conditional algorithms, the set of required filters.
+  * Configure Masked Status. Set the masked status based on the defined filters that need to be applied for the table to
+    be marked as completely mapped.
   * For Each Table To Mask
     * Check if the table must be masked with a filter condition
       * If no filter needs to be applied:
         * Call the `dcsazure_adls_to_adls_unfiltered_mask_params_df` dataflow to generate masking parameters
         * Call the `dcsazure_adls_to_adls_unfiltered_mask_df` dataflow, passing in parameters as generated by the
           unfiltered masking parameters dataflow
+        * Update the mapped status based on the success of this dataflow, and fail accordingly
       * If a filter needs to be applied:
         * Call the `dcsazure_adls_to_adls_filtered_mask_params_df` dataflow to generate masking parameters using the
           filter alias
         * Call the `dcsazure_adls_to_adls_filterd_mask_df` dataflow, passing in parameters as generated by the filtered
           masking parameters dataflow and the filter as determined by the output of For Each Table To Mask
+        * Update the mapped status based on the success of this dataflow, and fail accordingly
 * Note that there is a deactivated activity `Test Filter Conditions` that exists in order to support importing the
   filter test utility dataflow, this is making it easier to test writing filter conditions leveraging a dataflow debug
   session
@@ -91,8 +112,11 @@ have customized your metadata store, then these variables may need editing.
 * `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`)
 * `DATASET` - This is the way this data set is referred to in the metadata store (default `ADLS`)
 * `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
-when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
-ADF syntax for referencing the key column (default `%`)
+  when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
+  ADF syntax for referencing the key column (default `%`)
+* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
+  metadata data store and sets the masked and mapping states on the items processed during execution
+  (default `insert_adf_masking_event`).
 
 ### Parameters
 
@@ -104,8 +128,14 @@ ADF syntax for referencing the key column (default `%`)
   the pipeline - if set to `true`, unmasked data that did not conform to the format required to apply the specified
   algorithm will appear in the output data; if set to `false`, data that did not conform to the format required to apply
   the specified algorithm will cause the pipeline to fail (default `true`)
+* `P_REAPPLY_MAPPING` - Bool - This controls whether we should reset the mapping between source and sink tables, this
+  will mark all mappings as incomplete (default `true`)
+* `P_TRUNCATE_SINK_BEFORE_WRITE` - Bool - This controls whether we should purge the directories in the sink locations
+  that have not already been completed by this pipeline, note that the set of locations to purge does _not_ depend on
+  the value of `P_COPY_UNMASKED_TABLES` (default `true`)
 * `P_SOURCE_CONTAINER` - String - This is the source storage container in ADLS that contains the unmasked data
-* `P_SINK_CONTAINER` - String - This is the sink storage container in ADLS that will serve as a destination for masked data
+* `P_SINK_CONTAINER` - String - This is the sink storage container in ADLS that will serve as a destination for masked
+  data
 * `P_SOURCE_DIRECTORY` - String - This is the source schema in ADLS and was discovered during the profiling pipeline
   run - it will have a format that defines the prefix of a file name in ADLS (with its full location) and that contains
   the unmasked data
