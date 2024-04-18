@@ -4,7 +4,7 @@
 This pipeline will perform automated sensitive data discovery on your Snowflake Instance.
 
 ### Prerequisites
-1. Configure the hosted metadata database and associated Azure SQL service.
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.01.01.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Snowflake linked service.
 1. Configure the Blob Storage linked service.

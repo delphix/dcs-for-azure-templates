@@ -1,0 +1,1236 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "factoryName": {
+      "type": "string",
+      "metadata": "Data Factory name"
+    },
+    "Metadata Datastore": {
+      "type": "string"
+    },
+    "AzureDataLakeStorage_Generic_Source": {
+      "type": "string"
+    },
+    "AzureDataLakeStorage_Generic_Sink": {
+      "type": "string"
+    },
+    "DCSForAzureProd": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+  },
+  "resources": [
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_mask_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "activities": [
+          {
+            "name": "Select Tables That Require Masking",
+            "description": "Select tables with rows, a data mapping, and assigned algorithms.",
+            "type": "Lookup",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} rs\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND rs.assigned_algorithm IS NOT NULL\nAND rs.assigned_algorithm != ''\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "For Each Table To Mask",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Select Tables That Require Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Tables That Require Masking').output.value",
+                "type": "Expression"
+              },
+              "isSequential": false,
+              "activities": [
+                {
+                  "name": "Get Masking Parameters",
+                  "type": "ExecuteDataFlow",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataflow": {
+                      "referenceName": "dcsazure_adls_to_adls_mask_params_df",
+                      "type": "DataFlowReference",
+                      "parameters": {
+                        "runId": {
+                          "value": "'@{pipeline().RunId}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_SCHEMA": {
+                          "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_RULESET_TABLE": {
+                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
+                          "value": "'@{pipeline().parameters.P_METADATA_ADF_TYPE_MAPPING_TABLE}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_DB": {
+                          "value": "'@{item().source_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_SCHEMA": {
+                          "value": "'@{item().source_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_TABLE": {
+                          "value": "'@{item().source_table}'",
+                          "type": "Expression"
+                        }
+                      },
+                      "datasetParameters": {
+                        "Ruleset": {},
+                        "TypeMapping": {},
+                        "MaskingParameterOutput": {}
+                      }
+                    },
+                    "staging": {},
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
+                    "traceLevel": "None",
+                    "cacheSinks": {
+                      "firstRowOnly": true
+                    }
+                  }
+                },
+                {
+                  "name": "Perform Masking Per Table",
+                  "type": "ExecuteDataFlow",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Masking Parameters",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataflow": {
+                      "referenceName": "dcsazure_adls_to_adls_delimited_mask_df",
+                      "type": "DataFlowReference",
+                      "parameters": {
+                        "runId": {
+                          "value": "'@{pipeline().RunId}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_RULESET_TABLE": {
+                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_CONTAINER": {
+                          "value": "'@{item().source_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_SINK_CONTAINER": {
+                          "value": "'@{item().sink_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_DIRECTORY": {
+                          "value": "'@{item().source_directory}'",
+                          "type": "Expression"
+                        },
+                        "DF_SINK_DIRECTORY": {
+                          "value": "'@{item().sink_directory}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_PREFIX": {
+                          "value": "'@{item().source_prefix}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_TABLE": {
+                          "value": "'@{item().source_table}'",
+                          "type": "Expression"
+                        },
+                        "DF_SINK_TABLE": {
+                          "value": "'@{item().sink_table}'",
+                          "type": "Expression"
+                        },
+                        "DF_COLUMN_DELIMITER": {
+                          "value": "'@{json(item().metadata).column_delimiter}'",
+                          "type": "Expression"
+                        },
+                        "DF_QUOTE_CHARACTER": {
+                          "value": "'@{json(item().metadata).quote_character}'",
+                          "type": "Expression"
+                        },
+                        "DF_ESCAPE_CHARACTER": {
+                          "value": "'@{json(item().metadata).escape_character}'",
+                          "type": "Expression"
+                        },
+                        "DF_ROW_DELIMITER": {
+                          "value": "'@{json(item().metadata).row_delimiter}'",
+                          "type": "Expression"
+                        },
+                        "DF_NULL_VALUE": {
+                          "value": "'@{json(item().metadata).null_value}'",
+                          "type": "Expression"
+                        },
+                        "DF_FIELD_ALGORITHM_ASSIGNMENT": {
+                          "value": "'@{activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}'",
+                          "type": "Expression"
+                        },
+                        "DF_COLUMNS_TO_MASK": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask",
+                          "type": "Expression"
+                        },
+                        "DF_BODY_TYPE_MAPPING": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping",
+                          "type": "Expression"
+                        },
+                        "DF_NUMBER_OF_BATCHES": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches",
+                          "type": "Expression"
+                        },
+                        "DF_TRIM_LENGTHS": {
+                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths",
+                          "type": "Expression"
+                        },
+                        "DF_FIRST_ROW_AS_HEADER": "true()"
+                      },
+                      "datasetParameters": {
+                        "DelimitedSource": {},
+                        "DelimetedSink": {}
+                      }
+                    },
+                    "staging": {},
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
+                    "traceLevel": "None",
+                    "cacheSinks": {
+                      "firstRowOnly": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Select Tables Without Required Masking",
+            "description": "Select tables with a data mapping, and no assigned algorithms.",
+            "type": "Lookup",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} rs\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%'\nEXCEPT\nSELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} rs\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND rs.assigned_algorithm IS NOT NULL\nAND rs.assigned_algorithm != ''\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "Filter If Copy Unmasked Enabled",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Select Tables Without Required Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Tables Without Required Masking').output.value",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@pipeline().parameters.P_COPY_UNMASKED_TABLES",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "For Each Table With No Masking",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Filter If Copy Unmasked Enabled",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Filter If Copy Unmasked Enabled').output.value",
+                "type": "Expression"
+              },
+              "activities": [
+                {
+                  "name": "If Copy Via Dataflow",
+                  "description": "Determine if we should copy using a dataflow activity or a copy activity",
+                  "type": "IfCondition",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@pipeline().parameters.P_COPY_USE_DATAFLOW",
+                      "type": "Expression"
+                    },
+                    "ifFalseActivities": [
+                      {
+                        "name": "Adls Data Copy",
+                        "type": "Copy",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "source": {
+                            "type": "DelimitedTextSource",
+                            "storeSettings": {
+                              "type": "AzureBlobFSReadSettings",
+                              "recursive": true,
+                              "wildcardFolderPath": {
+                                "value": "@item().source_directory",
+                                "type": "Expression"
+                              },
+                              "wildcardFileName": {
+                                "value": "@concat(item().source_prefix, '*', item().source_table)",
+                                "type": "Expression"
+                              },
+                              "enablePartitionDiscovery": false
+                            },
+                            "formatSettings": {
+                              "type": "DelimitedTextReadSettings"
+                            }
+                          },
+                          "sink": {
+                            "type": "DelimitedTextSink",
+                            "storeSettings": {
+                              "type": "AzureBlobFSWriteSettings",
+                              "copyBehavior": "PreserveHierarchy"
+                            },
+                            "formatSettings": {
+                              "type": "DelimitedTextWriteSettings",
+                              "quoteAllText": true,
+                              "fileExtension": ""
+                            }
+                          },
+                          "enableStaging": false,
+                          "translator": {
+                            "type": "TabularTranslator",
+                            "typeConversion": true,
+                            "typeConversionSettings": {
+                              "allowDataTruncation": true,
+                              "treatBooleanAsNumber": false
+                            }
+                          }
+                        },
+                        "inputs": [
+                          {
+                            "referenceName": "dcsazure_adls_container_and_directory",
+                            "type": "DatasetReference",
+                            "parameters": {
+                              "DS_CONTAINER": {
+                                "value": "@item().source_database",
+                                "type": "Expression"
+                              },
+                              "DS_DIRECTORY": {
+                                "value": "@item().source_directory",
+                                "type": "Expression"
+                              }
+                            }
+                          }
+                        ],
+                        "outputs": [
+                          {
+                            "referenceName": "dcsazure_adls_container_and_directory",
+                            "type": "DatasetReference",
+                            "parameters": {
+                              "DS_CONTAINER": {
+                                "value": "@item().sink_database",
+                                "type": "Expression"
+                              },
+                              "DS_DIRECTORY": {
+                                "value": "@item().sink_directory",
+                                "type": "Expression"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "ifTrueActivities": [
+                      {
+                        "name": "Adls Copy Via Dataflow Activity",
+                        "type": "ExecuteDataFlow",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "dataflow": {
+                            "referenceName": "dcsazure_adls_to_adls_delimited_copy_df",
+                            "type": "DataFlowReference",
+                            "parameters": {
+                              "runId": {
+                                "value": "'@{pipeline().RunId}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_DATABASE": {
+                                "value": "'@{item().source_database}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_DATABASE": {
+                                "value": "'@{item().sink_database}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_DIRECTORY": {
+                                "value": "'@{item().source_directory}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_DIRECTORY": {
+                                "value": "'@{item().sink_directory}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_PREFIX": {
+                                "value": "'@{item().source_prefix}'",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMN_DELIMITER": {
+                                "value": "'@{json(item().metadata).column_delimiter}'",
+                                "type": "Expression"
+                              },
+                              "DF_ROW_DELIMITER": {
+                                "value": "'@{json(item().metadata).row_delimiter}'",
+                                "type": "Expression"
+                              },
+                              "DF_QUOTE_CHARACTER": {
+                                "value": "'@{json(item().metadata).quote_character}'",
+                                "type": "Expression"
+                              },
+                              "DF_ESCAPE_CHARACTER": {
+                                "value": "'@{json(item().metadata).escape_character}'",
+                                "type": "Expression"
+                              },
+                              "DF_NULL_VALUE": {
+                                "value": "'@{json(item().metadata).null_value}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_SUFFIX": {
+                                "value": "'@{item().source_table}'",
+                                "type": "Expression"
+                              }
+                            },
+                            "datasetParameters": {
+                              "DelimitedSource": {},
+                              "DelimitedSink": {}
+                            }
+                          },
+                          "staging": {},
+                          "compute": {
+                            "coreCount": 8,
+                            "computeType": "General"
+                          },
+                          "traceLevel": "Fine"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_METADATA_SCHEMA": {
+            "type": "string",
+            "defaultValue": "dbo"
+          },
+          "P_METADATA_RULESET_TABLE": {
+            "type": "string",
+            "defaultValue": "discovered_ruleset"
+          },
+          "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
+            "type": "string",
+            "defaultValue": "adf_data_mapping"
+          },
+          "P_METADATA_ADF_TYPE_MAPPING_TABLE": {
+            "type": "string",
+            "defaultValue": "adf_type_mapping"
+          },
+          "P_COPY_UNMASKED_TABLES": {
+            "type": "bool",
+            "defaultValue": false
+          },
+          "P_SOURCE_DATABASE": {
+            "type": "string"
+          },
+          "P_SINK_DATABASE": {
+            "type": "string"
+          },
+          "P_SOURCE_DIRECTORY": {
+            "type": "string"
+          },
+          "P_SINK_DIRECTORY": {
+            "type": "string"
+          },
+          "P_COPY_USE_DATAFLOW": {
+            "type": "bool",
+            "defaultValue": false
+          }
+        },
+        "variables": {
+          "FULL_SCHEMA_STORAGE_LOCATION": {
+            "type": "String"
+          },
+          "SCHEMA_STORAGE_SUB_DIRECTORY": {
+            "type": "String"
+          },
+          "SCHEMA_STORAGE_LOCATION": {
+            "type": "String"
+          },
+          "FULL_CATALOG_STORAGE_LOCATION": {
+            "type": "String"
+          },
+          "CATALOG_CONTAINER_PATH_WITH_PREFIX": {
+            "type": "String"
+          },
+          "CATALOG_CONTAINER_NAME": {
+            "type": "String"
+          },
+          "CATALOG_CONTAINER_NAME_WITH_PREFIX": {
+            "type": "String"
+          },
+          "CATALOG_STORAGE_SUB_DIRECTORY": {
+            "type": "String"
+          },
+          "CATALOG_STORAGE_LOCATION": {
+            "type": "String"
+          },
+          "TABLES_UNABLE_TO_MASK": {
+            "type": "Array",
+            "defaultValue": []
+          },
+          "DISCOVERED_TABLES_THAT_COULD_NOT_BE_PROFILED": {
+            "type": "Array"
+          },
+          "writerVersion": {
+            "type": "Integer",
+            "defaultValue": 2
+          },
+          "SINK_DELTA_PATH": {
+            "type": "String"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "lastPublishTime": "2024-04-11T17:48:53Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_mask_df')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_copy_df')]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_metadata_mask_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('Metadata Datastore')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_METADATA_SCHEMA": {
+            "type": "string"
+          },
+          "DS_METADATA_TABLE": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [
+          {
+            "name": "dataset",
+            "type": "varchar"
+          },
+          {
+            "name": "specified_database",
+            "type": "varchar"
+          },
+          {
+            "name": "specified_schema",
+            "type": "varchar"
+          },
+          {
+            "name": "identified_table",
+            "type": "varchar"
+          },
+          {
+            "name": "identified_column",
+            "type": "varchar"
+          },
+          {
+            "name": "identified_column_type",
+            "type": "varchar"
+          },
+          {
+            "name": "identified_column_max_length",
+            "type": "int",
+            "precision": 10
+          },
+          {
+            "name": "ordinal_position",
+            "type": "int",
+            "precision": 10
+          },
+          {
+            "name": "row_count",
+            "type": "bigint",
+            "precision": 19
+          },
+          {
+            "name": "metadata",
+            "type": "nvarchar"
+          },
+          {
+            "name": "profiled_domain",
+            "type": "varchar"
+          },
+          {
+            "name": "profiled_algorithm",
+            "type": "varchar"
+          },
+          {
+            "name": "confidence_score",
+            "type": "decimal",
+            "precision": 6,
+            "scale": 5
+          },
+          {
+            "name": "rows_profiled",
+            "type": "bigint",
+            "precision": 19
+          },
+          {
+            "name": "assigned_algorithm",
+            "type": "varchar"
+          },
+          {
+            "name": "last_profiled_updated_timestamp",
+            "type": "datetime",
+            "precision": 23,
+            "scale": 3
+          }
+        ],
+        "typeProperties": {
+          "schema": {
+            "value": "@dataset().DS_METADATA_SCHEMA",
+            "type": "Expression"
+          },
+          "table": {
+            "value": "@dataset().DS_METADATA_TABLE",
+            "type": "Expression"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_mask_params_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "Ruleset"
+            },
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "TypeMapping"
+            }
+          ],
+          "sinks": [
+            {
+              "name": "MaskingParameterOutput",
+              "description": "Export data to cache"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "FilterToSingleTable"
+            },
+            {
+              "name": "RulesetWithTypes"
+            },
+            {
+              "name": "RulesetWithAlgorithmTypeMapping"
+            },
+            {
+              "name": "GenerateMaskParameters"
+            },
+            {
+              "name": "ModifyNumberOfBatches"
+            },
+            {
+              "name": "FilterDatabricksType"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
+            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
+            "     DF_SOURCE_DB as string (''),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string ('')",
+            "}",
+            "source(output(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          container_name as string,",
+            "          delta_path as string,",
+            "          row_count as long,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED') ~> Ruleset",
+            "source(output(",
+            "          dataset as string,",
+            "          dataset_type as string,",
+            "          adf_type as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_ADF_TYPE_MAPPING_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED') ~> TypeMapping",
+            "Ruleset filter(equalsIgnoreCase(dataset, 'ADLS') ",
+            "&& equalsIgnoreCase(specified_database, $DF_SOURCE_DB) ",
+            "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_SCHEMA) ",
+            "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)",
+            "&& !equalsIgnoreCase(assigned_algorithm, '')",
+            "&& !isNull(assigned_algorithm)) ~> FilterToSingleTable",
+            "FilterToSingleTable, FilterDatabricksType join(identified_column_type <=> dataset_type,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'left')~> RulesetWithTypes",
+            "RulesetWithTypes derive(adf_type_conversion = concat(identified_column, ' as ', adf_type)) ~> RulesetWithAlgorithmTypeMapping",
+            "RulesetWithAlgorithmTypeMapping aggregate(FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
+            "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
+            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    '[])', \"'\"),",
+            "          NumberOfBatches = toInteger(ceil((avg(row_count) / (avg(identified_column_max_length) / count(identified_column) * 100)))),",
+            "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
+            "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
+            "TypeMapping filter(equalsIgnoreCase(dataset, 'ADLS')) ~> FilterDatabricksType",
+            "ModifyNumberOfBatches sink(validateSchema: false,",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     store: 'cache',",
+            "     format: 'inline',",
+            "     output: true,",
+            "     saveOrder: 1) ~> MaskingParameterOutput"
+          ]
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_mask_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "DelimitedSource",
+              "description": "Add source dataset"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('AzureDataLakeStorage_Generic_Sink')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "DelimetedSink"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "DCSForAzureAPI",
+              "linkedService": {
+                "referenceName": "[parameters('DCSForAzureProd')]",
+                "type": "LinkedServiceReference"
+              }
+            },
+            {
+              "name": "AddSortKey"
+            },
+            {
+              "name": "SortBySortKey",
+              "description": "Sorting rows on column 'DELPHIX_COMPLIANCE_SERVICE_ROW_ID'"
+            },
+            {
+              "name": "CreateSurrogateKey"
+            },
+            {
+              "name": "WrapValuesInArray",
+              "description": "Wrap all columns as an array so that ."
+            },
+            {
+              "name": "SelectColumnsUnmasked"
+            },
+            {
+              "name": "AggregateColumnsByBatch",
+              "description": "Aggregate columns to be masked by Batch size."
+            },
+            {
+              "name": "FlattenValuesOutOfArray",
+              "description": "Flattening all columns to no longer be an array."
+            },
+            {
+              "name": "AssertNoFailures",
+              "description": "Check if there are any failed request"
+            },
+            {
+              "name": "FlattenAggregateData"
+            },
+            {
+              "name": "JoinMaskedAndUnmaskedData"
+            },
+            {
+              "name": "TrimMaskedStrings"
+            },
+            {
+              "name": "CreateSinkFileName"
+            },
+            {
+              "name": "CreateAlterRow"
+            },
+            {
+              "name": "CombineRows"
+            },
+            {
+              "name": "RemoveAmbiguousColumn"
+            },
+            {
+              "name": "RemoveAllData",
+              "description": "Remove all data from the table, but keep the schema"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_SOURCE_CONTAINER as string (''),",
+            "     DF_SINK_CONTAINER as string (''),",
+            "     DF_SOURCE_DIRECTORY as string (''),",
+            "     DF_SINK_DIRECTORY as string (''),",
+            "     DF_SOURCE_PREFIX as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_SINK_TABLE as string (''),",
+            "     DF_COLUMN_DELIMITER as string (','),",
+            "     DF_QUOTE_CHARACTER as string ('\"'),",
+            "     DF_ESCAPE_CHARACTER as string ('\\\\'),",
+            "     DF_ROW_DELIMITER as string ('\\r\\n'),",
+            "     DF_NULL_VALUE as string (''),",
+            "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
+            "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
+            "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
+            "     DF_NUMBER_OF_BATCHES as integer (100),",
+            "     DF_TRIM_LENGTHS as integer[] ([1000]),",
+            "     DF_FIRST_ROW_AS_HEADER as boolean (true())",
+            "}",
+            "source(useSchema: false,",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     ignoreNoFilesFound: false,",
+            "     rowUrlColumn: 'DELPHIX_COMPLIANCE_SERVICE_FILE_NAME',",
+            "     format: 'delimited',",
+            "     fileSystem: ($DF_SOURCE_CONTAINER),",
+            "     rowDelimiter: ($DF_ROW_DELIMITER),",
+            "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
+            "     escapeChar: ($DF_ESCAPE_CHARACTER),",
+            "     quoteChar: ($DF_QUOTE_CHARACTER),",
+            "     nullValue: ($DF_NULL_VALUE),",
+            "     columnNamesAsHeader: ($DF_FIRST_ROW_AS_HEADER),",
+            "     wildcardPaths:[(concat($DF_SOURCE_DIRECTORY,iif(length($DF_SOURCE_PREFIX) == 0,iif(equals('NO_EXT',$DF_SOURCE_TABLE),'*',concat('*',$DF_SOURCE_TABLE)),iif(equals('NO_EXT',$DF_SOURCE_TABLE),concat($DF_SOURCE_PREFIX,'*'),concat($DF_SOURCE_PREFIX,'*',$DF_SOURCE_TABLE)))))],",
+            "     partitionBy('roundRobin', 32)) ~> DelimitedSource",
+            "FlattenValuesOutOfArray call(mapColumn(",
+            "          each(match(name!='DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP'))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     output(",
+            "          headers as [string,string],",
+            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, speaking_to as string, relationship_code as string, record_type as string, member_id as string, las_tname as string, first_name as string, communication_channel as string, birth_date as string)[]),",
+            "          status as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     format: 'rest',",
+            "     store: 'restservice',",
+            "     timeout: 30,",
+            "     requestInterval: 0,",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT],",
+            "     httpMethod: 'POST',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     headerColumnName: 'headers',",
+            "     bodyColumnName: 'body',",
+            "     statusColumnName: 'status',",
+            "     addResponseCode: true,",
+            "     requestFormat: ['type' -> 'json'],",
+            "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
+            "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
+            "DelimitedSource derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
+            "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
+            "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
+            "     startAt: 1L,",
+            "     stepValue: 1L) ~> CreateSurrogateKey",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), $$ = array($$))) ~> WrapValuesInArray",
+            "CreateSurrogateKey select(mapColumn(",
+            "          each(match(!contains($DF_COLUMNS_TO_MASK,#item==name)))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
+            "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
+            "     abort: true) ~> AssertNoFailures",
+            "AssertNoFailures foldDown(unroll(body.items),",
+            "     mapColumn(",
+            "          every(body.items,match(true()))",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
+            "SelectColumnsUnmasked, FlattenAggregateData join(SelectColumnsUnmasked@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID == FlattenAggregateData@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
+            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CombineRows derive(DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME = replace(DELPHIX_COMPLIANCE_SERVICE_FILE_NAME, $DF_SOURCE_DIRECTORY, $DF_SINK_DIRECTORY)) ~> CreateSinkFileName",
+            "RemoveAllData alterRow(insertIf(true())) ~> CreateAlterRow",
+            "CreateAlterRow, RemoveAmbiguousColumn union(byName: true)~> CombineRows",
+            "JoinMaskedAndUnmaskedData select(mapColumn(",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> RemoveAmbiguousColumn",
+            "CreateSurrogateKey filter(false()) ~> RemoveAllData",
+            "CreateSinkFileName sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'delimited',",
+            "     fileSystem: ($DF_SINK_CONTAINER),",
+            "     folderPath: ($DF_SINK_DIRECTORY),",
+            "     rowDelimiter: ($DF_ROW_DELIMITER),",
+            "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
+            "     escapeChar: ($DF_ESCAPE_CHARACTER),",
+            "     quoteChar: ($DF_QUOTE_CHARACTER),",
+            "     nullValue: ($DF_NULL_VALUE),",
+            "     columnNamesAsHeader: ($DF_FIRST_ROW_AS_HEADER),",
+            "     rowUrlColumn:'DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME',",
+            "     umask: 0022,",
+            "     preCommands: [],",
+            "     postCommands: [],",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     mapColumn(",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_FILE_NAME\"))",
+            "     )) ~> DelimetedSink"
+          ]
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_CONTAINER": {
+            "type": "string"
+          },
+          "DS_DIRECTORY": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "folderPath": {
+              "value": "@dataset().DS_DIRECTORY",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "columnDelimiter": ",",
+          "escapeChar": "\\",
+          "firstRowAsHeader": false,
+          "quoteChar": "\""
+        },
+        "schema": [
+          {
+            "type": "String"
+          }
+        ]
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_copy_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "DelimitedSource"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('AzureDataLakeStorage_Generic_Sink')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "DelimitedSink"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "CreateSinkFileName"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_DATABASE as string (''),",
+            "     DF_SINK_DATABASE as string (''),",
+            "     DF_SOURCE_DIRECTORY as string (''),",
+            "     DF_SINK_DIRECTORY as string (''),",
+            "     DF_SOURCE_PREFIX as string (''),",
+            "     DF_COLUMN_DELIMITER as string (','),",
+            "     DF_ROW_DELIMITER as string ('\\r\\n'),",
+            "     DF_QUOTE_CHARACTER as string ('\"'),",
+            "     DF_ESCAPE_CHARACTER as string ('\\\\'),",
+            "     DF_NULL_VALUE as string (''),",
+            "     DF_SOURCE_SUFFIX as string ('')",
+            "}",
+            "source(useSchema: false,",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     ignoreNoFilesFound: false,",
+            "     rowUrlColumn: 'DELPHIX_COMPLIANCE_SERVICES_FILE_NAME',",
+            "     format: 'delimited',",
+            "     fileSystem: ($DF_SOURCE_DATABASE),",
+            "     rowDelimiter: ($DF_ROW_DELIMITER),",
+            "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
+            "     escapeChar: ($DF_ESCAPE_CHARACTER),",
+            "     quoteChar: ($DF_QUOTE_CHARACTER),",
+            "     nullValue: ($DF_NULL_VALUE),",
+            "     columnNamesAsHeader: true,",
+            "     wildcardPaths:[(concat($DF_SOURCE_DIRECTORY,iif(length($DF_SOURCE_PREFIX) == 0,iif(equals('NO_EXT',$DF_SOURCE_SUFFIX),'*',concat('*',$DF_SOURCE_SUFFIX)),iif(equals('NO_EXT',$DF_SOURCE_SUFFIX),concat($DF_SOURCE_PREFIX,'*'),concat($DF_SOURCE_PREFIX,'*',$DF_SOURCE_SUFFIX)))))]) ~> DelimitedSource",
+            "DelimitedSource derive(DELPHIX_COMPLIANCE_SERVICES_SINK_FILE_NAME = replace(DELPHIX_COMPLIANCE_SERVICES_FILE_NAME, $DF_SOURCE_DIRECTORY, $DF_SINK_DIRECTORY)) ~> CreateSinkFileName",
+            "CreateSinkFileName sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     format: 'delimited',",
+            "     fileSystem: ($DF_SINK_DATABASE),",
+            "     folderPath: ($DF_SINK_DIRECTORY),",
+            "     rowDelimiter: ($DF_ROW_DELIMITER),",
+            "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
+            "     escapeChar: ($DF_ESCAPE_CHARACTER),",
+            "     quoteChar: ($DF_QUOTE_CHARACTER),",
+            "     nullValue: ($DF_NULL_VALUE),",
+            "     columnNamesAsHeader: true,",
+            "     rowUrlColumn:'DELPHIX_COMPLIANCE_SERVICES_SINK_FILE_NAME',",
+            "     umask: 0022,",
+            "     preCommands: [],",
+            "     postCommands: [],",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     mapColumn(",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICES_FILE_NAME\"&&name!=\"DELPHIX_COMPLIANCE_SERVICES_SINK_FILE_NAME\"))",
+            "     )) ~> DelimitedSink"
+          ]
+        }
+      },
+      "dependsOn": []
+    }
+  ]
+}
