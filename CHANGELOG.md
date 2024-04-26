@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.3
+* Add support for DCS for Azure ADLS to ADLS Profiling Pipeline (for Gen2 Data Lake)
+* Add support for DCS for Azure ADLS to ADLS Masking Pipeline (for Gen2 Data Lake)
+
 # 0.0.2
 * Add support for DCS for Azure Snowflake to Snowflake Profile Pipeline (with Snowflake linked service type)
 * Add support for DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)

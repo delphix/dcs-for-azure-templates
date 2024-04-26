@@ -1,0 +1,2070 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "factoryName": {
+      "type": "string",
+      "metadata": "Data Factory name"
+    },
+    "Metadata Datastore": {
+      "type": "string"
+    },
+    "AzureDataLakeStorage_Generic_Source": {
+      "type": "string"
+    },
+    "DCSForAzureProd": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+  },
+  "resources": [
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_prof_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "activities": [
+          {
+            "name": "Identify Nested Schemas",
+            "type": "GetMetadata",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "dataset": {
+                "referenceName": "dcsazure_adls_container_and_directory",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_CONTAINER": {
+                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                    "type": "Expression"
+                  },
+                  "DS_DIRECTORY": {
+                    "value": "@pipeline().parameters.P_DIRECTORY",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "fieldList": [
+                "childItems"
+              ],
+              "storeSettings": {
+                "type": "AzureBlobFSReadSettings",
+                "recursive": true,
+                "enablePartitionDiscovery": false
+              },
+              "formatSettings": {
+                "type": "DelimitedTextReadSettings"
+              }
+            }
+          },
+          {
+            "name": "For Each Schema Found",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Identify Nested Schemas",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Identify Nested Schemas').output.childItems",
+                "type": "Expression"
+              },
+              "isSequential": true,
+              "activities": [
+                {
+                  "name": "If Folder Is Valid And Has Homogeneous File Schema",
+                  "description": "By default, it is assumed that if there is a folder, each file in the folder with the same suffix (csv, txt, etc.) will have the same schema (i.e. the same header row).",
+                  "type": "IfCondition",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@and(equals(item().type,'Folder'),not(contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS,item().name)))",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Add Schema To Homogeneous Schema List",
+                        "type": "AppendVariable",
+                        "dependsOn": [],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "variableName": "HOMOGENEOUS_SCHEMAS_TO_CHECK",
+                          "value": {
+                            "value": "@item().name",
+                            "type": "Expression"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "If Folder Is Valid And Has Heterogeneous File Schema",
+                  "description": "By default, it is assumed that if there is a folder, each file in the folder with the same suffix (csv, txt, etc.) will have the same schema (i.e. the same header row).\n\nIf this is not the case, it is required that the folder with mixed schema specify two pipeline parameters:\nP_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS - this is a list of strings containing the name of the sub-directories whose files of the same extension have mixed schemas\nP_MIXED_FILE_SCHEMA_DISAMBIGUATION - this is a map of {string: {\"suffixes\": [string]} that is required for disambiguating the schemas as they apply to the files in the folder - the string key in the object is a prefix for the file of a particular schema, and the array of strings in the suffix list are those that we should scan for, which will leverage the already existing P_SUFFIX_DELIMITER_MAP parameter\n\nIf, for example, folder \"FOLDER\" had multiple types of files \"PREFIX1_*.csv\", \"PREFIX1_*.txt\", \"PREFIX2_*.csv\" - then the map for P_MIXED_FILE_SCHEMA_DISAMBIGUATION would be {\"FOLDER\":{\"PREFIX1_\":\"suffixes\":[\"csv\",\"txt\"]},{\"PREFIX2_\":\"suffixes\":[\"csv\"]}}\n",
+                  "type": "IfCondition",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@and(equals(item().type,'Folder'),contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS,item().name))",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Add Schema To Heterogeneous Schema List",
+                        "type": "AppendVariable",
+                        "dependsOn": [],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "variableName": "HETEROGENEOUS_SCHEMAS_TO_CHECK",
+                          "value": {
+                            "value": "@item().name",
+                            "type": "Expression"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "For Each Homogeneous Schema",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "For Each Schema Found",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@variables('HOMOGENEOUS_SCHEMAS_TO_CHECK')",
+                "type": "Expression"
+              },
+              "isSequential": false,
+              "activities": [
+                {
+                  "name": "Identifiy Files In The Schema",
+                  "type": "GetMetadata",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataset": {
+                      "referenceName": "dcsazure_adls_sub_directory",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_CONTAINER": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "type": "Expression"
+                        },
+                        "DS_SUB_DIRECTORY": {
+                          "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
+                          "type": "Expression"
+                        }
+                      }
+                    },
+                    "fieldList": [
+                      "childItems"
+                    ],
+                    "storeSettings": {
+                      "type": "AzureBlobFSReadSettings",
+                      "recursive": true,
+                      "enablePartitionDiscovery": false
+                    },
+                    "formatSettings": {
+                      "type": "DelimitedTextReadSettings"
+                    }
+                  }
+                },
+                {
+                  "name": "Filter csv",
+                  "type": "Filter",
+                  "dependsOn": [
+                    {
+                      "activity": "Identifiy Files In The Schema",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "items": {
+                      "value": "@activity('Identifiy Files In The Schema').output.childItems",
+                      "type": "Expression"
+                    },
+                    "condition": {
+                      "value": "@endswith(item().name, 'csv')",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Filter txt",
+                  "type": "Filter",
+                  "dependsOn": [
+                    {
+                      "activity": "Identifiy Files In The Schema",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "items": {
+                      "value": "@activity('Identifiy Files In The Schema').output.childItems",
+                      "type": "Expression"
+                    },
+                    "condition": {
+                      "value": "@endswith(item().name, 'txt')",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Get metadata for csv",
+                  "type": "ExecutePipeline",
+                  "dependsOn": [
+                    {
+                      "activity": "Filter csv",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "pipeline": {
+                      "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                      "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                      "P_METADATA_SCHEMA": {
+                        "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                        "type": "Expression"
+                      },
+                      "P_METADATA_RULESET_TABLE": {
+                        "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                        "type": "Expression"
+                      },
+                      "P_STORAGE_CONTAINER": {
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                        "type": "Expression"
+                      },
+                      "P_DIRECTORY": {
+                        "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
+                        "type": "Expression"
+                      },
+                      "P_SUFFIX": "csv",
+                      "P_COLUMN_DELIMITER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.column_delimiter",
+                        "type": "Expression"
+                      },
+                      "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                        "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                        "type": "Expression"
+                      },
+                      "P_ROW_DELIMITER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.row_delimiter",
+                        "type": "Expression"
+                      },
+                      "P_QUOTE_CHARACTER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.quote_character",
+                        "type": "Expression"
+                      },
+                      "P_FIRST_ROW_AS_HEADER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.first_row_as_header",
+                        "type": "Expression"
+                      },
+                      "P_NULL_VALUE": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.null_value",
+                        "type": "Expression"
+                      },
+                      "P_ESCAPE_CHARACTER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.escape_character",
+                        "type": "Expression"
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "Get metadata for txt",
+                  "type": "ExecutePipeline",
+                  "dependsOn": [
+                    {
+                      "activity": "Filter txt",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "pipeline": {
+                      "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                      "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                      "P_METADATA_SCHEMA": {
+                        "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                        "type": "Expression"
+                      },
+                      "P_METADATA_RULESET_TABLE": {
+                        "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                        "type": "Expression"
+                      },
+                      "P_STORAGE_CONTAINER": {
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                        "type": "Expression"
+                      },
+                      "P_DIRECTORY": {
+                        "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
+                        "type": "Expression"
+                      },
+                      "P_SUFFIX": "txt",
+                      "P_COLUMN_DELIMITER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.column_delimiter",
+                        "type": "Expression"
+                      },
+                      "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                        "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                        "type": "Expression"
+                      },
+                      "P_ROW_DELIMITER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.row_delimiter",
+                        "type": "Expression"
+                      },
+                      "P_QUOTE_CHARACTER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.quote_character",
+                        "type": "Expression"
+                      },
+                      "P_FIRST_ROW_AS_HEADER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.first_row_as_header",
+                        "type": "Expression"
+                      },
+                      "P_NULL_VALUE": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.null_value",
+                        "type": "Expression"
+                      },
+                      "P_ESCAPE_CHARACTER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.escape_character",
+                        "type": "Expression"
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "Filter no extension",
+                  "type": "Filter",
+                  "dependsOn": [
+                    {
+                      "activity": "Identifiy Files In The Schema",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "items": {
+                      "value": "@activity('Identifiy Files In The Schema').output.childItems",
+                      "type": "Expression"
+                    },
+                    "condition": {
+                      "value": "@not(contains(item().name, '.'))",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Get metadata for no extension",
+                  "type": "ExecutePipeline",
+                  "dependsOn": [
+                    {
+                      "activity": "Filter no extension",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "pipeline": {
+                      "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                      "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                      "P_METADATA_SCHEMA": {
+                        "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                        "type": "Expression"
+                      },
+                      "P_METADATA_RULESET_TABLE": {
+                        "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                        "type": "Expression"
+                      },
+                      "P_STORAGE_CONTAINER": {
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                        "type": "Expression"
+                      },
+                      "P_DIRECTORY": {
+                        "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
+                        "type": "Expression"
+                      },
+                      "P_SUFFIX": "NO_EXT",
+                      "P_COLUMN_DELIMITER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.column_delimiter",
+                        "type": "Expression"
+                      },
+                      "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                        "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                        "type": "Expression"
+                      },
+                      "P_ROW_DELIMITER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.row_delimiter",
+                        "type": "Expression"
+                      },
+                      "P_QUOTE_CHARACTER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.quote_character",
+                        "type": "Expression"
+                      },
+                      "P_FIRST_ROW_AS_HEADER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.first_row_as_header",
+                        "type": "Expression"
+                      },
+                      "P_NULL_VALUE": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.null_value",
+                        "type": "Expression"
+                      },
+                      "P_ESCAPE_CHARACTER": {
+                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.escape_character",
+                        "type": "Expression"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "For Discovered Tables",
+            "type": "Lookup",
+            "dependsOn": [
+              {
+                "activity": "For Each Homogeneous Schema",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              },
+              {
+                "activity": "For Each Heterogeneous Schema",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table,\n    metadata\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE}\nWHERE LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}')\nAND dataset = 'ADLS'",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_adls_to_adls_delta_metadata_prof_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "For Each Heterogeneous Schema",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Determine All Heterogeneous Schema",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Determine All Heterogeneous Schema').output.resultSets[0].rows",
+                "type": "Expression"
+              },
+              "isSequential": false,
+              "activities": [
+                {
+                  "name": "If csv",
+                  "type": "IfCondition",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@equals(item().suffix, 'csv')",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Get csv schema",
+                        "type": "ExecutePipeline",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "pipeline": {
+                            "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                            "type": "PipelineReference"
+                          },
+                          "waitOnCompletion": true,
+                          "parameters": {
+                            "P_METADATA_SCHEMA": {
+                              "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                              "type": "Expression"
+                            },
+                            "P_METADATA_RULESET_TABLE": {
+                              "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                              "type": "Expression"
+                            },
+                            "P_STORAGE_CONTAINER": {
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                              "type": "Expression"
+                            },
+                            "P_DIRECTORY": {
+                              "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item().sub_dir)",
+                              "type": "Expression"
+                            },
+                            "P_SUFFIX": {
+                              "value": "@item().suffix",
+                              "type": "Expression"
+                            },
+                            "P_COLUMN_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.column_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                              "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                              "type": "Expression"
+                            },
+                            "P_PREFIX": {
+                              "value": "@item().prefix",
+                              "type": "Expression"
+                            },
+                            "P_ROW_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.row_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_QUOTE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.quote_character",
+                              "type": "Expression"
+                            },
+                            "P_FIRST_ROW_AS_HEADER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.first_row_as_header",
+                              "type": "Expression"
+                            },
+                            "P_NULL_VALUE": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.null_value",
+                              "type": "Expression"
+                            },
+                            "P_ESCAPE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.escape_character",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "If txt",
+                  "type": "IfCondition",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@equals(item().suffix, 'txt')",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Get txt schema",
+                        "type": "ExecutePipeline",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "pipeline": {
+                            "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                            "type": "PipelineReference"
+                          },
+                          "waitOnCompletion": true,
+                          "parameters": {
+                            "P_METADATA_SCHEMA": {
+                              "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                              "type": "Expression"
+                            },
+                            "P_METADATA_RULESET_TABLE": {
+                              "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                              "type": "Expression"
+                            },
+                            "P_STORAGE_CONTAINER": {
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                              "type": "Expression"
+                            },
+                            "P_DIRECTORY": {
+                              "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item().sub_dir)",
+                              "type": "Expression"
+                            },
+                            "P_SUFFIX": {
+                              "value": "@item().suffix",
+                              "type": "Expression"
+                            },
+                            "P_COLUMN_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.column_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                              "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                              "type": "Expression"
+                            },
+                            "P_PREFIX": {
+                              "value": "@item().prefix",
+                              "type": "Expression"
+                            },
+                            "P_ROW_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.row_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_QUOTE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.quote_character",
+                              "type": "Expression"
+                            },
+                            "P_FIRST_ROW_AS_HEADER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.first_row_as_header",
+                              "type": "Expression"
+                            },
+                            "P_NULL_VALUE": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.null_value",
+                              "type": "Expression"
+                            },
+                            "P_ESCAPE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.escape_character",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "If NO_EXT",
+                  "type": "IfCondition",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@equals(item().suffix, 'NO_EXT')",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Get NO_EXT schema",
+                        "type": "ExecutePipeline",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "pipeline": {
+                            "referenceName": "dcsazure_adls_to_adls_prof_file_pl",
+                            "type": "PipelineReference"
+                          },
+                          "waitOnCompletion": true,
+                          "parameters": {
+                            "P_METADATA_SCHEMA": {
+                              "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                              "type": "Expression"
+                            },
+                            "P_METADATA_RULESET_TABLE": {
+                              "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                              "type": "Expression"
+                            },
+                            "P_STORAGE_CONTAINER": {
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                              "type": "Expression"
+                            },
+                            "P_DIRECTORY": {
+                              "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item().sub_dir)",
+                              "type": "Expression"
+                            },
+                            "P_SUFFIX": {
+                              "value": "@item().suffix",
+                              "type": "Expression"
+                            },
+                            "P_COLUMN_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.column_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                              "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                              "type": "Expression"
+                            },
+                            "P_PREFIX": {
+                              "value": "@item().prefix",
+                              "type": "Expression"
+                            },
+                            "P_ROW_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.row_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_QUOTE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.quote_character",
+                              "type": "Expression"
+                            },
+                            "P_FIRST_ROW_AS_HEADER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.first_row_as_header",
+                              "type": "Expression"
+                            },
+                            "P_NULL_VALUE": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.null_value",
+                              "type": "Expression"
+                            },
+                            "P_ESCAPE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.escape_character",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Determine All Heterogeneous Schema",
+            "type": "Script",
+            "dependsOn": [
+              {
+                "activity": "Filter Schemas",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "linkedServiceName": {
+              "referenceName": "[parameters('Metadata Datastore')]",
+              "type": "LinkedServiceReference"
+            },
+            "typeProperties": {
+              "scripts": [
+                {
+                  "type": "Query",
+                  "text": {
+                    "value": "DECLARE @disambiguation_json NVARCHAR(MAX) = N'@{pipeline().parameters.P_MIXED_FILE_SCHEMA_DISAMBIGUATION}';\nDECLARE @heterogeneous_schemas_array NVARCHAR(MAX) = N'@{pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS}';\nSELECT b.[value] AS sub_dir, a.[key] AS prefix, c.[value] AS suffix\nFROM OPENJSON(@disambiguation_json, '$') a\nCROSS APPLY OPENJSON(@heterogeneous_schemas_array, '$') b\nCROSS APPLY OPENJSON(a.[value], '$.suffixes') c;",
+                    "type": "Expression"
+                  }
+                }
+              ],
+              "scriptBlockExecutionTimeout": "02:00:00"
+            }
+          },
+          {
+            "name": "Filter Schemas",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "For Each Schema Found",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@variables('HETEROGENEOUS_SCHEMAS_TO_CHECK')",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS,item())",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "For Each Table",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "For Discovered Tables",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('For Discovered Tables').output.value",
+                "type": "Expression"
+              },
+              "activities": [
+                {
+                  "name": "Profile",
+                  "type": "ExecuteDataFlow",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataflow": {
+                      "referenceName": "dcsazure_adls_to_adls_delimited_prof_df",
+                      "type": "DataFlowReference",
+                      "parameters": {
+                        "runId": {
+                          "value": "'@{pipeline().RunId}'",
+                          "type": "Expression"
+                        },
+                        "DF_NUM_ROWS_TO_PROFILE": "1000",
+                        "DF_METADATA_SCHEMA": {
+                          "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_RULESET_TABLE": {
+                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_CONTAINER": {
+                          "value": "'@{item().specified_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_COLUMN_DELIMITER": {
+                          "value": "'@{json(item().metadata).column_delimiter}'",
+                          "type": "Expression"
+                        },
+                        "DF_QUOTE_CHARACTER": {
+                          "value": "'@{json(item().metadata).quote_character}'",
+                          "type": "Expression"
+                        },
+                        "DF_ESCAPE_CHARACTER": {
+                          "value": "'@{json(item().metadata).escape_character}'",
+                          "type": "Expression"
+                        },
+                        "DF_ROW_DELIMITER": {
+                          "value": "'@{json(item().metadata).row_delimiter}'",
+                          "type": "Expression"
+                        },
+                        "DF_NULL_VALUE": {
+                          "value": "'@{json(item().metadata).null_value}'",
+                          "type": "Expression"
+                        },
+                        "DF_SCHEMA": {
+                          "value": "'@{item().specified_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_TABLE": {
+                          "value": "'@{item().identified_table}'",
+                          "type": "Expression"
+                        }
+                      },
+                      "datasetParameters": {
+                        "SourceData1MillRowDataSampling": {},
+                        "MetadataStoreRead": {},
+                        "WriteToMetadataStore": {}
+                      }
+                    },
+                    "staging": {},
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
+                    "traceLevel": "Fine"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_METADATA_SCHEMA": {
+            "type": "string",
+            "defaultValue": "dbo"
+          },
+          "P_METADATA_RULESET_TABLE": {
+            "type": "string",
+            "defaultValue": "discovered_ruleset"
+          },
+          "P_STORAGE_CONTAINER_TO_PROFILE": {
+            "type": "String"
+          },
+          "P_DIRECTORY": {
+            "type": "string"
+          },
+          "P_SUFFIXES_TO_SCAN": {
+            "type": "array",
+            "defaultValue": [
+              "csv",
+              "txt",
+              "NO_EXT"
+            ]
+          },
+          "P_SUFFIX_DELIMITER_MAP": {
+            "type": "object",
+            "defaultValue": {
+              "csv": {
+                "column_delimiter": ",",
+                "row_delimiter": "\\r\\n",
+                "quote_character": "\"",
+                "escape_character": "\\\\",
+                "first_row_as_header": true,
+                "null_value": ""
+              },
+              "txt": {
+                "column_delimiter": "|",
+                "row_delimiter": "\\r\\n",
+                "quote_character": "\"",
+                "escape_character": "\\\\",
+                "first_row_as_header": true,
+                "null_value": ""
+              },
+              "NO_EXT": {
+                "column_delimiter": "|",
+                "row_delimiter": "\\r\\n",
+                "quote_character": "\"",
+                "escape_character": "\\\\",
+                "first_row_as_header": true,
+                "null_value": ""
+              }
+            }
+          },
+          "P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS": {
+            "type": "array",
+            "defaultValue": []
+          },
+          "P_MIXED_FILE_SCHEMA_DISAMBIGUATION": {
+            "type": "object",
+            "defaultValue": {
+              "DCS_SAMPLE_PREFIX_": {
+                "suffixes": [
+                  "csv",
+                  "txt",
+                  "NO_EXT"
+                ]
+              }
+            }
+          },
+          "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+            "type": "string",
+            "defaultValue": "get_columns_from_adls_file_structure_sp"
+          }
+        },
+        "variables": {
+          "HOMOGENEOUS_SCHEMAS_TO_CHECK": {
+            "type": "Array",
+            "defaultValue": []
+          },
+          "HETEROGENEOUS_SCHEMAS_TO_CHECK": {
+            "type": "Array",
+            "defaultValue": []
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "lastPublishTime": "2024-04-02T17:46:12Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_delta_metadata_prof_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory')]",
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_adls_to_adls_prof_file_pl')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_prof_df')]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_CONTAINER": {
+            "type": "string"
+          },
+          "DS_DIRECTORY": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "folderPath": {
+              "value": "@dataset().DS_DIRECTORY",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "columnDelimiter": ",",
+          "escapeChar": "\\",
+          "firstRowAsHeader": false,
+          "quoteChar": "\""
+        },
+        "schema": [
+          {
+            "type": "String"
+          }
+        ]
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delta_metadata_prof_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('Metadata Datastore')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_METADATA_SCHEMA": {
+            "type": "string",
+            "defaultValue": "lnguyen"
+          },
+          "DS_METADATA_TABLE": {
+            "type": "string",
+            "defaultValue": "discovered_metadata"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls_delta"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [
+          {
+            "name": "source_database",
+            "type": "varchar"
+          },
+          {
+            "name": "source_schema",
+            "type": "varchar"
+          },
+          {
+            "name": "source_table",
+            "type": "varchar"
+          },
+          {
+            "name": "source_column",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_database",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_schema",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_table",
+            "type": "varchar"
+          }
+        ],
+        "typeProperties": {
+          "schema": {
+            "value": "@dataset().DS_METADATA_SCHEMA",
+            "type": "Expression"
+          },
+          "table": {
+            "value": "@dataset().DS_METADATA_TABLE",
+            "type": "Expression"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_sub_directory')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_CONTAINER": {
+            "type": "string"
+          },
+          "DS_SUB_DIRECTORY": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "folderPath": {
+              "value": "@dataset().DS_SUB_DIRECTORY",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "columnDelimiter": ",",
+          "escapeChar": "\\",
+          "firstRowAsHeader": false,
+          "quoteChar": "\""
+        },
+        "schema": [
+          {
+            "type": "String"
+          }
+        ]
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_prof_file_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "activities": [
+          {
+            "name": "Get Files",
+            "type": "GetMetadata",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "dataset": {
+                "referenceName": "dcsazure_adls_container_and_directory",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_CONTAINER": {
+                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
+                    "type": "Expression"
+                  },
+                  "DS_DIRECTORY": {
+                    "value": "@pipeline().parameters.P_DIRECTORY",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "fieldList": [
+                "childItems"
+              ],
+              "storeSettings": {
+                "type": "AzureBlobFSReadSettings",
+                "recursive": true,
+                "enablePartitionDiscovery": false
+              },
+              "formatSettings": {
+                "type": "DelimitedTextReadSettings"
+              }
+            }
+          },
+          {
+            "name": "Prefix",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Get Files",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Get Files').output.childItems",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@if(empty(pipeline().parameters.P_PREFIX),\n    true,\n    startswith(item().name,pipeline().parameters.P_PREFIX))",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "Suffix",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Prefix",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Prefix').output.Value",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@if(equals('NO_EXT', pipeline().parameters.P_SUFFIX), \n    not(contains(item().name, '.')),\n    endswith(item().name,pipeline().parameters.P_SUFFIX))",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "If Match",
+            "type": "IfCondition",
+            "dependsOn": [
+              {
+                "activity": "Suffix",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@not(empty(activity('Suffix').output.Value))",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Get File Structure",
+                  "type": "GetMetadata",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataset": {
+                      "referenceName": "dcsazure_adls_delimited_header",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_STORAGE_CONTAINER": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
+                          "type": "Expression"
+                        },
+                        "DS_DIRECTORY": {
+                          "value": "@pipeline().parameters.P_DIRECTORY",
+                          "type": "Expression"
+                        },
+                        "DS_FILE_NAME": {
+                          "value": "@activity('Suffix').output.Value[0].name",
+                          "type": "Expression"
+                        },
+                        "DS_COLUMN_DELIMITER": {
+                          "value": "@pipeline().parameters.P_COLUMN_DELIMITER",
+                          "type": "Expression"
+                        },
+                        "DS_ROW_DELIMITER": {
+                          "value": "@pipeline().parameters.P_ROW_DELIMITER",
+                          "type": "Expression"
+                        },
+                        "DS_QUOTE_CHARACTER": {
+                          "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
+                          "type": "Expression"
+                        },
+                        "DS_ESCAPE_CHARACTER": {
+                          "value": "@pipeline().parameters.P_ESCAPE_CHARACTER",
+                          "type": "Expression"
+                        },
+                        "DS_FIRST_ROW_AS_HEADER": {
+                          "value": "@pipeline().parameters.P_FIRST_ROW_AS_HEADER",
+                          "type": "Expression"
+                        },
+                        "DS_NULL_VALUE": {
+                          "value": "@pipeline().parameters.P_NULL_VALUE",
+                          "type": "Expression"
+                        }
+                      }
+                    },
+                    "fieldList": [
+                      "structure"
+                    ],
+                    "storeSettings": {
+                      "type": "AzureBlobFSReadSettings",
+                      "recursive": true,
+                      "enablePartitionDiscovery": false
+                    },
+                    "formatSettings": {
+                      "type": "DelimitedTextReadSettings"
+                    }
+                  }
+                },
+                {
+                  "name": "Persist Metadata To Database",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Get File Structure",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "adf_file_structure": {
+                        "value": {
+                          "value": "@string(activity('Get File Structure').output.structure)",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "column_delimiter": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_COLUMN_DELIMITER",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "database": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "escape_character": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_ESCAPE_CHARACTER",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "first_row_as_header": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_FIRST_ROW_AS_HEADER",
+                          "type": "Expression"
+                        },
+                        "type": "Boolean"
+                      },
+                      "null_value": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_NULL_VALUE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "quote_character": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "row_delimiter": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_ROW_DELIMITER",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "schema": {
+                        "value": {
+                          "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',pipeline().parameters.P_PREFIX)",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "table": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SUFFIX",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_METADATA_SCHEMA": {
+            "type": "string",
+            "defaultValue": "dbo"
+          },
+          "P_METADATA_RULESET_TABLE": {
+            "type": "string",
+            "defaultValue": "discovered_ruleset"
+          },
+          "P_STORAGE_CONTAINER": {
+            "type": "String"
+          },
+          "P_DIRECTORY": {
+            "type": "string"
+          },
+          "P_SUFFIX": {
+            "type": "string"
+          },
+          "P_COLUMN_DELIMITER": {
+            "type": "string"
+          },
+          "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+            "type": "string",
+            "defaultValue": "get_columns_from_adls_file_structure_sp"
+          },
+          "P_PREFIX": {
+            "type": "string"
+          },
+          "P_ROW_DELIMITER": {
+            "type": "string"
+          },
+          "P_QUOTE_CHARACTER": {
+            "type": "string"
+          },
+          "P_FIRST_ROW_AS_HEADER": {
+            "type": "string",
+            "defaultValue": "true"
+          },
+          "P_NULL_VALUE": {
+            "type": "string"
+          },
+          "P_ESCAPE_CHARACTER": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "lastPublishTime": "2024-04-01T23:27:34Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_delimited_header')]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_prof_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "SourceData1MillRowDataSampling",
+              "description": "Import the first 1 million rows of unmasked data from the desired source dataset."
+            },
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "MetadataStoreRead"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "WriteToMetadataStore"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "CallDCSForAzureProfiling",
+              "linkedService": {
+                "referenceName": "[parameters('DCSForAzureProd')]",
+                "type": "LinkedServiceReference"
+              }
+            },
+            {
+              "name": "CreateRandomIdColumn",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID column, which is generated via the `random` expression. The current timestamp in milliseconds is used as the seed for the number generation."
+            },
+            {
+              "name": "SortByRandomId",
+              "description": "Sort the sample rows based on the randomly generated IDs."
+            },
+            {
+              "name": "CreateFinalSelectionId",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID column that increments by 1 and starts at 1. It is incremented in order of the DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID added previously."
+            },
+            {
+              "name": "GetRandomRows",
+              "description": "Filter $DF_ROWS rows using the DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID."
+            },
+            {
+              "name": "CreateItemsList"
+            },
+            {
+              "name": "ParseAPIResponse",
+              "description": "Parsing the external call body output"
+            },
+            {
+              "name": "AssertNoFailures"
+            },
+            {
+              "name": "FlattenDetails"
+            },
+            {
+              "name": "FilterRowsToUpdate"
+            },
+            {
+              "name": "JoinDetailsAndMetadata"
+            },
+            {
+              "name": "ChecksBeforeSave"
+            },
+            {
+              "name": "UpdateProfiledColumns"
+            },
+            {
+              "name": "FilterOnlyNewlyProfiledRows"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
+            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_SOURCE_CONTAINER as string (''),",
+            "     DF_COLUMN_DELIMITER as string (''),",
+            "     DF_QUOTE_CHARACTER as string ('\\\"'),",
+            "     DF_ESCAPE_CHARACTER as string ('\\\\'),",
+            "     DF_ROW_DELIMITER as string ('\\r\\n'),",
+            "     DF_NULL_VALUE as string (''),",
+            "     DF_SCHEMA as string (''),",
+            "     DF_TABLE as string ('')",
+            "}",
+            "source(useSchema: false,",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     limit: 1000000,",
+            "     ignoreNoFilesFound: false,",
+            "     format: 'delimited',",
+            "     fileSystem: ($DF_SOURCE_CONTAINER),",
+            "     rowDelimiter: ($DF_ROW_DELIMITER),",
+            "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
+            "     escapeChar: ($DF_ESCAPE_CHARACTER),",
+            "     quoteChar: ($DF_QUOTE_CHARACTER),",
+            "     nullValue: ($DF_NULL_VALUE),",
+            "     columnNamesAsHeader: true,",
+            "     wildcardPaths:[(concat($DF_SCHEMA,'*',iif(equals('NO_EXT',$DF_TABLE),'',$DF_TABLE)))],",
+            "     partitionBy('roundRobin', 32)) ~> SourceData1MillRowDataSampling",
+            "source(output(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          container_name as string,",
+            "          delta_path as string,",
+            "          row_count as long,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp",
+            "     ),",
+            "     allowSchemaDrift: false,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
+            "CreateItemsList call(mapColumn(",
+            "          each(match(true()))",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false,",
+            "     output(",
+            "          headers as [string,string],",
+            "          body as string,",
+            "          status as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     format: 'rest',",
+            "     store: 'restservice',",
+            "     timeout: 30,",
+            "     requestInterval: 0,",
+            "     headers = ['Run-Id' -> $runId],",
+            "     httpMethod: 'POST',",
+            "     entity: '/v1/discovery/profileByColumn',",
+            "     headerColumnName: 'headers',",
+            "     bodyColumnName: 'body',",
+            "     statusColumnName: 'status',",
+            "     addResponseCode: true,",
+            "     requestFormat: ['type' -> 'json']) ~> CallDCSForAzureProfiling",
+            "SourceData1MillRowDataSampling derive(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID = random(millisecond(currentTimestamp()))) ~> CreateRandomIdColumn",
+            "CreateRandomIdColumn sort(asc(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID, true)) ~> SortByRandomId",
+            "SortByRandomId keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID as long),",
+            "     startAt: 1L,",
+            "     stepValue: 1L) ~> CreateFinalSelectionId",
+            "CreateFinalSelectionId filter(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID < ($DF_NUM_ROWS_TO_PROFILE +1)) ~> GetRandomRows",
+            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), $$ = collect($$))) ~> CreateItemsList",
+            "CallDCSForAzureProfiling parse(body = body ? (timestamp as date,",
+            "          status as string,",
+            "          message as string,",
+            "          trace_id as string,",
+            "          items as (details as (columnName as string, domain as string, algorithm as string, confidence as float, rowsConsidered as integer)[])),",
+            "     format: 'json',",
+            "     documentForm: 'singleDocument') ~> ParseAPIResponse",
+            "ParseAPIResponse assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
+            "     abort: true) ~> AssertNoFailures",
+            "AssertNoFailures foldDown(unroll(body.items.details),",
+            "     mapColumn(",
+            "          columnName = body.items.details.columnName,",
+            "          domain = body.items.details.domain,",
+            "          algorithm = body.items.details.algorithm,",
+            "          confidence = body.items.details.confidence,",
+            "          rowsConsidered = body.items.details.rowsConsidered",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false) ~> FlattenDetails",
+            "MetadataStoreRead filter(equalsIgnoreCase(dataset, 'ADLS')",
+            "&& equalsIgnoreCase(specified_database, $DF_SOURCE_CONTAINER)",
+            "&& equalsIgnoreCase(specified_schema, $DF_SCHEMA)",
+            "&& equalsIgnoreCase(identified_table, $DF_TABLE)) ~> FilterRowsToUpdate",
+            "FlattenDetails, FilterRowsToUpdate join(columnName <=> identified_column,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'left')~> JoinDetailsAndMetadata",
+            "UpdateProfiledColumns alterRow(updateIf(true())) ~> ChecksBeforeSave",
+            "FilterOnlyNewlyProfiledRows derive(last_profiled_updated_timestamp = currentTimestamp()) ~> UpdateProfiledColumns",
+            "JoinDetailsAndMetadata filter(!equalsIgnoreCase(domain, profiled_domain)",
+            "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
+            "|| rowsConsidered != rows_profiled",
+            "|| toDecimal(confidence) != toDecimal(confidence_score)) ~> FilterOnlyNewlyProfiledRows",
+            "ChecksBeforeSave sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     input(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          row_count as long,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp",
+            "     ),",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     insertable: false,",
+            "     updateable: true,",
+            "     deletable: false,",
+            "     upsertable: false,",
+            "     keys:(array(\"dataset\", \"specified_database\", \"specified_schema\", \"identified_table\", \"identified_column\")),",
+            "     skipKeyWrites:true,",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     errorHandlingOption: 'stopOnFirstError',",
+            "     mapColumn(",
+            "          dataset,",
+            "          specified_database,",
+            "          specified_schema,",
+            "          identified_table,",
+            "          identified_column,",
+            "          identified_column_type,",
+            "          identified_column_max_length,",
+            "          ordinal_position,",
+            "          row_count,",
+            "          profiled_domain = domain,",
+            "          profiled_algorithm = algorithm,",
+            "          confidence_score = confidence,",
+            "          rows_profiled = rowsConsidered,",
+            "          last_profiled_updated_timestamp",
+            "     )) ~> WriteToMetadataStore"
+          ]
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_delimited_header')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_STORAGE_CONTAINER": {
+            "type": "String"
+          },
+          "DS_DIRECTORY": {
+            "type": "String"
+          },
+          "DS_FILE_NAME": {
+            "type": "String"
+          },
+          "DS_COLUMN_DELIMITER": {
+            "type": "String"
+          },
+          "DS_ROW_DELIMITER": {
+            "type": "string"
+          },
+          "DS_QUOTE_CHARACTER": {
+            "type": "string"
+          },
+          "DS_ESCAPE_CHARACTER": {
+            "type": "string"
+          },
+          "DS_FIRST_ROW_AS_HEADER": {
+            "type": "bool"
+          },
+          "DS_NULL_VALUE": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_adls_to_adls"
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "fileName": {
+              "value": "@dataset().DS_FILE_NAME",
+              "type": "Expression"
+            },
+            "folderPath": {
+              "value": "@dataset().DS_DIRECTORY",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_STORAGE_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "columnDelimiter": {
+            "value": "@dataset().DS_COLUMN_DELIMITER",
+            "type": "Expression"
+          },
+          "escapeChar": "\\",
+          "firstRowAsHeader": {
+            "value": "@dataset().DS_FIRST_ROW_AS_HEADER",
+            "type": "Expression"
+          },
+          "quoteChar": {
+            "value": "@dataset().DS_QUOTE_CHARACTER",
+            "type": "Expression"
+          }
+        },
+        "schema": [
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          }
+        ]
+      },
+      "dependsOn": []
+    }
+  ]
+}
