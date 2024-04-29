@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.4
+* Improve calculation for number of batches for DCS for Azure ADLS to ADLS Masking Pipeline (for Gen2 Data Lake)
+
 # 0.0.3
 * Add support for DCS for Azure ADLS to ADLS Profiling Pipeline (for Gen2 Data Lake)
 * Add support for DCS for Azure ADLS to ADLS Masking Pipeline (for Gen2 Data Lake)

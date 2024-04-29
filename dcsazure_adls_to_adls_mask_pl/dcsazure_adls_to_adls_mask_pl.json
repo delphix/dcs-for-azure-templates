@@ -864,7 +864,7 @@
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
             "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
-            "          NumberOfBatches = toInteger(ceil((avg(row_count) / (avg(identified_column_max_length) / count(identified_column) * 100)))),",
+            "          NumberOfBatches = toInteger(ceil((avg(row_count)*count(identified_column))/100)),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
             "TypeMapping filter(equalsIgnoreCase(dataset, 'ADLS')) ~> FilterDatabricksType",

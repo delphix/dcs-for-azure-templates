@@ -55,10 +55,57 @@ steps:
       * For each table that does not require masking, perform a copy activity.
 
 ### Notes
-Sometimes the number of batches output in the `Get Mask Parameters` step will be incorrect. This is because ADLS does
-not provide us the number of rows in the files, which means that we may run into request size limits. To work
-around this, you can set a large number of rows for the row count in `discovered_ruleset` for tables that won't mask
+ADLS does not provide us the number of rows in files and as the files are text based, there is also no restriction on
+the size of each of the columns. Normally, we would use both of those pieces of information to compute the number of
+batches that are required in order to mask a table. As a result of this information being unavailable, sometimes the
+computed number of batches (which defaults to `1`) will be too low and masking requests will hit request size limits.
+
+To remedy this, you can define a number of rows for the row count in `discovered_ruleset` for tables that won't mask
 due to request size limits.
+
+The computation for the batch count is as follows:
+```
+ceiling (((maximum row count for this table)*(number of columns in this table with a masking algorithm)) / 100))
+```
+For any computation that produces a batch count less than `1`, `1` will be used.
+
+This means, that the number of batches will be defined based on the number of columns that need to be masked and the
+number of rows in the table.
+
+For example, consider a table with 10 columns. The number of batches will depend on how many rows there are in the table
+and how many of those 10 columns are to be masked (note that the number of rows represents an inclusive range).
+
+| number of rows | number of masked columns | number of batches |
+|----------------|--------------------------|-------------------|
+| [0-100]        | 1                        | 1                 |
+| [101-200]      | 1                        | 2                 |
+| [201-300]      | 1                        | 3                 |
+| [301-400]      | 1                        | 4                 |
+| [401-500]      | 1                        | 5                 |
+| [0-50]         | 2                        | 1                 |
+| [51-100]       | 2                        | 2                 |
+| [101-150]      | 2                        | 3                 |
+| [151-200]      | 2                        | 4                 |
+| [201-250]      | 2                        | 5                 |
+| [0-20]         | 5                        | 1                 |
+| [21-40]        | 5                        | 2                 |
+| [41-60]        | 5                        | 3                 |
+| [61-80]        | 5                        | 4                 |
+| [81-100]       | 5                        | 5                 |
+
+Note that while this will take the maximum row count, it is recommended to keep the row counts for individual file types
+the same. If, for example, you found that one batch was insufficient for masking a particular table, then you can update
+the row count in the data store using a query similar to the following:
+
+```sql
+UPDATE discovered_ruleset
+SET row_count = <desired-row-count>
+WHERE dataset= 'ADLS'
+	AND specified_database = '<adls-container>'
+	AND specified_schema = '<subdirectory-and-optional-prefix>'
+	AND identified_table = '<suffix>';
+```
+
 
 ### Parameters
 
