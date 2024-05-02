@@ -48,7 +48,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} dd\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -59,11 +59,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -124,15 +124,15 @@
                           "type": "Expression"
                         },
                         "DF_METADATA_SCHEMA": {
-                          "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                          "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
                         },
                         "DF_METADATA_RULESET_TABLE": {
-                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "value": "'@{variables('METADATA_RULESET_TABLE')}'",
                           "type": "Expression"
                         },
                         "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
-                          "value": "'@{pipeline().parameters.P_METADATA_ADF_TYPE_MAPPING_TABLE}'",
+                          "value": "'@{variables('METADATA_ADF_TYPE_MAPPING_TABLE')}'",
                           "type": "Expression"
                         }
                       },
@@ -214,13 +214,16 @@
                         "DF_TRIM_LENGTHS": {
                           "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths",
                           "type": "Expression"
+                        },
+                        "P_FAIL_ON_NONCONFORMING_DATA": {
+                          "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMING_DATA",
+                          "type": "Expression"
                         }
                       },
                       "datasetParameters": {
                         "SnowflakeSource": {},
                         "SnowflakeSink": {}
-                      },
-                      "linkedServiceParameters": {}
+                      }
                     },
                     "staging": {},
                     "compute": {
@@ -250,7 +253,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\nWHERE source_dataset = 'SNOWFLAKE'\nAND sink_dataset = 'SNOWFLAKE'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\nWHERE source_dataset = 'SNOWFLAKE'\nAND sink_dataset = 'SNOWFLAKE'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} dd\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -261,11 +264,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -359,7 +362,7 @@
                               "type": "LinkedServiceReference"
                             },
                             "path": {
-                              "value": "@pipeline().parameters.P_STAGING_STORAGE_PATH",
+                              "value": "@variables('STAGING_STORAGE_PATH')",
                               "type": "Expression"
                             }
                           }
@@ -428,20 +431,6 @@
                             "datasetParameters": {
                               "SnowflakeSource": {},
                               "SnowflakeSink": {}
-                            },
-                            "linkedServiceParameters": {
-                              "SnowflakeSource": {
-                                "linkedService": {
-                                  "LS_DATABASE": "DEMO_DB",
-                                  "LS_WAREHOUSE": "JL_WH"
-                                }
-                              },
-                              "SnowflakeSink": {
-                                "linkedService": {
-                                  "LS_DATABASE": "DEMO_DB",
-                                  "LS_WAREHOUSE": "JL_WH"
-                                }
-                              }
                             }
                           },
                           "staging": {},
@@ -464,28 +453,6 @@
           "elapsedTimeMetric": {}
         },
         "parameters": {
-          "P_SOURCE_DATABASE": {
-            "type": "string"
-          },
-          "P_SINK_DATABASE": {
-            "type": "string"
-          },
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
-          "P_METADATA_RULESET_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_ruleset"
-          },
-          "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
-            "type": "string",
-            "defaultValue": "adf_data_mapping"
-          },
-          "P_METADATA_ADF_TYPE_MAPPING_TABLE": {
-            "type": "string",
-            "defaultValue": "adf_type_mapping"
-          },
           "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
             "defaultValue": false
@@ -494,7 +461,14 @@
             "type": "bool",
             "defaultValue": false
           },
-          "P_STAGING_STORAGE_PATH": {
+          "P_FAIL_ON_NONCONFORMING_DATA": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_SOURCE_DATABASE": {
+            "type": "string"
+          },
+          "P_SINK_DATABASE": {
             "type": "string"
           },
           "P_SOURCE_SCHEMA": {
@@ -504,11 +478,33 @@
             "type": "string"
           }
         },
+        "variables": {
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
+          "METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
+          },
+          "METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_data_mapping"
+          },
+          "METADATA_ADF_TYPE_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_type_mapping"
+          },
+          "STAGING_STORAGE_PATH": {
+            "type": "String",
+            "defaultValue": "staging-container"
+          }
+        },
         "folder": {
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2024-03-26T18:51:53Z"
+        "lastPublishTime": "2024-04-30T23:32:46Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_mask_metadata_ds')]",
@@ -803,7 +799,8 @@
             "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
             "     DF_NUMBER_OF_BATCHES as integer (100),",
-            "     DF_TRIM_LENGTHS as integer[] ([1000])",
+            "     DF_TRIM_LENGTHS as integer[] ([1000]),",
+            "     P_FAIL_ON_NONCONFORMING_DATA as boolean (true())",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",

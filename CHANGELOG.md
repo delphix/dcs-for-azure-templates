@@ -1,4 +1,13 @@
 # CHANGELOG
+
+# 0.0.5
+* Add support for handling non-conformant data to DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)
+* Add support for handling non-conformant data to DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake (Legacy) linked service type)
+* Improve usability of DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)
+* Improve usability of DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake (Legacy) linked service type)
+* Improve usability of DCS for Azure Snowflake to Snowflake Profiling Pipeline (with Snowflake linked service type)
+* Improve usability of DCS for Azure Snowflake to Snowflake Profiling Pipeline (with Snowflake (Legacy) linked service type)
+
 # 0.0.4
 * Improve DCS for Azure ADLS to ADLS Profiling Pipeline (for Gen2 Data Lake)
   * Reduce complexity of pipeline parameters by removing unsupported parameters
