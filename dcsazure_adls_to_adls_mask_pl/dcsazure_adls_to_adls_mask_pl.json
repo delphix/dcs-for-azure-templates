@@ -46,7 +46,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} rs\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND rs.assigned_algorithm IS NOT NULL\nAND rs.assigned_algorithm != ''\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
+                  "value": "SELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} rs\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND rs.assigned_algorithm IS NOT NULL\nAND rs.assigned_algorithm != ''\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -57,11 +57,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -110,15 +110,15 @@
                           "type": "Expression"
                         },
                         "DF_METADATA_SCHEMA": {
-                          "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                          "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
                         },
                         "DF_METADATA_RULESET_TABLE": {
-                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "value": "'@{variables('METADATA_RULESET_TABLE')}'",
                           "type": "Expression"
                         },
                         "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
-                          "value": "'@{pipeline().parameters.P_METADATA_ADF_TYPE_MAPPING_TABLE}'",
+                          "value": "'@{variables('METADATA_ADF_TYPE_MAPPING_TABLE')}'",
                           "type": "Expression"
                         },
                         "DF_SOURCE_DB": {
@@ -138,7 +138,8 @@
                         "Ruleset": {},
                         "TypeMapping": {},
                         "MaskingParameterOutput": {}
-                      }
+                      },
+                      "linkedServiceParameters": {}
                     },
                     "staging": {},
                     "compute": {
@@ -180,7 +181,7 @@
                           "type": "Expression"
                         },
                         "DF_METADATA_RULESET_TABLE": {
-                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "value": "'@{variables('METADATA_RULESET_TABLE')}'",
                           "type": "Expression"
                         },
                         "DF_SOURCE_CONTAINER": {
@@ -223,10 +224,6 @@
                           "value": "'@{json(item().metadata).escape_character}'",
                           "type": "Expression"
                         },
-                        "DF_ROW_DELIMITER": {
-                          "value": "'@{json(item().metadata).row_delimiter}'",
-                          "type": "Expression"
-                        },
                         "DF_NULL_VALUE": {
                           "value": "'@{json(item().metadata).null_value}'",
                           "type": "Expression"
@@ -243,20 +240,24 @@
                           "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping",
                           "type": "Expression"
                         },
-                        "DF_NUMBER_OF_BATCHES": {
-                          "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches",
-                          "type": "Expression"
-                        },
                         "DF_TRIM_LENGTHS": {
                           "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths",
                           "type": "Expression"
                         },
-                        "DF_FIRST_ROW_AS_HEADER": "true()"
+                        "DF_FAIL_ON_NONCONFORMANT_DATA": {
+                          "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA",
+                          "type": "Expression"
+                        },
+                        "DF_TARGET_BATCH_SIZE": {
+                          "value": "@variables('TARGET_BATCH_SIZE')",
+                          "type": "Expression"
+                        }
                       },
                       "datasetParameters": {
                         "DelimitedSource": {},
                         "DelimetedSink": {}
-                      }
+                      },
+                      "linkedServiceParameters": {}
                     },
                     "staging": {},
                     "compute": {
@@ -289,7 +290,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} rs\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%'\nEXCEPT\nSELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} rs\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND rs.assigned_algorithm IS NOT NULL\nAND rs.assigned_algorithm != ''\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
+                  "value": "SELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} rs\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%'\nEXCEPT\nSELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nmetadata,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} rs\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = 'ADLS'\nAND rs.assigned_algorithm IS NOT NULL\nAND rs.assigned_algorithm != ''\nAND am.source_dataset = 'ADLS'\nAND am.sink_dataset = 'ADLS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -300,11 +301,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -421,7 +422,7 @@
                         },
                         "inputs": [
                           {
-                            "referenceName": "dcsazure_adls_container_and_directory",
+                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -437,7 +438,7 @@
                         ],
                         "outputs": [
                           {
-                            "referenceName": "dcsazure_adls_container_and_directory",
+                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -499,10 +500,6 @@
                                 "value": "'@{json(item().metadata).column_delimiter}'",
                                 "type": "Expression"
                               },
-                              "DF_ROW_DELIMITER": {
-                                "value": "'@{json(item().metadata).row_delimiter}'",
-                                "type": "Expression"
-                              },
                               "DF_QUOTE_CHARACTER": {
                                 "value": "'@{json(item().metadata).quote_character}'",
                                 "type": "Expression"
@@ -544,25 +541,17 @@
           "elapsedTimeMetric": {}
         },
         "parameters": {
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
-          "P_METADATA_RULESET_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_ruleset"
-          },
-          "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
-            "type": "string",
-            "defaultValue": "adf_data_mapping"
-          },
-          "P_METADATA_ADF_TYPE_MAPPING_TABLE": {
-            "type": "string",
-            "defaultValue": "adf_type_mapping"
-          },
           "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
             "defaultValue": false
+          },
+          "P_COPY_USE_DATAFLOW": {
+            "type": "bool",
+            "defaultValue": false
+          },
+          "P_FAIL_ON_NONCONFORMANT_DATA": {
+            "type": "bool",
+            "defaultValue": true
           },
           "P_SOURCE_DATABASE": {
             "type": "string"
@@ -575,66 +564,41 @@
           },
           "P_SINK_DIRECTORY": {
             "type": "string"
-          },
-          "P_COPY_USE_DATAFLOW": {
-            "type": "bool",
-            "defaultValue": false
           }
         },
         "variables": {
-          "FULL_SCHEMA_STORAGE_LOCATION": {
-            "type": "String"
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
           },
-          "SCHEMA_STORAGE_SUB_DIRECTORY": {
-            "type": "String"
+          "METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
           },
-          "SCHEMA_STORAGE_LOCATION": {
-            "type": "String"
+          "METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_data_mapping"
           },
-          "FULL_CATALOG_STORAGE_LOCATION": {
-            "type": "String"
+          "METADATA_ADF_TYPE_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_type_mapping"
           },
-          "CATALOG_CONTAINER_PATH_WITH_PREFIX": {
-            "type": "String"
-          },
-          "CATALOG_CONTAINER_NAME": {
-            "type": "String"
-          },
-          "CATALOG_CONTAINER_NAME_WITH_PREFIX": {
-            "type": "String"
-          },
-          "CATALOG_STORAGE_SUB_DIRECTORY": {
-            "type": "String"
-          },
-          "CATALOG_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "TABLES_UNABLE_TO_MASK": {
-            "type": "Array",
-            "defaultValue": []
-          },
-          "DISCOVERED_TABLES_THAT_COULD_NOT_BE_PROFILED": {
-            "type": "Array"
-          },
-          "writerVersion": {
+          "TARGET_BATCH_SIZE": {
             "type": "Integer",
-            "defaultValue": 2
-          },
-          "SINK_DELTA_PATH": {
-            "type": "String"
+            "defaultValue": 2000
           }
         },
         "folder": {
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-04-11T17:48:53Z"
+        "lastPublishTime": "2024-05-03T18:49:45Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_mask_ds')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_mask_params_df')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_mask_df')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_mask_ds')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_copy_df')]"
       ]
     },
@@ -975,7 +939,7 @@
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
-            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_METADATA_RULESET_TABLE as string (''),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SINK_CONTAINER as string (''),",
             "     DF_SOURCE_DIRECTORY as string (''),",
@@ -983,17 +947,16 @@
             "     DF_SOURCE_PREFIX as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_SINK_TABLE as string (''),",
-            "     DF_COLUMN_DELIMITER as string (','),",
-            "     DF_QUOTE_CHARACTER as string ('\"'),",
-            "     DF_ESCAPE_CHARACTER as string ('\\\\'),",
-            "     DF_ROW_DELIMITER as string ('\\r\\n'),",
+            "     DF_COLUMN_DELIMITER as string (''),",
+            "     DF_QUOTE_CHARACTER as string (''),",
+            "     DF_ESCAPE_CHARACTER as string (''),",
             "     DF_NULL_VALUE as string (''),",
             "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
             "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
-            "     DF_NUMBER_OF_BATCHES as integer (100),",
-            "     DF_TRIM_LENGTHS as integer[] ([1000]),",
-            "     DF_FIRST_ROW_AS_HEADER as boolean (true())",
+            "     DF_TRIM_LENGTHS as integer[] ([-1]),",
+            "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
+            "     DF_TARGET_BATCH_SIZE as integer (2000)",
             "}",
             "source(useSchema: false,",
             "     allowSchemaDrift: true,",
@@ -1002,12 +965,11 @@
             "     rowUrlColumn: 'DELPHIX_COMPLIANCE_SERVICE_FILE_NAME',",
             "     format: 'delimited',",
             "     fileSystem: ($DF_SOURCE_CONTAINER),",
-            "     rowDelimiter: ($DF_ROW_DELIMITER),",
             "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
             "     escapeChar: ($DF_ESCAPE_CHARACTER),",
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
             "     nullValue: ($DF_NULL_VALUE),",
-            "     columnNamesAsHeader: ($DF_FIRST_ROW_AS_HEADER),",
+            "     columnNamesAsHeader: true,",
             "     wildcardPaths:[(concat($DF_SOURCE_DIRECTORY,iif(length($DF_SOURCE_PREFIX) == 0,iif(equals('NO_EXT',$DF_SOURCE_TABLE),'*',concat('*',$DF_SOURCE_TABLE)),iif(equals('NO_EXT',$DF_SOURCE_TABLE),concat($DF_SOURCE_PREFIX,'*'),concat($DF_SOURCE_PREFIX,'*',$DF_SOURCE_TABLE)))))],",
             "     partitionBy('roundRobin', 32)) ~> DelimitedSource",
             "FlattenValuesOutOfArray call(mapColumn(",
@@ -1017,7 +979,7 @@
             "     skipDuplicateMapOutputs: true,",
             "     output(",
             "          headers as [string,string],",
-            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, speaking_to as string, relationship_code as string, record_type as string, member_id as string, las_tname as string, first_name as string, communication_channel as string, birth_date as string)[]),",
+            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[]),",
             "          status as string",
             "     ),",
             "     allowSchemaDrift: true,",
@@ -1025,9 +987,9 @@
             "     store: 'restservice',",
             "     timeout: 30,",
             "     requestInterval: 0,",
-            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT],",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false')],",
             "     httpMethod: 'POST',",
-            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     entity: 'v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -1046,7 +1008,7 @@
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
-            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/($DF_TARGET_BATCH_SIZE/size($DF_COLUMNS_TO_MASK))))),",
             "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
             "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
@@ -1077,12 +1039,11 @@
             "     format: 'delimited',",
             "     fileSystem: ($DF_SINK_CONTAINER),",
             "     folderPath: ($DF_SINK_DIRECTORY),",
-            "     rowDelimiter: ($DF_ROW_DELIMITER),",
             "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
             "     escapeChar: ($DF_ESCAPE_CHARACTER),",
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
             "     nullValue: ($DF_NULL_VALUE),",
-            "     columnNamesAsHeader: ($DF_FIRST_ROW_AS_HEADER),",
+            "     columnNamesAsHeader: true,",
             "     rowUrlColumn:'DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME',",
             "     umask: 0022,",
             "     preCommands: [],",
@@ -1098,7 +1059,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory_mask_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1186,7 +1147,6 @@
             "     DF_SINK_DIRECTORY as string (''),",
             "     DF_SOURCE_PREFIX as string (''),",
             "     DF_COLUMN_DELIMITER as string (','),",
-            "     DF_ROW_DELIMITER as string ('\\r\\n'),",
             "     DF_QUOTE_CHARACTER as string ('\"'),",
             "     DF_ESCAPE_CHARACTER as string ('\\\\'),",
             "     DF_NULL_VALUE as string (''),",
@@ -1199,7 +1159,6 @@
             "     rowUrlColumn: 'DELPHIX_COMPLIANCE_SERVICES_FILE_NAME',",
             "     format: 'delimited',",
             "     fileSystem: ($DF_SOURCE_DATABASE),",
-            "     rowDelimiter: ($DF_ROW_DELIMITER),",
             "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
             "     escapeChar: ($DF_ESCAPE_CHARACTER),",
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
@@ -1212,7 +1171,6 @@
             "     format: 'delimited',",
             "     fileSystem: ($DF_SINK_DATABASE),",
             "     folderPath: ($DF_SINK_DIRECTORY),",
-            "     rowDelimiter: ($DF_ROW_DELIMITER),",
             "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
             "     escapeChar: ($DF_ESCAPE_CHARACTER),",
             "     quoteChar: ($DF_QUOTE_CHARACTER),",

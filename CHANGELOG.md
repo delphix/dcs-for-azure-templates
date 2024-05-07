@@ -1,4 +1,12 @@
 # CHANGELOG
+# 0.0.4
+* Improve DCS for Azure ADLS to ADLS Profiling Pipeline (for Gen2 Data Lake)
+  * Reduce complexity of pipeline parameters by removing unsupported parameters
+  * Reduce number of parameters by moving reasonably static components to variables
+* Improve DCS for Azure ADLS to ADLS Masking Pipeline (for Gen2 Data Lake)
+  * Simplify the way in with batch sizes are managed
+  * Add support for not failing the pipeline when non-conformant data errors are encountered
+  * Reduce number of parameters by moving reasonably static components to variables
 
 # 0.0.3
 * Add support for DCS for Azure ADLS to ADLS Profiling Pipeline (for Gen2 Data Lake)

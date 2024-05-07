@@ -40,7 +40,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_adls_container_and_directory",
+                "referenceName": "dcsazure_adls_container_and_directory_prof_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_CONTAINER": {
@@ -164,7 +164,7 @@
               "isSequential": false,
               "activities": [
                 {
-                  "name": "Identifiy Files In The Schema",
+                  "name": "Identifiy Files In Homogeneous Schema",
                   "type": "GetMetadata",
                   "dependsOn": [],
                   "policy": {
@@ -177,7 +177,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_adls_sub_directory",
+                      "referenceName": "dcsazure_adls_sub_directory_prof_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
@@ -204,11 +204,11 @@
                   }
                 },
                 {
-                  "name": "Filter csv",
+                  "name": "Homogeneous filter csv",
                   "type": "Filter",
                   "dependsOn": [
                     {
-                      "activity": "Identifiy Files In The Schema",
+                      "activity": "Identifiy Files In Homogeneous Schema",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -217,7 +217,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "items": {
-                      "value": "@activity('Identifiy Files In The Schema').output.childItems",
+                      "value": "@activity('Identifiy Files In Homogeneous Schema').output.childItems",
                       "type": "Expression"
                     },
                     "condition": {
@@ -227,11 +227,11 @@
                   }
                 },
                 {
-                  "name": "Filter txt",
+                  "name": "Homogeneous filter txt",
                   "type": "Filter",
                   "dependsOn": [
                     {
-                      "activity": "Identifiy Files In The Schema",
+                      "activity": "Identifiy Files In Homogeneous Schema",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -240,7 +240,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "items": {
-                      "value": "@activity('Identifiy Files In The Schema').output.childItems",
+                      "value": "@activity('Identifiy Files In Homogeneous Schema').output.childItems",
                       "type": "Expression"
                     },
                     "condition": {
@@ -250,11 +250,11 @@
                   }
                 },
                 {
-                  "name": "Get metadata for csv",
+                  "name": "Homogeneous get csv schema",
                   "type": "ExecutePipeline",
                   "dependsOn": [
                     {
-                      "activity": "Filter csv",
+                      "activity": "Homogeneous filter csv",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -272,11 +272,11 @@
                     "waitOnCompletion": true,
                     "parameters": {
                       "P_METADATA_SCHEMA": {
-                        "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                        "value": "@variables('METADATA_SCHEMA')",
                         "type": "Expression"
                       },
                       "P_METADATA_RULESET_TABLE": {
-                        "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                        "value": "@variables('METADATA_RULESET_TABLE')",
                         "type": "Expression"
                       },
                       "P_STORAGE_CONTAINER": {
@@ -293,19 +293,11 @@
                         "type": "Expression"
                       },
                       "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                        "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
-                        "type": "Expression"
-                      },
-                      "P_ROW_DELIMITER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.row_delimiter",
+                        "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
                         "type": "Expression"
                       },
                       "P_QUOTE_CHARACTER": {
                         "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.quote_character",
-                        "type": "Expression"
-                      },
-                      "P_FIRST_ROW_AS_HEADER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.first_row_as_header",
                         "type": "Expression"
                       },
                       "P_NULL_VALUE": {
@@ -320,11 +312,11 @@
                   }
                 },
                 {
-                  "name": "Get metadata for txt",
+                  "name": "Homogeneous get txt schema",
                   "type": "ExecutePipeline",
                   "dependsOn": [
                     {
-                      "activity": "Filter txt",
+                      "activity": "Homogeneous filter txt",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -342,11 +334,11 @@
                     "waitOnCompletion": true,
                     "parameters": {
                       "P_METADATA_SCHEMA": {
-                        "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                        "value": "@variables('METADATA_SCHEMA')",
                         "type": "Expression"
                       },
                       "P_METADATA_RULESET_TABLE": {
-                        "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                        "value": "@variables('METADATA_RULESET_TABLE')",
                         "type": "Expression"
                       },
                       "P_STORAGE_CONTAINER": {
@@ -363,19 +355,11 @@
                         "type": "Expression"
                       },
                       "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                        "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
-                        "type": "Expression"
-                      },
-                      "P_ROW_DELIMITER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.row_delimiter",
+                        "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
                         "type": "Expression"
                       },
                       "P_QUOTE_CHARACTER": {
                         "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.quote_character",
-                        "type": "Expression"
-                      },
-                      "P_FIRST_ROW_AS_HEADER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.first_row_as_header",
                         "type": "Expression"
                       },
                       "P_NULL_VALUE": {
@@ -390,11 +374,11 @@
                   }
                 },
                 {
-                  "name": "Filter no extension",
+                  "name": "Homogeneous filter no extension",
                   "type": "Filter",
                   "dependsOn": [
                     {
-                      "activity": "Identifiy Files In The Schema",
+                      "activity": "Identifiy Files In Homogeneous Schema",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -403,7 +387,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "items": {
-                      "value": "@activity('Identifiy Files In The Schema').output.childItems",
+                      "value": "@activity('Identifiy Files In Homogeneous Schema').output.childItems",
                       "type": "Expression"
                     },
                     "condition": {
@@ -413,11 +397,11 @@
                   }
                 },
                 {
-                  "name": "Get metadata for no extension",
+                  "name": "Homogeneous get NO_EXT schema",
                   "type": "ExecutePipeline",
                   "dependsOn": [
                     {
-                      "activity": "Filter no extension",
+                      "activity": "Homogeneous filter no extension",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -435,11 +419,11 @@
                     "waitOnCompletion": true,
                     "parameters": {
                       "P_METADATA_SCHEMA": {
-                        "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                        "value": "@variables('METADATA_SCHEMA')",
                         "type": "Expression"
                       },
                       "P_METADATA_RULESET_TABLE": {
-                        "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                        "value": "@variables('METADATA_RULESET_TABLE')",
                         "type": "Expression"
                       },
                       "P_STORAGE_CONTAINER": {
@@ -456,19 +440,11 @@
                         "type": "Expression"
                       },
                       "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                        "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
-                        "type": "Expression"
-                      },
-                      "P_ROW_DELIMITER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.row_delimiter",
+                        "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
                         "type": "Expression"
                       },
                       "P_QUOTE_CHARACTER": {
                         "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.quote_character",
-                        "type": "Expression"
-                      },
-                      "P_FIRST_ROW_AS_HEADER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.first_row_as_header",
                         "type": "Expression"
                       },
                       "P_NULL_VALUE": {
@@ -514,22 +490,22 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table,\n    metadata\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE}\nWHERE LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}')\nAND dataset = 'ADLS'",
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table,\n    metadata\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}')\nAND dataset = 'ADLS'",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_adls_to_adls_delta_metadata_prof_ds",
+                "referenceName": "dcsazure_adls_to_adls_delta_metadata_prof_ds1",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -557,7 +533,7 @@
               "isSequential": false,
               "activities": [
                 {
-                  "name": "If csv",
+                  "name": "Heterogeneous - if csv",
                   "type": "IfCondition",
                   "dependsOn": [],
                   "userProperties": [],
@@ -568,7 +544,7 @@
                     },
                     "ifTrueActivities": [
                       {
-                        "name": "Get csv schema",
+                        "name": "Heterogeneous get csv schema",
                         "type": "ExecutePipeline",
                         "dependsOn": [],
                         "policy": {
@@ -583,11 +559,11 @@
                           "waitOnCompletion": true,
                           "parameters": {
                             "P_METADATA_SCHEMA": {
-                              "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                              "value": "@variables('METADATA_SCHEMA')",
                               "type": "Expression"
                             },
                             "P_METADATA_RULESET_TABLE": {
-                              "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                              "value": "@variables('METADATA_RULESET_TABLE')",
                               "type": "Expression"
                             },
                             "P_STORAGE_CONTAINER": {
@@ -607,23 +583,15 @@
                               "type": "Expression"
                             },
                             "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                              "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
                               "type": "Expression"
                             },
                             "P_PREFIX": {
                               "value": "@item().prefix",
                               "type": "Expression"
                             },
-                            "P_ROW_DELIMITER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.row_delimiter",
-                              "type": "Expression"
-                            },
                             "P_QUOTE_CHARACTER": {
                               "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.quote_character",
-                              "type": "Expression"
-                            },
-                            "P_FIRST_ROW_AS_HEADER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.first_row_as_header",
                               "type": "Expression"
                             },
                             "P_NULL_VALUE": {
@@ -641,7 +609,7 @@
                   }
                 },
                 {
-                  "name": "If txt",
+                  "name": "Heterogeneous - if txt",
                   "type": "IfCondition",
                   "dependsOn": [],
                   "userProperties": [],
@@ -652,7 +620,7 @@
                     },
                     "ifTrueActivities": [
                       {
-                        "name": "Get txt schema",
+                        "name": "Heterogeneous get txt schema",
                         "type": "ExecutePipeline",
                         "dependsOn": [],
                         "policy": {
@@ -667,11 +635,11 @@
                           "waitOnCompletion": true,
                           "parameters": {
                             "P_METADATA_SCHEMA": {
-                              "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                              "value": "@variables('METADATA_SCHEMA')",
                               "type": "Expression"
                             },
                             "P_METADATA_RULESET_TABLE": {
-                              "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                              "value": "@variables('METADATA_RULESET_TABLE')",
                               "type": "Expression"
                             },
                             "P_STORAGE_CONTAINER": {
@@ -691,23 +659,15 @@
                               "type": "Expression"
                             },
                             "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                              "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
                               "type": "Expression"
                             },
                             "P_PREFIX": {
                               "value": "@item().prefix",
                               "type": "Expression"
                             },
-                            "P_ROW_DELIMITER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.row_delimiter",
-                              "type": "Expression"
-                            },
                             "P_QUOTE_CHARACTER": {
                               "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.quote_character",
-                              "type": "Expression"
-                            },
-                            "P_FIRST_ROW_AS_HEADER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.first_row_as_header",
                               "type": "Expression"
                             },
                             "P_NULL_VALUE": {
@@ -725,7 +685,7 @@
                   }
                 },
                 {
-                  "name": "If NO_EXT",
+                  "name": "Heterogeneous - if NO_EXT",
                   "type": "IfCondition",
                   "dependsOn": [],
                   "userProperties": [],
@@ -736,7 +696,7 @@
                     },
                     "ifTrueActivities": [
                       {
-                        "name": "Get NO_EXT schema",
+                        "name": "Heterogeneous get NO_EXT schema",
                         "type": "ExecutePipeline",
                         "dependsOn": [],
                         "policy": {
@@ -751,11 +711,11 @@
                           "waitOnCompletion": true,
                           "parameters": {
                             "P_METADATA_SCHEMA": {
-                              "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                              "value": "@variables('METADATA_SCHEMA')",
                               "type": "Expression"
                             },
                             "P_METADATA_RULESET_TABLE": {
-                              "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                              "value": "@variables('METADATA_RULESET_TABLE')",
                               "type": "Expression"
                             },
                             "P_STORAGE_CONTAINER": {
@@ -775,23 +735,15 @@
                               "type": "Expression"
                             },
                             "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                              "value": "@pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME",
+                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
                               "type": "Expression"
                             },
                             "P_PREFIX": {
                               "value": "@item().prefix",
                               "type": "Expression"
                             },
-                            "P_ROW_DELIMITER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.row_delimiter",
-                              "type": "Expression"
-                            },
                             "P_QUOTE_CHARACTER": {
                               "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.quote_character",
-                              "type": "Expression"
-                            },
-                            "P_FIRST_ROW_AS_HEADER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.first_row_as_header",
                               "type": "Expression"
                             },
                             "P_NULL_VALUE": {
@@ -911,11 +863,11 @@
                         },
                         "DF_NUM_ROWS_TO_PROFILE": "1000",
                         "DF_METADATA_SCHEMA": {
-                          "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                          "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
                         },
                         "DF_METADATA_RULESET_TABLE": {
-                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "value": "'@{variables('METADATA_RULESET_TABLE')}'",
                           "type": "Expression"
                         },
                         "DF_SOURCE_CONTAINER": {
@@ -932,10 +884,6 @@
                         },
                         "DF_ESCAPE_CHARACTER": {
                           "value": "'@{json(item().metadata).escape_character}'",
-                          "type": "Expression"
-                        },
-                        "DF_ROW_DELIMITER": {
-                          "value": "'@{json(item().metadata).row_delimiter}'",
                           "type": "Expression"
                         },
                         "DF_NULL_VALUE": {
@@ -955,7 +903,8 @@
                         "SourceData1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
-                      }
+                      },
+                      "linkedServiceParameters": {}
                     },
                     "staging": {},
                     "compute": {
@@ -973,14 +922,6 @@
           "elapsedTimeMetric": {}
         },
         "parameters": {
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
-          "P_METADATA_RULESET_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_ruleset"
-          },
           "P_STORAGE_CONTAINER_TO_PROFILE": {
             "type": "String"
           },
@@ -1000,26 +941,20 @@
             "defaultValue": {
               "csv": {
                 "column_delimiter": ",",
-                "row_delimiter": "\\r\\n",
                 "quote_character": "\"",
-                "escape_character": "\\\\",
-                "first_row_as_header": true,
+                "escape_character": "\\",
                 "null_value": ""
               },
               "txt": {
                 "column_delimiter": "|",
-                "row_delimiter": "\\r\\n",
                 "quote_character": "\"",
-                "escape_character": "\\\\",
-                "first_row_as_header": true,
+                "escape_character": "\\",
                 "null_value": ""
               },
               "NO_EXT": {
                 "column_delimiter": "|",
-                "row_delimiter": "\\r\\n",
                 "quote_character": "\"",
-                "escape_character": "\\\\",
-                "first_row_as_header": true,
+                "escape_character": "\\",
                 "null_value": ""
               }
             }
@@ -1031,7 +966,7 @@
           "P_MIXED_FILE_SCHEMA_DISAMBIGUATION": {
             "type": "object",
             "defaultValue": {
-              "DCS_SAMPLE_PREFIX_": {
+              "DCS_EXAMPLE_PREFIX": {
                 "suffixes": [
                   "csv",
                   "txt",
@@ -1039,13 +974,21 @@
                 ]
               }
             }
-          },
-          "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-            "type": "string",
-            "defaultValue": "get_columns_from_adls_file_structure_sp"
           }
         },
         "variables": {
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
+          "METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
+          },
+          "COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "get_columns_from_adls_file_structure_sp"
+          },
           "HOMOGENEOUS_SCHEMAS_TO_CHECK": {
             "type": "Array",
             "defaultValue": []
@@ -1059,18 +1002,18 @@
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-04-02T17:46:12Z"
+        "lastPublishTime": "2024-05-03T20:24:02Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_delta_metadata_prof_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_delta_metadata_prof_ds1')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory_prof_ds')]",
         "[concat(variables('factoryId'), '/pipelines/dcsazure_adls_to_adls_prof_file_pl')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_prof_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory_prof_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1117,7 +1060,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delta_metadata_prof_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delta_metadata_prof_ds1')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1184,7 +1127,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_sub_directory')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_sub_directory_prof_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1250,7 +1193,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_adls_container_and_directory",
+                "referenceName": "dcsazure_adls_container_and_directory_prof_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_CONTAINER": {
@@ -1354,7 +1297,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_adls_delimited_header",
+                      "referenceName": "dcsazure_adls_delimited_header_prof_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_STORAGE_CONTAINER": {
@@ -1373,20 +1316,12 @@
                           "value": "@pipeline().parameters.P_COLUMN_DELIMITER",
                           "type": "Expression"
                         },
-                        "DS_ROW_DELIMITER": {
-                          "value": "@pipeline().parameters.P_ROW_DELIMITER",
-                          "type": "Expression"
-                        },
                         "DS_QUOTE_CHARACTER": {
                           "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
                           "type": "Expression"
                         },
                         "DS_ESCAPE_CHARACTER": {
                           "value": "@pipeline().parameters.P_ESCAPE_CHARACTER",
-                          "type": "Expression"
-                        },
-                        "DS_FIRST_ROW_AS_HEADER": {
-                          "value": "@pipeline().parameters.P_FIRST_ROW_AS_HEADER",
                           "type": "Expression"
                         },
                         "DS_NULL_VALUE": {
@@ -1456,17 +1391,10 @@
                       },
                       "escape_character": {
                         "value": {
-                          "value": "@pipeline().parameters.P_ESCAPE_CHARACTER",
+                          "value": "@replace(pipeline().parameters.P_ESCAPE_CHARACTER,'\\','\\\\')",
                           "type": "Expression"
                         },
                         "type": "String"
-                      },
-                      "first_row_as_header": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_FIRST_ROW_AS_HEADER",
-                          "type": "Expression"
-                        },
-                        "type": "Boolean"
                       },
                       "null_value": {
                         "value": {
@@ -1478,13 +1406,6 @@
                       "quote_character": {
                         "value": {
                           "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "row_delimiter": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_ROW_DELIMITER",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -1519,12 +1440,10 @@
         },
         "parameters": {
           "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
+            "type": "string"
           },
           "P_METADATA_RULESET_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_ruleset"
+            "type": "string"
           },
           "P_STORAGE_CONTAINER": {
             "type": "String"
@@ -1539,21 +1458,13 @@
             "type": "string"
           },
           "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-            "type": "string",
-            "defaultValue": "get_columns_from_adls_file_structure_sp"
+            "type": "string"
           },
           "P_PREFIX": {
             "type": "string"
           },
-          "P_ROW_DELIMITER": {
-            "type": "string"
-          },
           "P_QUOTE_CHARACTER": {
             "type": "string"
-          },
-          "P_FIRST_ROW_AS_HEADER": {
-            "type": "string",
-            "defaultValue": "true"
           },
           "P_NULL_VALUE": {
             "type": "string"
@@ -1566,11 +1477,11 @@
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-04-01T23:27:34Z"
+        "lastPublishTime": "2024-05-03T20:24:02Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_delimited_header')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_delimited_header_prof_ds')]"
       ]
     },
     {
@@ -1672,7 +1583,6 @@
             "     DF_COLUMN_DELIMITER as string (''),",
             "     DF_QUOTE_CHARACTER as string ('\\\"'),",
             "     DF_ESCAPE_CHARACTER as string ('\\\\'),",
-            "     DF_ROW_DELIMITER as string ('\\r\\n'),",
             "     DF_NULL_VALUE as string (''),",
             "     DF_SCHEMA as string (''),",
             "     DF_TABLE as string ('')",
@@ -1684,7 +1594,6 @@
             "     ignoreNoFilesFound: false,",
             "     format: 'delimited',",
             "     fileSystem: ($DF_SOURCE_CONTAINER),",
-            "     rowDelimiter: ($DF_ROW_DELIMITER),",
             "     columnDelimiter: ($DF_COLUMN_DELIMITER),",
             "     escapeChar: ($DF_ESCAPE_CHARACTER),",
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
@@ -1735,7 +1644,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId],",
             "     httpMethod: 'POST',",
-            "     entity: '/v1/discovery/profileByColumn',",
+            "     entity: 'v1/discovery/profileByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -1836,7 +1745,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_delimited_header')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_delimited_header_prof_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1857,17 +1766,11 @@
           "DS_COLUMN_DELIMITER": {
             "type": "String"
           },
-          "DS_ROW_DELIMITER": {
-            "type": "string"
-          },
           "DS_QUOTE_CHARACTER": {
             "type": "string"
           },
           "DS_ESCAPE_CHARACTER": {
             "type": "string"
-          },
-          "DS_FIRST_ROW_AS_HEADER": {
-            "type": "bool"
           },
           "DS_NULL_VALUE": {
             "type": "string"
@@ -1898,11 +1801,11 @@
             "value": "@dataset().DS_COLUMN_DELIMITER",
             "type": "Expression"
           },
-          "escapeChar": "\\",
-          "firstRowAsHeader": {
-            "value": "@dataset().DS_FIRST_ROW_AS_HEADER",
+          "escapeChar": {
+            "value": "@dataset().DS_ESCAPE_CHARACTER",
             "type": "Expression"
           },
+          "firstRowAsHeader": true,
           "quoteChar": {
             "value": "@dataset().DS_QUOTE_CHARACTER",
             "type": "Expression"
