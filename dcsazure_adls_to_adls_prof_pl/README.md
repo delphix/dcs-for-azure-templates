@@ -5,7 +5,7 @@ This pipeline will perform automated sensitive data discovery on your Azure Data
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.04.18.0`).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.05.02.0`).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage (Gen 2) service associated with your ADLS source data.
 
@@ -37,24 +37,39 @@ steps:
 ### How It Works
 The profiling pipeline has a few stages:
 * Identify Nested Schemas
-  * Using a `Get Metadata` step, collect the items under the specified `P_DIRECTORY` directory
+  * Using a `Get Metadata` activity, collect the items under the specified `P_DIRECTORY` directory
   * For each item in that list, identify if the schema of the files in that child directory is expected to be
     homogeneous or heterogeneous. In the case where it's expected to be homogeneous, the child directory is added to
     an array-type variable, similarly for heterogeneous schemas.
 * Schema Discovery Using Azure Data Factory Metadata Discovery
-  * Using a `Get Metadata` step store details about the columns within each file, persisting the data into the
-    `discovered_ruleset` table of the metadata store
-* Select Discovered Tables
-  * After the previous step, we query the database for all tables we found in the specified schema and perform profiling
+  * For each of the directories with heterogeneous schema, identify the schema for each file with one of the suffixes to
+    scan, determine the structure of the file by calling the child `dcsazure_adls_to_adls_prof_file_pl` pipeline with
+    the appropriate parameters.
+  * For each of the directories with a homogeneous schema, and for each of the prefixes/suffix combinations specified in
+    the `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` variable, determine the structure of the file by calling the child
+    `dcsazure_adls_to_adls_prof_file_pl` pipeline with the appropriate parameters.
+* Select Discovered Tables - In this case, we consider the table to be items with the same schema.
+  * After the previous step, we query the database for all tables (file suffixes within each distinct path of the
+    storage container) and perform profiling of the data in those files.
 * ForEach Discovered Table
   * Each table that we've discovered needs to be profiled, the process for that is as follows:
-    * Get the row count from the table
-    * Get details for the table
-    * Check that the table is not empty and that the table can be read
-      * If the table contains data and can be read, run the `dcsazure_Databricks_to_Databricks_prof_df` dataflow, which
-        samples the data from the source, and calls the DCS for Azure service to profile the data
-      * If the table either does not contain data or cannot be read, run the
-        `dcsazure_Databricks_to_Databricks_prof_empty_tables_df` which updates the row count accordingly
+    * Run the profile dataflow with the appropriate parameters.
+
+### Variables
+
+If you have configured your database using the metadata store scripts, these variables will not need editing. If you
+have customized your metadata store, then these variables may need editing.
+
+* `METADATA_SCHEMA` - This is the schema to be used for in the self-hosted AzureSQL database for storing metadata
+  (default `dbo`).
+* `METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset (default
+  `discovered_ruleset`).
+* `COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME` - This is the stored procedure on the AzureSQL database that can
+  accept, in part, the file structure from the `Get Metadata` ADF pipeline Activity.
+* `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
+  accumulator for the list of directories with heterogeneous schemas.
+* `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
+  accumulator for the list of directories with homogeneous schemas.
 
 ### Parameters
 
@@ -65,12 +80,13 @@ The profiling pipeline has a few stages:
   represent suffixes to file names, not a true extension as `.` is not supported in the keys of the object definition
   in `P_SUFFIX_DELIMITER_MAP` (default `["csv","txt","NO_EXT"]`)
 * `P_SUFFIX_DELIMITER_MAP` - This map is used to define the parameters needed in order to correctly interpret
-  (default `{"csv":{"column_delimiter":",","row_delimiter":"\\r\\n","quote_character":"\"","escape_character":"\\\\","first_row_as_header":true,"null_value":""},"txt":{"column_delimiter":"|","row_delimiter":"\\r\\n","quote_character":"\"","escape_character":"\\\\","first_row_as_header":true,"null_value":""},"NO_EXT":{"column_delimiter":"|","row_delimiter":"\\r\\n","quote_character":"\"","escape_character":"\\\\","first_row_as_header":true,"null_value":""}}`)
-* `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` - (default `[]`)
-* `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` - (default `{"DCS_SAMPLE_PREFIX_":{"suffixes":["csv","txt","NO_EXT"]}}`)
-* `P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME` - (default `get_columns_from_adls_file_structure_sp`)
-* `P_METADATA_SCHEMA` - This is the schema to be used for in the self-hosted AzureSQL database for storing metadata (default `dbo`)
-* `P_METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset (default `discovered_ruleset`)
+  (default `{"csv":{"column_delimiter":",","quote_character":"\"","escape_character":"\\","null_value":""},"txt":{"column_delimiter":"|","quote_character":"\"","escape_character":"\\","null_value":""},"NO_EXT":{"column_delimiter":"|","quote_character":"\"","escape_character":"\\","null_value":""}}`)
+* `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` - This is the list of directories whose contents have mixed schemas, see the
+  details in the notes below (default `[]`)
+* `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` - This is the list of file prefixes that can be used to disambiguate directories
+  with heterogeneous schemas, see the details in the notes below (default
+  `{"DCS_EXAMPLE_PREFIX":{"suffixes":["csv","txt","NO_EXT"]}}`)
+
 
 #### Notes
 The default value of `P_SUFFIXES_TO_SCAN` is the list containing all supported suffixes. It will not suffice to add an
@@ -81,26 +97,20 @@ The default value of `P_SUFFIX_DELIMITER_MAP` can be more easily read when we ap
 {
   "csv": {
     "column_delimiter": ",",
-    "row_delimiter": "\\r\\n",
     "quote_character": "\"",
-    "escape_character": "\\\\",
-    "first_row_as_header": true,
+    "escape_character": "\\",
     "null_value": ""
   },
   "txt": {
     "column_delimiter": "|",
-    "row_delimiter": "\\r\\n",
     "quote_character": "\"",
-    "escape_character": "\\\\",
-    "first_row_as_header": true,
+    "escape_character": "\\",
     "null_value": ""
   },
   "NO_EXT": {
     "column_delimiter": "|",
-    "row_delimiter": "\\r\\n",
     "quote_character": "\"",
-    "escape_character": "\\\\",
-    "first_row_as_header": true,
+    "escape_character": "\\",
     "null_value": ""
   }
 }
@@ -108,25 +118,33 @@ The default value of `P_SUFFIX_DELIMITER_MAP` can be more easily read when we ap
 As the pipeline runs, it will refer to these values when parsing the files in ADLS. If a configuration for the row or
 column delimiter is incorrect, the profiling may or may not fail. If the column delimiter was incorrect, then the
 results in the `discovered_ruleset` table will be incorrect. For example, if the ADLS store has a `csv` file whose
-header is: `column1,column2,column3`, and the column delimiter for `csv` is specified as `|`, then there will be an
+header is: `column1|column2|column3`, and the column delimiter for `csv` is specified as `,`, then there will be an
 entry in the `discovered_ruleset` table corresponding to table name `csv` with `identified_column` containing
-`column1,column2,column3`. To correct this, you will need to remove the erroneous row from the table, and re-run the
+`column1|column2|column3`. To correct this, you will need to remove the erroneous row from the table, and re-run the
 pipeline with the correct column delimiter.
 
+If you have a mix of delimiters in files of the same extension across subdirectories, you can either:
+1. Run the pipeline multiple times, changing the values in `P_SUFFIX_DELIMITER_MAP` and then proceeding to clean up the
+`discovered_ruleset` table to remove the incorrect column entries.
+1. Deactivate the `Identify Nested Schemas` and the `For Each Schema Found` steps in the pipeline (by setting the step's
+activity state to `Deactivated` under the `General` settings for each of those steps), modifying the
+`HOMOGENEOUS_SCHEMAS_TO_CHECK` and `HETEROGENEOUS_SCHEMAS_TO_CHECK` default values to include the names of the
+subdirectories that match one set of delimiters in `P_SUFFIX_DELIMITER_MAP` then publish and run the pipeline. After
+this is complete, change the default values of `HOMOGENEOUS_SCHEMAS_TO_CHECK` and `HETEROGENEOUS_SCHEMAS_TO_CHECK`
+accordingly, then publish and re-run the pipeline with the alternative values in `P_SUFFIX_DELIMITER_MAP`, and this
+should pick up another set of files. Repeat as necessary. (Tip: You can also change the value of `P_SUFFIXES_TO_SCAN`
+to not waste time scanning unchanged suffixes between runs.)
+1. Combine steps the first two options as you see fit.
+
 Note that there are a few things worth noting with respect to this parameter.
-1. In order for ADF to interpret these values correctly `\` characters need to be escaped, so `\r` needs to become `\\r`
-2. In order for ADF to interpret `\` as a lone character correctly, it needs to be first be escaped, `\\` and each of
-those values needs to be escaped per the first point, so an escape character of `\` in your file would need to be `\\\\`
-3. It is assumed that `first_row_as_header` is true - but it is parameterized now in case additional support is added
-at a later time.
-4. It is important that you get the row delimiter correct. Files that don't have the correct row delimiter will yield
+1. In order for ADF to interpret `\` as a lone character correctly, it needs to be first be escaped, so it will need
+to be specified as `\\`. When this character is persisted to the database via metadata, it will appear in the database
+as `\\\\`, this is the value that is required for use in dataflows, as each of the above `\` needs to also be escaped,
+and since the database is used to define the arguments to the dataflow, we store the parameter we need.
+1. The only supported row delimiter is the Default for ADF Delimited datasets, which will match `\r`, or `\n`, or `\r\n`.
+1. It is important that you get the column delimiter correct. Files that have the wrong column delimiter will yield
 strange column names and may fail the profiling dataflow (and therefore the pipeline).
-5. It is important that you get the column delimiter correct. Files that have the wrong column delimiter will yield
-strange column names and may fail the profiling dataflow (and therefore the pipeline).
-6. When getting the file metadata, the data set is not parameterized as there is a known issue with the `Get Metadata`
-step not respecting parameterized row delimiters. To work around this issue, the data set that is used to get the file
-metadata relies on the `Default` row delimiter, which matches `\r`, or `\n`, or `\r\n`.
-7. If it appears as though a directory's files have not been scanned, this often happens when the parameters are of
+1. If it appears as though a directory's files have not been scanned, this often happens when the parameters are of
 `P_SUFFIX_DELIMITER_MAP` are incorrect, it is recommended to double-check this value.
 
 When scanning through folders, all subdirectories are expected to contain files wherein those files with the same
@@ -141,7 +159,7 @@ specifying how to interpret the prefixes using the parameter `P_MIXED_FILE_SCHEM
 The default value of `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` can be more easily understood with formatting applied:
 ```json
 {
-  "DCS_SAMPLE_PREFIX_": {
+  "DCS_EXAMPLE_PREFIX_": {
     "suffixes": [
       "csv",
       "txt",

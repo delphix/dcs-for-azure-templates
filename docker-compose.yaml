@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   build-template-artifacts:
     image: ubuntu:22.04
