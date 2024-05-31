@@ -75,7 +75,7 @@
                   "type": "LinkedServiceReference"
                 },
                 "path": {
-                  "value": "@pipeline().parameters.P_STAGING_STORAGE_PATH",
+                  "value": "@variables('STAGING_STORAGE_PATH')",
                   "type": "Expression"
                 }
               },
@@ -191,11 +191,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -225,7 +225,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT identified_table FROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE}\nWHERE\n   UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nORDER BY identified_table",
+                  "value": "SELECT DISTINCT identified_table FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nORDER BY identified_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -236,11 +236,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -301,11 +301,11 @@
                         },
                         "DF_NUM_ROWS_TO_PROFILE": "1000",
                         "DF_METADATA_SCHEMA": {
-                          "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                          "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
                         },
                         "DF_METADATA_RULESET_TABLE": {
-                          "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                          "value": "'@{variables('METADATA_RULESET_TABLE')}'",
                           "type": "Expression"
                         }
                       },
@@ -314,14 +314,7 @@
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
                       },
-                      "linkedServiceParameters": {
-                        "SnowflakeSource1MillRowDataSampling": {
-                          "linkedService": {
-                            "LS_DATABASE": "DEMO_DB",
-                            "LS_WAREHOUSE": "JL_WH"
-                          }
-                        }
-                      }
+                      "linkedServiceParameters": {}
                     },
                     "staging": {},
                     "compute": {
@@ -347,29 +340,27 @@
           },
           "P_SOURCE_SCHEMA": {
             "type": "string"
-          },
-          "P_STAGING_STORAGE_PATH": {
-            "type": "string"
-          },
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
-          "P_METADATA_RULESET_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_ruleset"
           }
         },
         "variables": {
-          "TEST": {
-            "type": "Array"
+          "STAGING_STORAGE_PATH": {
+            "type": "String",
+            "defaultValue": "staging-container"
+          },
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
+          "METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
           }
         },
         "folder": {
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2024-03-19T00:22:01Z"
+        "lastPublishTime": "2024-04-04T00:00:25Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_prof_source_ds')]",
