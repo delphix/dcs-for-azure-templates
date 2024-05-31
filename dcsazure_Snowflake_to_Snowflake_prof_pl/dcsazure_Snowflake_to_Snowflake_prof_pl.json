@@ -310,11 +310,10 @@
                         }
                       },
                       "datasetParameters": {
-                        "SnowflakeSource1MillRowDataSampling": {},
+                        "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
-                      },
-                      "linkedServiceParameters": {}
+                      }
                     },
                     "staging": {},
                     "compute": {
@@ -360,7 +359,7 @@
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2024-04-04T00:00:25Z"
+        "lastPublishTime": "2024-06-04T17:40:57Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_prof_source_ds')]",
@@ -485,15 +484,16 @@
                 "referenceName": "[parameters('Snowflake_Source_New')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "SnowflakeSource1MillRowDataSampling",
-              "description": "Import the first 1 million rows of unmasked data from the desired source dataset."
+              "name": "Source1MillRowDataSampling",
+              "description": "Import the first million rows of unmasked data from the desired source dataset"
             },
             {
               "linkedService": {
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "MetadataStoreRead"
+              "name": "MetadataStoreRead",
+              "description": "Import data from Metadata Datastore, querying the ruleset table"
             }
           ],
           "sinks": [
@@ -502,12 +502,14 @@
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "WriteToMetadataStore"
+              "name": "WriteToMetadataStore",
+              "description": "Sink results of profiling to metadata data store by sinking the unrolled results of the profiling call to the appropriate columns in the metadata store"
             }
           ],
           "transformations": [
             {
               "name": "CallDCSForAzureProfiling",
+              "description": "Call DCS for Azure services, using /v1/discovery/profileByColumn, where the data from the CreateItemsList is included in the request body and the format of the response is specified",
               "linkedService": {
                 "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
@@ -515,47 +517,55 @@
             },
             {
               "name": "CreateRandomIdColumn",
-              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID column, which is generated via the `random` expression. The current timestamp in milliseconds is used as the seed for the number generation."
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID column, which is generated via the random expression. The current timestamp in milliseconds is used as the seed for the number generation"
             },
             {
               "name": "SortByRandomId",
-              "description": "Sort the sample rows based on the randomly generated IDs."
+              "description": "Sort the sample rows based on the randomly generated IDs"
             },
             {
               "name": "CreateFinalSelectionId",
-              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID column that increments by 1 and starts at 1. It is incremented in order of the DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID added previously."
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID column that increments by 1 and starts at 1. It is incremented in order of the DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID added previously, making it so that the surrogate key is in order of the randomly assigned value, creating a shuffled set of rows"
             },
             {
               "name": "GetRandomRows",
-              "description": "Filter $DF_ROWS rows using the DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID."
+              "description": "Take the first DF_NUM_ROWS_TO_PROFILE from the shuffled row set"
             },
             {
-              "name": "CreateItemsList"
+              "name": "CreateItemsList",
+              "description": "For every column that we didn't add collect it to produce a list of values"
             },
             {
               "name": "ParseAPIResponse",
-              "description": "Parsing the external call body output"
+              "description": "Parse the API response from profiling call"
             },
             {
-              "name": "AssertNoFailures"
+              "name": "AssertNoFailures",
+              "description": "Confirm that we received a 200 response status from the API request"
             },
             {
-              "name": "FlattenDetails"
+              "name": "FlattenDetails",
+              "description": "Unroll the API response body into columnName, domain, algorithm, confidence, and rowsConsidered"
             },
             {
-              "name": "FilterRowsToUpdate"
+              "name": "FilterRowsToUpdate",
+              "description": "Filter ruleset table down to the table in question by specifying dataset, specified_database, specified_schema, and identified_table - making sure they match the dataset associated with each version of the dataflow, DF_SOURCE_DATABASE, DF_SOURCE_SCHEMA, and DF_SOURCE_TABLE (respectively). This filters the ruleset down to only the columns that need to be profiled for this particular table"
             },
             {
-              "name": "JoinDetailsAndMetadata"
+              "name": "JoinDetailsAndMetadata",
+              "description": "Inner join on FlattenDetails and FilterRowsToUpdate based on matching column names"
             },
             {
-              "name": "ChecksBeforeSave"
+              "name": "ChecksBeforeSave",
+              "description": "Alter rows using Update if (only update rows that need updating)"
             },
             {
-              "name": "UpdateProfiledColumns"
+              "name": "UpdateProfiledColumns",
+              "description": "Updating the column last_profiled_updated_timestamp"
             },
             {
-              "name": "FilterOnlyNewlyProfiledRows"
+              "name": "FilterOnlyNewlyProfiledRows",
+              "description": "Filter rows where the profiling results are different from previous dataflow executions (i.e. the profiled_domain, profiled_algorithm, rows_profiled, confidence_score or row_count have changed)"
             }
           ],
           "scriptLines": [
@@ -565,7 +575,7 @@
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
-            "     DF_METADATA_SCHEMA as string (''),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset')",
             "}",
             "source(allowSchemaDrift: true,",
@@ -576,7 +586,7 @@
             "     schemaName: (upper($DF_SOURCE_SCHEMA)),",
             "     store: 'snowflake',",
             "     store: 'snowflakeV2',",
-            "     partitionBy('roundRobin', 32)) ~> SnowflakeSource1MillRowDataSampling",
+            "     partitionBy('roundRobin', 32)) ~> Source1MillRowDataSampling",
             "source(output(",
             "          dataset as string,",
             "          specified_database as string,",
@@ -624,7 +634,7 @@
             "     statusColumnName: 'status',",
             "     addResponseCode: true,",
             "     requestFormat: ['type' -> 'json']) ~> CallDCSForAzureProfiling",
-            "SnowflakeSource1MillRowDataSampling derive(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID = random(millisecond(currentTimestamp()))) ~> CreateRandomIdColumn",
+            "Source1MillRowDataSampling derive(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID = random(millisecond(currentTimestamp()))) ~> CreateRandomIdColumn",
             "CreateRandomIdColumn sort(asc(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID, true)) ~> SortByRandomId",
             "SortByRandomId keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID as long),",
             "     startAt: 1L,",

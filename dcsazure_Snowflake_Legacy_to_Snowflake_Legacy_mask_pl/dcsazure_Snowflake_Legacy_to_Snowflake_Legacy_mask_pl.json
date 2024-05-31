@@ -111,18 +111,6 @@
                           "value": "'@{pipeline().RunId}'",
                           "type": "Expression"
                         },
-                        "DF_SOURCE_DATABASE": {
-                          "value": "'@{item().source_database}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_SCHEMA": {
-                          "value": "'@{item().source_schema}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_TABLE": {
-                          "value": "'@{item().source_table}'",
-                          "type": "Expression"
-                        },
                         "DF_METADATA_SCHEMA": {
                           "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
@@ -133,6 +121,18 @@
                         },
                         "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
                           "value": "'@{variables('METADATA_ADF_TYPE_MAPPING_TABLE')}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_DATABASE": {
+                          "value": "'@{item().source_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_SCHEMA": {
+                          "value": "'@{item().source_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_TABLE": {
+                          "value": "'@{item().source_table}'",
                           "type": "Expression"
                         }
                       },
@@ -215,14 +215,18 @@
                           "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths",
                           "type": "Expression"
                         },
-                        "DF_FAIL_ON_NONCONFORMING_DATA": {
-                          "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMING_DATA",
+                        "DF_FAIL_ON_NONCONFORMANT_DATA": {
+                          "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA",
+                          "type": "Expression"
+                        },
+                        "DF_FIELD_DATE_FORMAT": {
+                          "value": "'@{activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}'",
                           "type": "Expression"
                         }
                       },
                       "datasetParameters": {
-                        "SnowflakeSource": {},
-                        "SnowflakeSink": {}
+                        "Source": {},
+                        "Sink": {}
                       }
                     },
                     "staging": {},
@@ -429,8 +433,8 @@
                               }
                             },
                             "datasetParameters": {
-                              "SnowflakeSource": {},
-                              "SnowflakeSink": {}
+                              "SourceData": {},
+                              "SinkData": {}
                             }
                           },
                           "staging": {},
@@ -461,7 +465,7 @@
             "type": "bool",
             "defaultValue": false
           },
-          "P_FAIL_ON_NONCONFORMING_DATA": {
+          "P_FAIL_ON_NONCONFORMANT_DATA": {
             "type": "bool",
             "defaultValue": true
           },
@@ -504,7 +508,7 @@
           "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
-        "lastPublishTime": "2024-04-30T23:15:18Z"
+        "lastPublishTime": "2024-06-04T17:41:39Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_metadata_ds')]",
@@ -595,51 +599,84 @@
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "Ruleset"
+              "name": "Ruleset",
+              "description": "Get the ruleset table from the metadata store at DF_METADATA_SCHEMA.DF_METADATA_RULESET_TABLE"
             },
             {
               "linkedService": {
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "TypeMapping"
+              "name": "TypeMapping",
+              "description": "Get the type mapping table from the metadata store at DF_METADATA_STORE.DF_METADATA_ADF_TYPE_MAPPING_TABLE"
             }
           ],
           "sinks": [
             {
               "name": "MaskingParameterOutput",
-              "description": "Export data to cache"
+              "description": "Sink results of computing masking parameters to activity output cache"
             }
           ],
           "transformations": [
             {
-              "name": "FilterToSingleTable"
+              "name": "FilterToSingleTable",
+              "description": "Filter ruleset table down to the table in question by specifying dataset, specified_database, specified_schema, identified_table, and assigned_algorithm - making sure they match the dataset associated with each version of the dataflow, DF_SOURCE_DATABASE, DF_SOURCE_SCHEMA, DF_SOURCE_TABLE, and not empty or null (respectively). This filters the ruleset down to only the rules that need to be applied for masking this particular table"
             },
             {
-              "name": "RulesetWithTypes"
+              "name": "RulesetWithTypes",
+              "description": "Join the ruleset table with the type mapping table based on the type of the column and the translation of that type to an ADF type"
             },
             {
-              "name": "RulesetWithAlgorithmTypeMapping"
+              "name": "RulesetWithAlgorithmTypeMapping",
+              "description": "Generate several columns:\n\n    output_row that always contains 1 (used later for Aggregate and Join operations)\n    adf_type_conversion that contains a string like <column_name> as <adf_type>\n    column_width_estimate that contains an integer that uses DF_COLUMN_WIDTH_ESTIMATE as the width for any column where identified_column_max_length is not positive, and identified_column_max_length plus some padding otherwise"
             },
             {
-              "name": "GenerateMaskParameters"
+              "name": "GenerateMaskParameters",
+              "description": "Grouped by output_row produce the following aggregates\n\n    FieldAlgorithmAssignments - a JSON string that maps a column name to its assigned algorithm\n    ColumnsToMask - a list of the column names that have an algorithm assigned\n    DataFactoryTypeMapping - a string that can be used by ADF to parse the output of a call to the Delphix masking endpoint, leveraging the adf_type_conversion column derived previously\n    NumberOfBatches - an integer value determined by computing the number of batches leveraging the max row_count as specified in the ruleset table, and the sum of column_width_estimate column derived previously\n    TrimLengths - a list of the actual widths of the columns so that will be used by the masking data flow to trim output before sinking"
             },
             {
-              "name": "ModifyNumberOfBatches"
+              "name": "ModifyNumberOfBatches",
+              "description": "Modifies the number of batches to be at least 1"
             },
             {
-              "name": "FilterSnowflakeType"
+              "name": "FilterSnowflakeType",
+              "description": "Filter type mapping table down to only the dataset in question"
+            },
+            {
+              "name": "ParseMetadata",
+              "description": "Parse the content from the metadata column that contains JSON, specifically handling parsing of known keys (i.e. date_format)"
+            },
+            {
+              "name": "DateFormatString",
+              "description": "Derive columns as necessary for handling the parsed data (i.e. consume parsed_metadata.date_format and put it in a column date_format_string), and add an output_row column that always contains 1 (used later for Aggregate and Join operations)"
+            },
+            {
+              "name": "DateFormatHeader",
+              "description": "Create DateFormatAssignment, grouped by output_row (which is always 1), generating a JSON string that maps a column to its specified date format. Also create NoFormatHeader, that generates a JSON string containing an empty map when all values are null"
+            },
+            {
+              "name": "AllMaskingParameters",
+              "description": "Perform an inner join on output_row with the computed DateFormatHeaders - combining all masking parameters into the same output stream"
+            },
+            {
+              "name": "DateFormatHeaderHandlingNulls",
+              "description": "Update column DateFormatAssignments to coalesce DateFormatAssignments, and NoFormatHeader (i.e. if DateFormatAssignments is null, take NoFormatHeader, which won't be null)"
+            },
+            {
+              "name": "RemoveUnnecessaryColumns",
+              "description": "Remove intermediate column NoFormatHeader"
             }
           ],
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
+            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
             "     DF_SOURCE_DATABASE as string (''),",
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
-            "     DF_METADATA_SCHEMA as string (''),",
-            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping')",
+            "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000)",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -651,6 +688,7 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
+            "          metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -688,17 +726,40 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'left')~> RulesetWithTypes",
-            "RulesetWithTypes derive(adf_type_conversion = concat(identified_column, ' as ', adf_type)) ~> RulesetWithAlgorithmTypeMapping",
-            "RulesetWithAlgorithmTypeMapping aggregate(FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "RulesetWithTypes derive(output_row = 1,",
+            "          adf_type_conversion = concat(identified_column, ' as ', adf_type),",
+            "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length +4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
+            "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
             "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
-            "          NumberOfBatches = toInteger(ceil((avg(row_count) / (avg(identified_column_max_length) / count(identified_column) * 100)))),",
+            "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count))+1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
             "TypeMapping filter(equalsIgnoreCase(dataset, 'SNOWFLAKE')) ~> FilterSnowflakeType",
-            "ModifyNumberOfBatches sink(validateSchema: false,",
+            "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
+            "     format: 'json',",
+            "     documentForm: 'singleDocument') ~> ParseMetadata",
+            "ParseMetadata derive(output_row = 1,",
+            "          date_format_string = parsed_metadata.date_format) ~> DateFormatString",
+            "DateFormatString aggregate(groupBy(output_row),",
+            "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "          NoFormatHeader = reduce(collect(date_format_string), '{', #acc + #item + ',', #result + '}')) ~> DateFormatHeader",
+            "ModifyNumberOfBatches, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> AllMaskingParameters",
+            "DateFormatHeader derive(DateFormatAssignments = coalesce(DateFormatAssignments,NoFormatHeader)) ~> DateFormatHeaderHandlingNulls",
+            "DateFormatHeaderHandlingNulls select(mapColumn(",
+            "          output_row,",
+            "          DateFormatAssignments",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> RemoveUnnecessaryColumns",
+            "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
             "     store: 'cache',",
@@ -727,8 +788,8 @@
                 "referenceName": "[parameters('Snowflake_Source_Legacy')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "SnowflakeSource",
-              "description": "Add source dataset"
+              "name": "Source",
+              "description": "Select source data at DF_SOURCE_SCHEMA.DF_SOURCE_TABLE using an inline dataset"
             }
           ],
           "sinks": [
@@ -737,54 +798,62 @@
                 "referenceName": "[parameters('Snowflake_Sink_Legacy')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "SnowflakeSink"
+              "name": "Sink",
+              "description": "Sink results of masking to data store by sinking the unrolled results of the masking call to the columns of the same name in the data sink"
             }
           ],
           "transformations": [
             {
               "name": "DCSForAzureAPI",
+              "description": "Call DCS for Azure services, using /v1/masking/batchMaskByColumn, where the data from the FlattenValuesOutOfArray is included in the request body, and the following headers are included in the request:\n\n    'Run-Id' - Used for tracing requests\n    'Field-Algorithm-Assignment' - Defines the algorithm to apply to which field, defined in DF_FIELD_ALGORITHM_ASSIGNMENT\n    'Fail-On-Non-Conformant-Data' - Defines failure behavior if a non-conformant data error is encountered, driven by parameter DF_FAIL_ON_NONCONFORMANT_DATA\n    'Field-Date-Format' - Defines the date format to apply to which field, defined in DF_FIELD_DATE_FORMAT The format of the response is defined in DF_BODY_TYPE_MAPPING",
               "linkedService": {
                 "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
             {
-              "name": "AddSortKey"
+              "name": "AddSortKey",
+              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SORT_ID that consists of SHA of the data across all columns in the table - every row will have this value and it cannot be null"
             },
             {
               "name": "SortBySortKey",
-              "description": "Sorting rows on column 'DELPHIX_COMPLIANCE_SERVICE_ROW_ID'"
+              "description": "Sort the table by the value in DELPHIX_COMPLIANCE_SERVICE_SORT_ID, as we need the table to be in a particular order before we apply a surrogate key"
             },
             {
-              "name": "CreateSurrogateKey"
+              "name": "CreateSurrogateKey",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_BATCH_ID column that increments by 1 and starts at 1 after applying the sorting"
             },
             {
               "name": "WrapValuesInArray",
-              "description": "Wrap all columns as an array so that ."
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become []"
             },
             {
-              "name": "SelectColumnsUnmasked"
+              "name": "SelectColumnsUnmasked",
+              "description": "Select only columns that don't require masking"
             },
             {
               "name": "AggregateColumnsByBatch",
-              "description": "Aggregate columns to be masked by Batch size."
+              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID modulo DF_NUMBER_OF_BATCHES - so there will be DF_NUMBER_OF_BATCHES total such aggregations, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
             },
             {
               "name": "FlattenValuesOutOfArray",
-              "description": "Flattening all columns to no longer be an array."
+              "description": "For each column we wish to mask, flatten the value out of the array, in the case where the value was previously [], it becomes null"
             },
             {
               "name": "AssertNoFailures",
-              "description": "Check if there are any failed request"
+              "description": "Confirm that we received a 200 response status from the API request"
             },
             {
-              "name": "FlattenAggregateData"
+              "name": "FlattenAggregateData",
+              "description": "Unroll the API response body into named columns"
             },
             {
-              "name": "JoinMaskedAndUnmaskedData"
+              "name": "JoinMaskedAndUnmaskedData",
+              "description": "Inner join on SelectColumnsUnmasked and TrimMaskedStrings based on matching DELPHIX_COMPLIANCE_SERVICE_BATCH_ID"
             },
             {
-              "name": "TrimMaskedStrings"
+              "name": "TrimMaskedStrings",
+              "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
             }
           ],
           "scriptLines": [
@@ -799,7 +868,8 @@
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
             "     DF_NUMBER_OF_BATCHES as integer (100),",
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
-            "     DF_FAIL_ON_NONCONFORMING_DATA as boolean (true())",
+            "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
+            "     DF_FIELD_DATE_FORMAT as string ('{}')",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -807,7 +877,7 @@
             "     tableName: (upper($DF_SOURCE_TABLE)),",
             "     schemaName: (upper($DF_SOURCE_SCHEMA)),",
             "     store: 'snowflake',",
-            "     partitionBy('roundRobin', 32)) ~> SnowflakeSource",
+            "     partitionBy('roundRobin', 32)) ~> Source",
             "FlattenValuesOutOfArray call(mapColumn(",
             "          each(match(name!='DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP'))",
             "     ),",
@@ -823,7 +893,7 @@
             "     store: 'restservice',",
             "     timeout: 30,",
             "     requestInterval: 0,",
-            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> $DF_FAIL_ON_NONCONFORMING_DATA],",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
             "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
@@ -833,7 +903,7 @@
             "     requestFormat: ['type' -> 'json'],",
             "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
             "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
-            "SnowflakeSource derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
+            "Source derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
             "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
@@ -877,7 +947,7 @@
             "     stageInsert: true,",
             "     mapColumn(",
             "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
-            "     )) ~> SnowflakeSink"
+            "     )) ~> Sink"
           ]
         }
       },
@@ -935,8 +1005,8 @@
                 "referenceName": "[parameters('Snowflake_Source_Legacy')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "SnowflakeSource",
-              "description": "Add source dataset"
+              "name": "SourceData",
+              "description": "Using an inline data set, specify the source as DF_SOURCE_SCHEMA.DF_SOURCE_TABLE"
             }
           ],
           "sinks": [
@@ -945,7 +1015,8 @@
                 "referenceName": "[parameters('Snowflake_Sink_Legacy')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "SnowflakeSink"
+              "name": "SinkData",
+              "description": "Using an inline data set, specify the sink as DF_SINK_SCHEMA.DF_SINK_TABLE"
             }
           ],
           "transformations": [],
@@ -963,8 +1034,8 @@
             "     tableName: (upper($DF_SOURCE_TABLE)),",
             "     schemaName: (upper($DF_SOURCE_SCHEMA)),",
             "     store: 'snowflake',",
-            "     partitionBy('roundRobin', 32)) ~> SnowflakeSource",
-            "SnowflakeSource sink(allowSchemaDrift: true,",
+            "     partitionBy('roundRobin', 32)) ~> SourceData",
+            "SourceData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'table',",
             "     tableName: (upper($DF_SINK_TABLE)),",
@@ -977,7 +1048,7 @@
             "     store: 'snowflake',",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
-            "     stageInsert: true) ~> SnowflakeSink"
+            "     stageInsert: true) ~> SinkData"
           ]
         }
       },

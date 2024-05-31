@@ -87,8 +87,8 @@ have customized your metadata store, then these variables may need editing.
   the pipeline - if set to `true`, unmasked data that did not conform to the format required to apply the specified
   algorithm will appear in the output data; if set to `false`, data that did not conform to the format required to apply
   the specified algorithm will cause the pipeline to fail (default `true`)
-* `P_SOURCE_DATABASE` - String - This is the source directory in ADLS that contains the unmasked data
-* `P_SINK_DATABASE` - String - This is the sink directory in ADLS that will serve as a destination for masked data
+* `P_SOURCE_CONTAINER` - String - This is the source storage container in ADLS that contains the unmasked data
+* `P_SINK_CONTAINER` - String - This is the sink storage container in ADLS that will serve as a destination for masked data
 * `P_SOURCE_DIRECTORY` - String - This is the source schema in ADLS and was discovered during the profiling pipeline
   run - it will have a format that defines the prefix of a file name in ADLS (with its full location) and that contains
   the unmasked data

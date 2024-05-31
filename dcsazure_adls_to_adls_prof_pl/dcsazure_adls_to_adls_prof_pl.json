@@ -9,10 +9,10 @@
     "Metadata Datastore": {
       "type": "string"
     },
-    "AzureDataLakeStorage_Generic_Source": {
+    "AzureDataLakeStorage_Source": {
       "type": "string"
     },
-    "DCSForAzureProd": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },
@@ -497,7 +497,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_adls_to_adls_delta_metadata_prof_ds1",
+                "referenceName": "dcsazure_adls_to_adls_metadata_prof_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -903,8 +903,7 @@
                         "SourceData1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
-                      },
-                      "linkedServiceParameters": {}
+                      }
                     },
                     "staging": {},
                     "compute": {
@@ -1002,11 +1001,11 @@
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-05-03T20:24:02Z"
+        "lastPublishTime": "2024-06-04T17:42:10Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_delta_metadata_prof_ds1')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_prof_ds')]",
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory_prof_ds')]",
         "[concat(variables('factoryId'), '/pipelines/dcsazure_adls_to_adls_prof_file_pl')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_prof_df')]"
@@ -1018,7 +1017,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -1060,7 +1059,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delta_metadata_prof_ds1')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_metadata_prof_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1070,47 +1069,89 @@
         },
         "parameters": {
           "DS_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "lnguyen"
+            "type": "string"
           },
           "DS_METADATA_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_metadata"
+            "type": "string"
           }
         },
         "folder": {
-          "name": "dcsazure_adls_to_adls_delta"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [
           {
-            "name": "source_database",
+            "name": "dataset",
             "type": "varchar"
           },
           {
-            "name": "source_schema",
+            "name": "specified_database",
             "type": "varchar"
           },
           {
-            "name": "source_table",
+            "name": "specified_schema",
             "type": "varchar"
           },
           {
-            "name": "source_column",
+            "name": "identified_table",
             "type": "varchar"
           },
           {
-            "name": "destination_database",
+            "name": "identified_column",
             "type": "varchar"
           },
           {
-            "name": "destination_schema",
+            "name": "identified_column_type",
             "type": "varchar"
           },
           {
-            "name": "destination_table",
+            "name": "identified_column_max_length",
+            "type": "int",
+            "precision": 10
+          },
+          {
+            "name": "ordinal_position",
+            "type": "int",
+            "precision": 10
+          },
+          {
+            "name": "row_count",
+            "type": "bigint",
+            "precision": 19
+          },
+          {
+            "name": "metadata",
+            "type": "nvarchar"
+          },
+          {
+            "name": "profiled_domain",
             "type": "varchar"
+          },
+          {
+            "name": "profiled_algorithm",
+            "type": "varchar"
+          },
+          {
+            "name": "confidence_score",
+            "type": "decimal",
+            "precision": 6,
+            "scale": 5
+          },
+          {
+            "name": "rows_profiled",
+            "type": "bigint",
+            "precision": 19
+          },
+          {
+            "name": "assigned_algorithm",
+            "type": "varchar"
+          },
+          {
+            "name": "last_profiled_updated_timestamp",
+            "type": "datetime",
+            "precision": 23,
+            "scale": 3
           }
         ],
         "typeProperties": {
@@ -1132,7 +1173,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -1477,7 +1518,7 @@
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-05-03T20:24:02Z"
+        "lastPublishTime": "2024-05-07T16:13:34Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
@@ -1497,18 +1538,19 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData1MillRowDataSampling",
-              "description": "Import the first 1 million rows of unmasked data from the desired source dataset."
+              "description": "Import the first million rows of unmasked data from the desired source dataset"
             },
             {
               "linkedService": {
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "MetadataStoreRead"
+              "name": "MetadataStoreRead",
+              "description": "Import data from Metadata Datastore, querying the ruleset table"
             }
           ],
           "sinks": [
@@ -1517,60 +1559,70 @@
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "WriteToMetadataStore"
+              "name": "WriteToMetadataStore",
+              "description": "Sink results of profiling to metadata data store by sinking the unrolled results of the profiling call to the appropriate columns in the metadata store"
             }
           ],
           "transformations": [
             {
               "name": "CallDCSForAzureProfiling",
+              "description": "Call DCS for Azure services, using /v1/discovery/profileByColumn, where the data from the CreateItemsList is included in the request body and the format of the response is specified",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureProd')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
             {
               "name": "CreateRandomIdColumn",
-              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID column, which is generated via the `random` expression. The current timestamp in milliseconds is used as the seed for the number generation."
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID column, which is generated via the random expression. The current timestamp in milliseconds is used as the seed for the number generation"
             },
             {
               "name": "SortByRandomId",
-              "description": "Sort the sample rows based on the randomly generated IDs."
+              "description": "Sort the sample rows based on the randomly generated IDs"
             },
             {
               "name": "CreateFinalSelectionId",
-              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID column that increments by 1 and starts at 1. It is incremented in order of the DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID added previously."
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID column that increments by 1 and starts at 1. It is incremented in order of the DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID added previously, making it so that the surrogate key is in order of the randomly assigned value, creating a shuffled set of rows"
             },
             {
               "name": "GetRandomRows",
-              "description": "Filter $DF_ROWS rows using the DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID."
+              "description": "Take the first DF_NUM_ROWS_TO_PROFILE from the shuffled row set"
             },
             {
-              "name": "CreateItemsList"
+              "name": "CreateItemsList",
+              "description": "For every column that we didn't add collect it to produce a list of values"
             },
             {
               "name": "ParseAPIResponse",
-              "description": "Parsing the external call body output"
+              "description": "Parse the API response from profiling call"
             },
             {
-              "name": "AssertNoFailures"
+              "name": "AssertNoFailures",
+              "description": "Confirm that we received a 200 response status from the API request"
             },
             {
-              "name": "FlattenDetails"
+              "name": "FlattenDetails",
+              "description": "Unroll the API response body into columnName, domain, algorithm, confidence, and rowsConsidered"
             },
             {
-              "name": "FilterRowsToUpdate"
+              "name": "FilterRowsToUpdate",
+              "description": "Filter ruleset table down to the table in question by specifying dataset, specified_database, specified_schema, and identified_table - making sure they match the dataset associated with each version of the dataflow, DF_SOURCE_DATABASE, DF_SOURCE_SCHEMA, and DF_SOURCE_TABLE (respectively). This filters the ruleset down to only the columns that need to be profiled for this particular table"
             },
             {
-              "name": "JoinDetailsAndMetadata"
+              "name": "JoinDetailsAndMetadata",
+              "description": "Inner join on FlattenDetails and FilterRowsToUpdate based on matching column names"
             },
             {
-              "name": "ChecksBeforeSave"
+              "name": "ChecksBeforeSave",
+              "description": "Alter rows using Update if (only update rows that need updating)"
             },
             {
-              "name": "UpdateProfiledColumns"
+              "name": "UpdateProfiledColumns",
+              "description": "Updating the column last_profiled_updated_timestamp"
             },
             {
-              "name": "FilterOnlyNewlyProfiledRows"
+              "name": "FilterOnlyNewlyProfiledRows",
+              "description": "Filter rows where the profiling results are different from previous dataflow executions (i.e. the profiled_domain, profiled_algorithm, rows_profiled, confidence_score or row_count have changed)"
             }
           ],
           "scriptLines": [
@@ -1750,7 +1802,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
