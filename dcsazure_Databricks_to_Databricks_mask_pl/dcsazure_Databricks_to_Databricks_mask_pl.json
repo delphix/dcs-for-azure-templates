@@ -9,10 +9,10 @@
     "AzureDataLakeStorage_Staging": {
       "type": "string"
     },
-    "AzureDatabricksDeltaLake_Source": {
+    "Metadata Datastore": {
       "type": "string"
     },
-    "Metadata Datastore": {
+    "AzureDatabricksDeltaLake_Source": {
       "type": "string"
     },
     "AzureDataLakeStorage_Source": {
@@ -21,7 +21,7 @@
     "AzureDataLakeStorage_Sink": {
       "type": "string"
     },
-    "DCSForAzureDev": {
+    "DCSForAzureProd": {
       "type": "string"
     }
   },
@@ -36,7 +36,8 @@
       "properties": {
         "activities": [
           {
-            "name": "Determine Sink Schema Data Path",
+            "name": "Select Tables That Require Masking",
+            "description": "Select tables with rows, a data mapping, and assigned algorithms.",
             "type": "Lookup",
             "dependsOn": [],
             "policy": {
@@ -49,145 +50,9 @@
             "userProperties": [],
             "typeProperties": {
               "source": {
-                "type": "AzureDatabricksDeltaLakeSource",
-                "query": {
-                  "value": "DESCRIBE SCHEMA EXTENDED @{pipeline().parameters.P_SINK_DATABASE}.@{pipeline().parameters.P_SINK_SCHEMA}",
-                  "type": "Expression"
-                }
-              },
-              "dataset": {
-                "referenceName": "dcsazure_Databricks_to_Databricks_for_mask_query_ds",
-                "type": "DatasetReference",
-                "parameters": {}
-              },
-              "firstRowOnly": false
-            }
-          },
-          {
-            "name": "For Each Line In Sink Schema Describe Output",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "Determine Sink Schema Data Path",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@activity('Determine Sink Schema Data Path').output.value",
-                "type": "Expression"
-              },
-              "activities": [
-                {
-                  "name": "Check For Schema Location",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@and(equals(item().database_description_item, 'Location'),greater(length(item().database_description_value), 0))",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Set Full Schema Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "FULL_SCHEMA_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@item().database_description_value",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Schema Storage Path Without __unitystorage",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Full Schema Storage Path",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "SCHEMA_STORAGE_SUB_DIRECTORY",
-                          "value": {
-                            "value": "@split(variables('FULL_SCHEMA_STORAGE_LOCATION'), '__unitystorage/')[1]",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Schema Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Schema Storage Path Without __unitystorage",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "SCHEMA_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@concat('__unitystorage/',variables('SCHEMA_STORAGE_SUB_DIRECTORY'))",
-                            "type": "Expression"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "name": "Select Tables That Require Masking",
-            "description": "Select tables with rows, a data mapping, and assigned algorithms.",
-            "type": "Lookup",
-            "dependsOn": [
-              {
-                "activity": "Set Sink Delta Path",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "typeProperties": {
-              "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND dd.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND dd.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND dd.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -198,11 +63,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('P_METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('P_METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -275,7 +140,7 @@
                     },
                     "ifFalseActivities": [
                       {
-                        "name": "Get Sink Table Sub Directory",
+                        "name": "Get Sink Table Metadata",
                         "type": "Lookup",
                         "dependsOn": [],
                         "policy": {
@@ -288,16 +153,27 @@
                         "userProperties": [],
                         "typeProperties": {
                           "source": {
-                            "type": "AzureDatabricksDeltaLakeSource",
-                            "query": {
-                              "value": "SELECT storage_sub_directory FROM @{item().sink_database}.information_schema.tables WHERE LOWER(table_catalog) = LOWER('@{item().sink_database}') AND LOWER(table_schema) = LOWER('@{item().sink_schema}') AND LOWER(table_name) = LOWER('@{item().sink_table}')",
+                            "type": "AzureSqlSource",
+                            "sqlReaderQuery": {
+                              "value": "SELECT JSON_OBJECT(\n'metadata_version': 2,\n'minReaderVersion': @{activity('Get Sink Table Details').output.firstRow.minReaderVersion},\n'container_name': SUBSTRING('@{activity('Get Sink Table Details').output.firstRow.location}', 9, CHARINDEX('@','@{activity('Get Sink Table Details').output.firstRow.location}')-9),\n'table_location': SUBSTRING('@{activity('Get Sink Table Details').output.firstRow.location}',  CHARINDEX('__unitystorage/','@{activity('Get Sink Table Details').output.firstRow.location}'), len('@{activity('Get Sink Table Details').output.firstRow.location}'))\n) as metadata;",
                               "type": "Expression"
-                            }
+                            },
+                            "queryTimeout": "02:00:00",
+                            "partitionOption": "None"
                           },
                           "dataset": {
-                            "referenceName": "dcsazure_Databricks_to_Databricks_for_mask_query_ds",
+                            "referenceName": "dcsazure_Databricks_to_Databricks_metadata_mask_ds",
                             "type": "DatasetReference",
-                            "parameters": {}
+                            "parameters": {
+                              "DS_METADATA_SCHEMA": {
+                                "value": "@variables('P_METADATA_SCHEMA')",
+                                "type": "Expression"
+                              },
+                              "DS_METADATA_TABLE": {
+                                "value": "@variables('P_METADATA_RULESET_TABLE')",
+                                "type": "Expression"
+                              }
+                            }
                           },
                           "firstRowOnly": true
                         }
@@ -307,7 +183,7 @@
                         "type": "ExecuteDataFlow",
                         "dependsOn": [
                           {
-                            "activity": "Get Sink Table Sub Directory",
+                            "activity": "Get Sink Table Metadata",
                             "dependencyConditions": [
                               "Succeeded"
                             ]
@@ -331,15 +207,15 @@
                                 "type": "Expression"
                               },
                               "DF_METADATA_SCHEMA": {
-                                "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                                "value": "'@{variables('P_METADATA_SCHEMA')}'",
                                 "type": "Expression"
                               },
                               "DF_METADATA_RULESET_TABLE": {
-                                "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                                "value": "'@{variables('P_METADATA_RULESET_TABLE')}'",
                                 "type": "Expression"
                               },
                               "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
-                                "value": "'@{pipeline().parameters.P_METADATA_ADF_TYPE_MAPPING_TABLE}'",
+                                "value": "'@{variables('P_METADATA_ADF_TYPE_MAPPING_TABLE')}'",
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DB": {
@@ -405,15 +281,15 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DELTAPATH": {
-                                "value": "'@{concat(json(item().metadata).catalog_path, '/', json(item().metadata).table_path)}'",
+                                "value": "'@{json(item().metadata).table_location}'",
                                 "type": "Expression"
                               },
                               "DF_SINK_CONTAINER": {
-                                "value": "'@{variables('CATALOG_CONTAINER_NAME')}'",
+                                "value": "'@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).container_name}'",
                                 "type": "Expression"
                               },
                               "DF_SINK_DELTAPATH": {
-                                "value": "'@{concat(variables('SINK_DELTA_PATH'),'/',activity('Get Sink Table Sub Directory').output.firstRow.storage_sub_directory)}'",
+                                "value": "'@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}'",
                                 "type": "Expression"
                               },
                               "DF_FIELD_ALGORITHM_ASSIGNMENT": {
@@ -443,11 +319,19 @@
                               "DF_SINK_TABLE": {
                                 "value": "'@{item().sink_table}'",
                                 "type": "Expression"
+                              },
+                              "DF_FAIL_ON_NONCONFORMANT_DATA": {
+                                "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA",
+                                "type": "Expression"
+                              },
+                              "DF_FIELD_DATE_FORMAT": {
+                                "value": "'@{activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments }'",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
-                              "DatabricksSource": {},
-                              "DatabricksSink": {}
+                              "Source": {},
+                              "Sink": {}
                             }
                           },
                           "staging": {},
@@ -469,7 +353,7 @@
                         "dependsOn": [],
                         "userProperties": [],
                         "typeProperties": {
-                          "variableName": "TABLES_UNABLE_TO_MASK",
+                          "variableName": "unmaskable_tables",
                           "value": {
                             "value": "@item().source_table",
                             "type": "Expression"
@@ -506,14 +390,7 @@
             "name": "Select Tables Without Required Masking",
             "description": "Select tables with a data mapping, and no assigned algorithms or rows.",
             "type": "Lookup",
-            "dependsOn": [
-              {
-                "activity": "Set Sink Delta Path",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
+            "dependsOn": [],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -526,7 +403,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\nWHERE source_dataset = 'DATABRICKS'\nAND sink_dataset = 'DATABRICKS'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE} dd\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND dd.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND dd.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND dd.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -537,11 +414,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('P_METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('P_METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -622,13 +499,7 @@
                   "type": "Switch",
                   "dependsOn": [
                     {
-                      "activity": "Get Sink Table Details No Masking",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    },
-                    {
-                      "activity": "Get Sink Table Sub Directory No Masking",
+                      "activity": "Get Sink Table Metadata No Masking",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -688,22 +559,23 @@
                                     "type": "Expression"
                                   },
                                   "DF_SINK_CONTAINER": {
-                                    "value": "'@{variables('CATALOG_CONTAINER_NAME')}'",
+                                    "value": "'@{json(activity('Get Sink Table Metadata No Masking').output.firstRow.metadata).container_name}'",
                                     "type": "Expression"
                                   },
                                   "DF_SOURCE_DELTAPATH": {
-                                    "value": "'@{concat(json(item().metadata).catalog_path, '/', json(item().metadata).table_path)}'",
+                                    "value": "'@{json(item().metadata).table_location}'",
                                     "type": "Expression"
                                   },
                                   "DF_SINK_DELTAPATH": {
-                                    "value": "'@{concat(variables('SINK_DELTA_PATH'),'/',activity('Get Sink Table Sub Directory No Masking').output.firstRow.storage_sub_directory)}'",
+                                    "value": "'@{json(activity('Get Sink Table Metadata No Masking').output.firstRow.metadata).table_location}'",
                                     "type": "Expression"
                                   }
                                 },
                                 "datasetParameters": {
-                                  "DatabricksSource": {},
-                                  "DatabricksSink": {}
-                                }
+                                  "SourceData": {},
+                                  "SinkData": {}
+                                },
+                                "linkedServiceParameters": {}
                               },
                               "staging": {},
                               "compute": {
@@ -768,7 +640,7 @@
                                   "type": "LinkedServiceReference"
                                 },
                                 "path": {
-                                  "value": "@pipeline().parameters.P_BLOB_STORE_STAGING_STORAGE_PATH",
+                                  "value": "@variables('P_BLOB_STORE_STAGING_STORAGE_PATH')",
                                   "type": "Expression"
                                 }
                               }
@@ -783,7 +655,7 @@
                                     "type": "Expression"
                                   },
                                   "DS_DELTAPATH": {
-                                    "value": "@concat(json(item().metadata).catalog_path, '/', json(item().metadata).table_path)",
+                                    "value": "@json(item().metadata).table_location",
                                     "type": "Expression"
                                   }
                                 }
@@ -795,11 +667,11 @@
                                 "type": "DatasetReference",
                                 "parameters": {
                                   "DS_CONTAINER": {
-                                    "value": "@variables('CATALOG_CONTAINER_NAME')",
+                                    "value": "@json(activity('Get Sink Table Metadata No Masking').output.firstRow.metadata).container_name",
                                     "type": "Expression"
                                   },
                                   "DS_DELTAPATH": {
-                                    "value": "@concat(variables('SINK_DELTA_PATH'),'/',activity('Get Sink Table Sub Directory No Masking').output.firstRow.storage_sub_directory)",
+                                    "value": "@json(activity('Get Sink Table Metadata No Masking').output.firstRow.metadata).table_location",
                                     "type": "Expression"
                                   }
                                 }
@@ -827,9 +699,16 @@
                   }
                 },
                 {
-                  "name": "Get Sink Table Sub Directory No Masking",
+                  "name": "Get Sink Table Metadata No Masking",
                   "type": "Lookup",
-                  "dependsOn": [],
+                  "dependsOn": [
+                    {
+                      "activity": "Get Sink Table Details No Masking",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
                   "policy": {
                     "timeout": "0.12:00:00",
                     "retry": 0,
@@ -840,227 +719,31 @@
                   "userProperties": [],
                   "typeProperties": {
                     "source": {
-                      "type": "AzureDatabricksDeltaLakeSource",
-                      "query": {
-                        "value": "SELECT storage_sub_directory FROM @{item().sink_database}.information_schema.tables WHERE LOWER(table_catalog) = LOWER('@{item().sink_database}') AND LOWER(table_schema) = LOWER('@{item().sink_schema}') AND LOWER(table_name) = LOWER('@{item().sink_table}')",
+                      "type": "AzureSqlSource",
+                      "sqlReaderQuery": {
+                        "value": "SELECT JSON_OBJECT(\n'metadata_version': 2,\n'minReaderVersion': @{activity('Get Sink Table Details No Masking').output.firstRow.minReaderVersion},\n'container_name': SUBSTRING('@{activity('Get Sink Table Details No Masking').output.firstRow.location}', 9, CHARINDEX('@','@{activity('Get Sink Table Details No Masking').output.firstRow.location}')-9),\n'table_location': SUBSTRING('@{activity('Get Sink Table Details No Masking').output.firstRow.location}',  CHARINDEX('__unitystorage/','@{activity('Get Sink Table Details No Masking').output.firstRow.location}'), len('@{activity('Get Sink Table Details No Masking').output.firstRow.location}'))\n) as metadata;",
                         "type": "Expression"
-                      }
+                      },
+                      "queryTimeout": "02:00:00",
+                      "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_Databricks_to_Databricks_for_mask_query_ds",
+                      "referenceName": "dcsazure_Databricks_to_Databricks_metadata_mask_ds",
                       "type": "DatasetReference",
-                      "parameters": {}
-                    },
-                    "firstRowOnly": true
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "name": "Determine Sink Catalog Data Path",
-            "type": "Lookup",
-            "dependsOn": [],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "typeProperties": {
-              "source": {
-                "type": "AzureDatabricksDeltaLakeSource",
-                "query": {
-                  "value": "DESCRIBE CATALOG EXTENDED @{pipeline().parameters.P_SINK_DATABASE}",
-                  "type": "Expression"
-                }
-              },
-              "dataset": {
-                "referenceName": "dcsazure_Databricks_to_Databricks_for_mask_query_ds",
-                "type": "DatasetReference",
-                "parameters": {}
-              },
-              "firstRowOnly": false
-            }
-          },
-          {
-            "name": "For Each Line In Sink Catalog Describe Output",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "Determine Sink Catalog Data Path",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@activity('Determine Sink Catalog Data Path').output.value",
-                "type": "Expression"
-              },
-              "activities": [
-                {
-                  "name": "Check For Catalog Location",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@equals(item().info_name, 'Storage Location')",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Set Full Catalog Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
+                      "parameters": {
+                        "DS_METADATA_SCHEMA": {
+                          "value": "@variables('P_METADATA_SCHEMA')",
+                          "type": "Expression"
                         },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "FULL_CATALOG_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@item().info_value",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Catalog Container Name With Prefix",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Full Catalog Storage Path",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CATALOG_CONTAINER_NAME_WITH_PREFIX",
-                          "value": {
-                            "value": "@split(variables('FULL_CATALOG_STORAGE_LOCATION'),'@')[0]",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Catalog Storage Path Without __unitystorage",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Full Catalog Storage Path",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CATALOG_STORAGE_SUB_DIRECTORY",
-                          "value": {
-                            "value": "@split(variables('FULL_CATALOG_STORAGE_LOCATION'), '__unitystorage/')[1]",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Catalog Container Name",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Catalog Container Name With Prefix",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CATALOG_CONTAINER_NAME",
-                          "value": {
-                            "value": "@replace(variables('CATALOG_CONTAINER_NAME_WITH_PREFIX'), 'abfss://', '')",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Catalog Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Catalog Storage Path Without __unitystorage",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CATALOG_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@concat('__unitystorage/',variables('CATALOG_STORAGE_SUB_DIRECTORY'))",
-                            "type": "Expression"
-                          }
+                        "DS_METADATA_TABLE": {
+                          "value": "@variables('P_METADATA_RULESET_TABLE')",
+                          "type": "Expression"
                         }
                       }
-                    ]
+                    }
                   }
                 }
               ]
-            }
-          },
-          {
-            "name": "Set Sink Delta Path",
-            "type": "SetVariable",
-            "dependsOn": [
-              {
-                "activity": "For Each Line In Sink Schema Describe Output",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              },
-              {
-                "activity": "For Each Line In Sink Catalog Describe Output",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "policy": {
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "typeProperties": {
-              "variableName": "SINK_DELTA_PATH",
-              "value": {
-                "value": "@if(empty(variables('SCHEMA_STORAGE_LOCATION')),variables('CATALOG_STORAGE_LOCATION'),variables('SCHEMA_STORAGE_LOCATION'))",
-                "type": "Expression"
-              }
             }
           }
         ],
@@ -1068,30 +751,22 @@
           "elapsedTimeMetric": {}
         },
         "parameters": {
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
-          "P_METADATA_RULESET_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_ruleset"
-          },
-          "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
-            "type": "string",
-            "defaultValue": "adf_data_mapping"
-          },
-          "P_METADATA_ADF_TYPE_MAPPING_TABLE": {
-            "type": "string",
-            "defaultValue": "adf_type_mapping"
-          },
           "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
             "defaultValue": false
           },
-          "P_SOURCE_DATABASE": {
+          "P_COPY_USE_DATAFLOW": {
+            "type": "bool",
+            "defaultValue": false
+          },
+          "P_FAIL_ON_NONCONFORMANT_DATA": {
+            "type": "bool",
+            "defaultValue": false
+          },
+          "P_SOURCE_CATALOG": {
             "type": "string"
           },
-          "P_SINK_DATABASE": {
+          "P_SINK_CATALOG": {
             "type": "string"
           },
           "P_SOURCE_SCHEMA": {
@@ -1099,91 +774,56 @@
           },
           "P_SINK_SCHEMA": {
             "type": "string"
-          },
-          "P_BLOB_STORE_STAGING_STORAGE_PATH": {
-            "type": "string"
-          },
-          "P_COPY_USE_DATAFLOW": {
-            "type": "bool",
-            "defaultValue": false
           }
         },
         "variables": {
-          "FULL_SCHEMA_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "SCHEMA_STORAGE_SUB_DIRECTORY": {
-            "type": "String"
-          },
-          "SCHEMA_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "FULL_CATALOG_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "CATALOG_CONTAINER_PATH_WITH_PREFIX": {
-            "type": "String"
-          },
-          "CATALOG_CONTAINER_NAME": {
-            "type": "String"
-          },
-          "CATALOG_CONTAINER_NAME_WITH_PREFIX": {
-            "type": "String"
-          },
-          "CATALOG_STORAGE_SUB_DIRECTORY": {
-            "type": "String"
-          },
-          "CATALOG_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "TABLES_UNABLE_TO_MASK": {
+          "unmaskable_tables": {
             "type": "Array",
             "defaultValue": []
           },
-          "DISCOVERED_TABLES_THAT_COULD_NOT_BE_PROFILED": {
-            "type": "Array"
-          },
           "writerVersion": {
+            "type": "Integer",
+            "defaultValue": 5
+          },
+          "readerVersion": {
             "type": "Integer",
             "defaultValue": 2
           },
-          "SINK_DELTA_PATH": {
-            "type": "String"
+          "P_METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
+          "P_METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
+          },
+          "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_data_mapping"
+          },
+          "P_METADATA_ADF_TYPE_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_type_mapping"
+          },
+          "P_BLOB_STORE_STAGING_STORAGE_PATH": {
+            "type": "String",
+            "defaultValue": "staging-container"
           }
         },
         "folder": {
           "name": "dcsazure_Databricks_to_Databricks"
         },
         "annotations": [],
-        "lastPublishTime": "2024-02-14T19:22:35Z"
+        "lastPublishTime": "2024-06-03T17:19:00Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_for_mask_query_ds')]",
         "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_metadata_mask_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_for_mask_query_ds')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_Databricks_to_Databricks_mask_params_df')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_Databricks_to_Databricks_mask_df')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_Databricks_to_Databricks_copy_df')]",
         "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_copy_ds')]"
       ]
-    },
-    {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_for_mask_query_ds')]",
-      "type": "Microsoft.DataFactory/factories/datasets",
-      "apiVersion": "2018-06-01",
-      "properties": {
-        "linkedServiceName": {
-          "referenceName": "[parameters('AzureDatabricksDeltaLake_Source')]",
-          "type": "LinkedServiceReference"
-        },
-        "folder": {
-          "name": "dcsazure_Databricks_to_Databricks"
-        },
-        "annotations": [],
-        "type": "AzureDatabricksDeltaLakeDataset",
-        "typeProperties": {},
-        "schema": []
-      },
-      "dependsOn": []
     },
     {
       "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_metadata_mask_ds')]",
@@ -1196,12 +836,10 @@
         },
         "parameters": {
           "DS_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "lnguyen"
+            "type": "string"
           },
           "DS_METADATA_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_metadata"
+            "type": "string"
           }
         },
         "folder": {
@@ -1253,6 +891,25 @@
       "dependsOn": []
     },
     {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_for_mask_query_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDatabricksDeltaLake_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "folder": {
+          "name": "dcsazure_Databricks_to_Databricks"
+        },
+        "annotations": [],
+        "type": "AzureDatabricksDeltaLakeDataset",
+        "typeProperties": {},
+        "schema": []
+      },
+      "dependsOn": []
+    },
+    {
       "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_mask_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
@@ -1268,51 +925,84 @@
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "Ruleset"
+              "name": "Ruleset",
+              "description": "Get the ruleset table from the metadata store at DF_METADATA_SCHEMA.DF_METADATA_RULESET_TABLE"
             },
             {
               "linkedService": {
                 "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "TypeMapping"
+              "name": "TypeMapping",
+              "description": "Get the type mapping table from the metadata store at DF_METADATA_STORE.DF_METADATA_ADF_TYPE_MAPPING_TABLE"
             }
           ],
           "sinks": [
             {
               "name": "MaskingParameterOutput",
-              "description": "Export data to cache"
+              "description": "Sink results of computing masking parameters to activity output cache"
             }
           ],
           "transformations": [
             {
-              "name": "FilterToSingleTable"
+              "name": "FilterToSingleTable",
+              "description": "Filter ruleset table down to the table in question by specifying dataset, specified_database, specified_schema, identified_table, and assigned_algorithm - making sure they match the dataset associated with each version of the dataflow, DF_SOURCE_DATABASE, DF_SOURCE_SCHEMA, DF_SOURCE_TABLE, and not empty or null (respectively). This filters the ruleset down to only the rules that need to be applied for masking this particular table"
             },
             {
-              "name": "RulesetWithTypes"
+              "name": "RulesetWithTypes",
+              "description": "Join the ruleset table with the type mapping table based on the type of the column and the translation of that type to an ADF type"
             },
             {
-              "name": "RulesetWithAlgorithmTypeMapping"
+              "name": "RulesetWithAlgorithmTypeMapping",
+              "description": "Generate several columns:\n\n    output_row that always contains 1 (used later for Aggregate and Join operations)\n    adf_type_conversion that contains a string like <column_name> as <adf_type>\n    column_width_estimate that contains an integer that uses DF_COLUMN_WIDTH_ESTIMATE as the width for any column where identified_column_max_length is not positive, and identified_column_max_length plus some padding otherwise"
             },
             {
-              "name": "GenerateMaskParameters"
+              "name": "GenerateMaskParameters",
+              "description": "Grouped by output_row produce the following aggregates\n\n    FieldAlgorithmAssignments - a JSON string that maps a column name to its assigned algorithm\n    ColumnsToMask - a list of the column names that have an algorithm assigned\n    DataFactoryTypeMapping - a string that can be used by ADF to parse the output of a call to the Delphix masking endpoint, leveraging the adf_type_conversion column derived previously\n    NumberOfBatches - an integer value determined by computing the number of batches leveraging the max row_count as specified in the ruleset table, and the sum of column_width_estimate column derived previously\n    TrimLengths - a list of the actual widths of the columns so that will be used by the masking data flow to trim output before sinking"
             },
             {
-              "name": "ModifyNumberOfBatches"
+              "name": "ModifyNumberOfBatches",
+              "description": "Modifies the number of batches to be at least 1"
             },
             {
-              "name": "FilterDatabricksType"
+              "name": "FilterToDataSourceType",
+              "description": "Filter type mapping table down to only the dataset in question"
+            },
+            {
+              "name": "ParseMetadata",
+              "description": "Parse the content from the metadata column that contains JSON, specifically handling parsing of known keys (i.e. date_format)"
+            },
+            {
+              "name": "DateFormatString",
+              "description": "Derive columns as necessary for handling the parsed data (i.e. consume parsed_metadata.date_format and put it in a column date_format_string), and add an output_row column that always contains 1 (used later for Aggregate and Join operations)"
+            },
+            {
+              "name": "DateFormatHeader",
+              "description": "Create DateFormatAssignment, grouped by output_row (which is always 1), generating a JSON string that maps a column to its specified date format. Also create NoFormatHeader, that generates a JSON string containing an empty map when all values are null"
+            },
+            {
+              "name": "AllMaskingParameters",
+              "description": "Perform an inner join on output_row with the output of RemoveUnnecessaryColumns - combining all computed masking parameters into the same output stream"
+            },
+            {
+              "name": "DateFormatHeaderHandlingNulls",
+              "description": "Update column DateFormatAssignments to coalesce DateFormatAssignments, and NoFormatHeader (i.e. if DateFormatAssignments is null, take NoFormatHeader, which won't be null)"
+            },
+            {
+              "name": "RemoveUnnecessaryColumns",
+              "description": "Remove intermediate column NoFormatHeader"
             }
           ],
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
-            "     DF_METADATA_SCHEMA as string (''),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
             "     DF_SOURCE_DB as string (''),",
             "     DF_SOURCE_SCHEMA as string (''),",
-            "     DF_SOURCE_TABLE as string ('')",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000)",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -1323,9 +1013,8 @@
             "          identified_column_type as string,",
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
-            "          container_name as string,",
-            "          delta_path as string,",
             "          row_count as long,",
+            "          metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -1358,22 +1047,45 @@
             "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)",
             "&& !equalsIgnoreCase(assigned_algorithm, '')",
             "&& !isNull(assigned_algorithm)) ~> FilterToSingleTable",
-            "FilterToSingleTable, FilterDatabricksType join(identified_column_type <=> dataset_type,",
+            "FilterToSingleTable, FilterToDataSourceType join(identified_column_type <=> dataset_type,",
             "     joinType:'inner',",
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'left')~> RulesetWithTypes",
-            "RulesetWithTypes derive(adf_type_conversion = concat(identified_column, ' as ', adf_type)) ~> RulesetWithAlgorithmTypeMapping",
-            "RulesetWithAlgorithmTypeMapping aggregate(FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "RulesetWithTypes derive(output_row = 1,",
+            "          adf_type_conversion = concat(identified_column, ' as ', adf_type),",
+            "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
+            "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
             "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
-            "          NumberOfBatches = toInteger(ceil((avg(row_count) / (avg(identified_column_max_length) / count(identified_column) * 100)))),",
+            "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count)) +1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
-            "TypeMapping filter(equalsIgnoreCase(dataset, 'DATABRICKS')) ~> FilterDatabricksType",
-            "ModifyNumberOfBatches sink(validateSchema: false,",
+            "TypeMapping filter(equalsIgnoreCase(dataset, 'DATABRICKS')) ~> FilterToDataSourceType",
+            "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
+            "     format: 'json',",
+            "     documentForm: 'singleDocument') ~> ParseMetadata",
+            "ParseMetadata derive(output_row = 1,",
+            "          date_format_string = parsed_metadata.date_format) ~> DateFormatString",
+            "DateFormatString aggregate(groupBy(output_row),",
+            "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "          NoFormatHeader = reduce(collect(date_format_string), '{', #acc + #item + ',', #result + '}')) ~> DateFormatHeader",
+            "ModifyNumberOfBatches, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> AllMaskingParameters",
+            "DateFormatHeader derive(DateFormatAssignments = coalesce(DateFormatAssignments,NoFormatHeader)) ~> DateFormatHeaderHandlingNulls",
+            "DateFormatHeaderHandlingNulls select(mapColumn(",
+            "          output_row,",
+            "          DateFormatAssignments",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> RemoveUnnecessaryColumns",
+            "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
             "     store: 'cache',",
@@ -1401,8 +1113,8 @@
                 "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "DatabricksSource",
-              "description": "Add source dataset"
+              "name": "Source",
+              "description": "Select source data at DF_SOURCE_CONTAINER/DF_SOURCE_DELTAPATH using an inline dataset"
             }
           ],
           "sinks": [
@@ -1411,54 +1123,62 @@
                 "referenceName": "[parameters('AzureDataLakeStorage_Sink')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "DatabricksSink"
+              "name": "Sink",
+              "description": "Sink results of masking to data store by sinking the unrolled results of the masking call to the columns of the same name in the data sink"
             }
           ],
           "transformations": [
             {
               "name": "DCSForAzureAPI",
+              "description": "Call DCS for Azure services, using /v1/masking/batchMaskByColumn, where the data from the FlattenValuesOutOfArray is included in the request body, and the following headers are included in the request:\n\n    'Run-Id' - Used for tracing requests\n    'Field-Algorithm-Assignment' - Defines the algorithm to apply to which field, defined in DF_FIELD_ALGORITHM_ASSIGNMENT\n    'Fail-On-Non-Conformant-Data' - Defines failure behavior if a non-conformant data error is encountered, driven by parameter DF_FAIL_ON_NONCONFORMANT_DATA\n    'Field-Date-Format' - Defines the date format to apply to which field, defined in DF_FIELD_DATE_FORMAT The format of the response is defined in DF_BODY_TYPE_MAPPING",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureDev')]",
+                "referenceName": "[parameters('DCSForAzureProd')]",
                 "type": "LinkedServiceReference"
               }
             },
             {
-              "name": "AddSortKey"
+              "name": "AddSortKey",
+              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SORT_ID that consists of SHA of the data across all columns in the table - every row will have this value and it cannot be null"
             },
             {
               "name": "SortBySortKey",
-              "description": "Sorting rows on column 'DELPHIX_COMPLIANCE_SERVICE_ROW_ID'"
+              "description": "Sort the table by the value in DELPHIX_COMPLIANCE_SERVICE_SORT_ID, as we need the table to be in a particular order before we apply a surrogate key"
             },
             {
-              "name": "CreateSurrogateKey"
+              "name": "CreateSurrogateKey",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_BATCH_ID column that increments by 1 and starts at 1 after applying the sorting"
             },
             {
               "name": "WrapValuesInArray",
-              "description": "Wrap all columns as an array so that ."
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become []"
             },
             {
-              "name": "SelectColumnsUnmasked"
+              "name": "SelectColumnsUnmasked",
+              "description": "Select only columns that don't require masking"
             },
             {
               "name": "AggregateColumnsByBatch",
-              "description": "Aggregate columns to be masked by Batch size."
+              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID modulo DF_NUMBER_OF_BATCHES - so there will be DF_NUMBER_OF_BATCHES total such aggregations, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
             },
             {
               "name": "FlattenValuesOutOfArray",
-              "description": "Flattening all columns to no longer be an array."
+              "description": "For each column we wish to mask, flatten the value out of the array, in the case where the value was previously [], it becomes null"
             },
             {
               "name": "AssertNoFailures",
-              "description": "Check if there are any failed request"
+              "description": "Confirm that we received a 200 response status from the API request"
             },
             {
-              "name": "FlattenAggregateData"
+              "name": "FlattenAggregateData",
+              "description": "Unroll the API response body into named columns"
             },
             {
-              "name": "JoinMaskedAndUnmaskedData"
+              "name": "JoinMaskedAndUnmaskedData",
+              "description": "Inner join on SelectColumnsUnmasked and TrimMaskedStrings based on matching DELPHIX_COMPLIANCE_SERVICE_BATCH_ID"
             },
             {
-              "name": "TrimMaskedStrings"
+              "name": "TrimMaskedStrings",
+              "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
             }
           ],
           "scriptLines": [
@@ -1474,7 +1194,9 @@
             "     DF_NUMBER_OF_BATCHES as integer (100),",
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
             "     DF_SOURCE_TABLE as string (''),",
-            "     DF_SINK_TABLE as string ('')",
+            "     DF_SINK_TABLE as string (''),",
+            "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
+            "     DF_FIELD_DATE_FORMAT as string ('{}')",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -1482,7 +1204,7 @@
             "     format: 'delta',",
             "     fileSystem: ($DF_SOURCE_CONTAINER),",
             "     folderPath: ($DF_SOURCE_DELTAPATH),",
-            "     partitionBy('roundRobin', 32)) ~> DatabricksSource",
+            "     partitionBy('roundRobin', 32)) ~> Source",
             "FlattenValuesOutOfArray call(mapColumn(",
             "          each(match(name!='DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP'))",
             "     ),",
@@ -1498,7 +1220,7 @@
             "     store: 'restservice',",
             "     timeout: 30,",
             "     requestInterval: 0,",
-            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT],",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
             "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
@@ -1506,9 +1228,8 @@
             "     statusColumnName: 'status',",
             "     addResponseCode: true,",
             "     requestFormat: ['type' -> 'json'],",
-            "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
-            "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
-            "DatabricksSource derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
+            "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine']) ~> DCSForAzureAPI",
+            "Source derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
             "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
@@ -1556,7 +1277,7 @@
             "     skipDuplicateMapOutputs: true,",
             "     mapColumn(",
             "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
-            "     )) ~> DatabricksSink"
+            "     )) ~> Sink"
           ]
         }
       },
@@ -1578,7 +1299,8 @@
                 "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "DatabricksSource"
+              "name": "SourceData",
+              "description": "Using an inline data set, specify the source as DF_SOURCE_CONTAINER/DF_SOURCE_DELTAPATH"
             }
           ],
           "sinks": [
@@ -1587,8 +1309,8 @@
                 "referenceName": "[parameters('AzureDataLakeStorage_Sink')]",
                 "type": "LinkedServiceReference"
               },
-              "name": "DatabricksSink",
-              "description": "Export data to AzureDtaLakeStorage_Sink"
+              "name": "SinkData",
+              "description": "Using an inline data set, specify the sink as DF_SINK_CONTAINER/DF_SINK_DELTAPATH"
             }
           ],
           "transformations": [],
@@ -1605,8 +1327,8 @@
             "     ignoreNoFilesFound: false,",
             "     format: 'delta',",
             "     fileSystem: ($DF_SOURCE_CONTAINER),",
-            "     folderPath: ($DF_SOURCE_DELTAPATH)) ~> DatabricksSource",
-            "DatabricksSource sink(allowSchemaDrift: true,",
+            "     folderPath: ($DF_SOURCE_DELTAPATH)) ~> SourceData",
+            "SourceData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'delta',",
             "     fileSystem: ($DF_SINK_CONTAINER),",
@@ -1623,7 +1345,7 @@
             "     preCommands: [],",
             "     postCommands: [],",
             "     skipDuplicateMapInputs: true,",
-            "     skipDuplicateMapOutputs: true) ~> DatabricksSink"
+            "     skipDuplicateMapOutputs: true) ~> SinkData"
           ]
         }
       },

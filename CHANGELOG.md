@@ -1,5 +1,25 @@
 # CHANGELOG
 
+# 0.0.7
+* Address [#4](https://github.com/delphix/dcs-for-azure-templates/issues/4)
+  * Update DCS for Azure Databricks to Databricks Profile Pipeline
+    * Determine table metadata using `describe detail` query
+    * Rename some parameters and variables to be more consistent
+    * Reduce number of parameters by moving reasonably static components to variables
+  * Update DCS for Azure Databricks to Databricks Making Pipeline
+    * Determine sink table metadata using `describe detail` query
+    * Rename some parameters and variables to be more consistent
+    * Add support for handling non-conformant data
+    * Add support for handling custom date format
+    * Reduce number of parameters by moving reasonably static components to variables
+* Provide descriptions for steps in the following dataflows:
+  * `dcsazure_Databricks_to_Databricks`
+    * `dcsazure_Databricks_to_Databricks_copy_df`
+    * `dcsazure_Databricks_to_Databricks_mask_df`
+    * `dcsazure_Databricks_to_Databricks_mask_params_df`
+    * `dcsazure_Databricks_to_Databricks_prof_df`
+    * `dcsazure_Databricks_to_Databricks_prof_df_empty_tables`
+
 # 0.0.6
 * Add support for handling custom date format in DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)
 * Add support for handling custom date format in DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake (Legacy) linked service type)
