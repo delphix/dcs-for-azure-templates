@@ -19,7 +19,7 @@ These linked services types are needed for the following steps:
 when performing a data copy from Snowflake. This will be used for the following steps:
 * Schema Discovery From Snowflake (Copy data activity)
 
-`Snowflake` (source) - Linked service associated with unmasked Snowflake data. This will be used for the following
+`Snowflake` (source) - Linked service associated with unmasked Snowflake data needs to be parameterized for database name, role name and warehouse name. This will be used for the following
 steps:
 * dcsazure_Snowflake_to_Snowflake_source_ds (Snowflake dataset)
 * dcsazure_Snowflake_to_Snowflake_prof_df/SnowflakeSource1MillRowDataSampling (dataFlow)
@@ -36,6 +36,8 @@ steps:
 
 ### How It Works
 
+* Reset Discovery Condition
+  * Checks against the `P_RESET_DISCOVERY` parameter to determine if we should profile from scratch or profile from where it left off after last execution
 * Schema Discovery From Snowflake
   * Query metadata from Snowflake `information_schema` to identify tables and columns in the Snowflake instance
 * Select Discovered Tables
@@ -55,8 +57,13 @@ have customized your metadata store, then these variables may need editing.
   (default `dbo`)
 * `METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset
   (default `discovered_ruleset`)
+* `CAPTURE_LOG_PROCEDURE_NAME` - This is the procedure to be used for capturing the logs and marked the profiling and masking flags
+  (default `capture_adf_execution_sp`)
 
 ### Parameters
 
 * `P_SOURCE_DATABASE` - String - This is the database in Snowflake that contains data we wish to profile
 * `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that we will profile
+* `P_SOURCE_ROLE` - String - This is the role in Snowflake that will be used to access Snowflake. This role needs permissions to query source schema.
+* `P_SOURCE_WAREHOUSE` - String - This is the warehouse in Snowflake that will be used to execute the queries
+* `P_RESET_DISCOVERY` - Boolean - This is the flag to control whether to re-profile from start, or from where it left off after last execution. Default value is true, which will re-profile from start.

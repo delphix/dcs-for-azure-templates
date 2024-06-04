@@ -6,16 +6,16 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "BlobStoreStagingArea": {
+    "AzureBlobStorage": {
       "type": "string"
     },
-    "Snowflake_Source_New": {
+    "AzSql_MetadataStore": {
       "type": "string"
     },
-    "Metadata Datastore": {
+    "Snowflake": {
       "type": "string"
     },
-    "ProdDCSForAzureService": {
+    "dcs4azure_asdd_ls": {
       "type": "string"
     }
   },
@@ -32,9 +32,16 @@
           {
             "name": "Schema Discovery From Snowflake",
             "type": "Copy",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "Reset Discovery Condition",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
             "policy": {
-              "timeout": "0.12:00:00",
+              "timeout": "0.1:00:00",
               "retry": 0,
               "retryIntervalInSeconds": 30,
               "secureOutput": false,
@@ -71,7 +78,7 @@
               "enableStaging": true,
               "stagingSettings": {
                 "linkedServiceName": {
-                  "referenceName": "[parameters('BlobStoreStagingArea')]",
+                  "referenceName": "[parameters('AzureBlobStorage')]",
                   "type": "LinkedServiceReference"
                 },
                 "path": {
@@ -181,7 +188,19 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SCHEMA": "INFORMATION_SCHEMA",
-                  "DS_TABLE": "TABLES"
+                  "DS_TABLE": "TABLES",
+                  "DS_DBNAME": {
+                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                    "type": "Expression"
+                  },
+                  "DS_ROLENAME": {
+                    "value": "@pipeline().parameters.P_SOURCE_ROLE",
+                    "type": "Expression"
+                  },
+                  "DS_WHNAME": {
+                    "value": "@pipeline().parameters.P_SOURCE_WAREHOUSE",
+                    "type": "Expression"
+                  }
                 }
               }
             ],
@@ -225,7 +244,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT identified_table FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nORDER BY identified_table",
+                  "value": "SELECT DISTINCT identified_table FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n   AND (is_profiled is NULL or is_profiled='N')\nORDER BY identified_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -271,7 +290,7 @@
                   "type": "ExecuteDataFlow",
                   "dependsOn": [],
                   "policy": {
-                    "timeout": "0.12:00:00",
+                    "timeout": "0.1:00:00",
                     "retry": 0,
                     "retryIntervalInSeconds": 30,
                     "secureOutput": false,
@@ -314,17 +333,365 @@
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
                       },
-                      "linkedServiceParameters": {}
+                      "linkedServiceParameters": {
+                        "SnowflakeSource1MillRowDataSampling": {
+                          "linkedService": {
+                            "DB_NAME": {
+                              "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                              "type": "Expression"
+                            },
+                            "WH_NAME": {
+                              "value": "@pipeline().parameters.P_SOURCE_WAREHOUSE",
+                              "type": "Expression"
+                            },
+                            "ROLE_NAME": {
+                              "value": "@pipeline().parameters.P_SOURCE_ROLE",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
                     },
                     "staging": {},
-                    "compute": {
-                      "coreCount": 8,
-                      "computeType": "General"
+                    "integrationRuntime": {
+                      "referenceName": "DCS-ASDD-PRIV-IR",
+                      "type": "IntegrationRuntimeReference"
                     },
                     "traceLevel": "None",
                     "cacheSinks": {
                       "firstRowOnly": true
                     }
+                  }
+                },
+                {
+                  "name": "Capture Success Status",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Profile",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').ActivityRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@if(equals(activity('Profile').Status,'Failed'),activity('Profile').Error.message,'N/A')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionEndTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionStartTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineName}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_status": {
+                        "value": {
+                          "value": "@{activity('Profile').Status}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "sink_db_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_schema_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_table_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "src_db_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_schema_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_table_name": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_MetadataStore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Failed Perform Masking Per Table",
+                  "type": "Fail",
+                  "dependsOn": [
+                    {
+                      "activity": "Capture Failure Status",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "@concat('Profile Failed for: ', item().identified_table)",
+                      "type": "Expression"
+                    },
+                    "errorCode": "500"
+                  }
+                },
+                {
+                  "name": "Capture Failure Status",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Profile",
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@variables('CAPTURE_LOG_PROCEDURE_NAME')",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').ActivityRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@if(equals(activity('Profile').Status,'Failed'),activity('Profile').Error.message,'N/A')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionEndTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionStartTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineName}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_status": {
+                        "value": {
+                          "value": "@{activity('Profile').Status}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "sink_db_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_schema_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_table_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "src_db_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_schema_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_table_name": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_MetadataStore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Reset Discovery Condition",
+            "type": "IfCondition",
+            "dependsOn": [],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@pipeline().parameters.P_RESET_DISCOVERY",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Reset Discovery Flag",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_MetadataStore')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "update @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} set is_profiled = NULL where dataset='Snowflake' and specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}' and specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'",
+                          "type": "Expression"
+                        }
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
                   }
                 }
               ]
@@ -336,10 +703,24 @@
         },
         "parameters": {
           "P_SOURCE_DATABASE": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "DEMO_DB"
           },
           "P_SOURCE_SCHEMA": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "PROD_APP_SCHEMA"
+          },
+          "P_SOURCE_ROLE": {
+            "type": "string",
+            "defaultValue": "DCS_AZURE_ROLE"
+          },
+          "P_SOURCE_WAREHOUSE": {
+            "type": "string",
+            "defaultValue": "DCS_AZURE_WH"
+          },
+          "P_RESET_DISCOVERY": {
+            "type": "bool",
+            "defaultValue": true
           }
         },
         "variables": {
@@ -349,18 +730,22 @@
           },
           "METADATA_SCHEMA": {
             "type": "String",
-            "defaultValue": "dbo"
+            "defaultValue": "dcsazure_metadata_store"
           },
           "METADATA_RULESET_TABLE": {
             "type": "String",
             "defaultValue": "discovered_ruleset"
+          },
+          "CAPTURE_LOG_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "capture_adf_execution_sp"
           }
         },
         "folder": {
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2024-04-04T00:00:25Z"
+        "lastPublishTime": "2024-06-04T03:26:58Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_prof_source_ds')]",
@@ -374,14 +759,37 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Snowflake_Source_New')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Snowflake')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "DB_NAME": {
+              "value": "@dataset().DS_DBNAME",
+              "type": "Expression"
+            },
+            "WH_NAME": {
+              "value": "@dataset().DS_WHNAME",
+              "type": "Expression"
+            },
+            "ROLE_NAME": {
+              "value": "@dataset().DS_ROLENAME",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
             "type": "string"
           },
           "DS_TABLE": {
+            "type": "string"
+          },
+          "DS_DBNAME": {
+            "type": "string"
+          },
+          "DS_ROLENAME": {
+            "type": "string"
+          },
+          "DS_WHNAME": {
             "type": "string"
           }
         },
@@ -410,7 +818,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Metadata Datastore')]",
+          "referenceName": "[parameters('AzSql_MetadataStore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -482,7 +890,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSource1MillRowDataSampling",
@@ -490,7 +898,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_MetadataStore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead"
@@ -499,7 +907,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_MetadataStore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore"
@@ -509,7 +917,7 @@
             {
               "name": "CallDCSForAzureProfiling",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('dcs4azure_asdd_ls')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -716,6 +1124,13 @@
           ]
         }
       },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/default')]",
+      "type": "Microsoft.DataFactory/factories/managedVirtualNetworks",
+      "apiVersion": "2018-06-01",
+      "properties": {},
       "dependsOn": []
     }
   ]
