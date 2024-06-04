@@ -6,19 +6,16 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "BlobStoreStagingArea": {
+    "AzSql_MetadataStore": {
       "type": "string"
     },
-    "Metadata Datastore": {
+    "AzureBlobStorage": {
       "type": "string"
     },
-    "Snowflake_Source_New": {
+    "Snowflake": {
       "type": "string"
     },
-    "Snowflake_Sink_New": {
-      "type": "string"
-    },
-    "ProdDCSForAzureService": {
+    "dcsazure_mask_ls": {
       "type": "string"
     }
   },
@@ -35,7 +32,14 @@
           {
             "name": "Select Tables That Require Masking",
             "type": "Lookup",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "Reset Masking Condition",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -48,7 +52,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} dd\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} dd\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND am.is_masked = 'N';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -111,18 +115,6 @@
                           "value": "'@{pipeline().RunId}'",
                           "type": "Expression"
                         },
-                        "DF_SOURCE_DATABASE": {
-                          "value": "'@{item().source_database}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_SCHEMA": {
-                          "value": "'@{item().source_schema}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_TABLE": {
-                          "value": "'@{item().source_table}'",
-                          "type": "Expression"
-                        },
                         "DF_METADATA_SCHEMA": {
                           "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
@@ -134,6 +126,18 @@
                         "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
                           "value": "'@{variables('METADATA_ADF_TYPE_MAPPING_TABLE')}'",
                           "type": "Expression"
+                        },
+                        "DF_SOURCE_DATABASE": {
+                          "value": "'@{item().source_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_SCHEMA": {
+                          "value": "'@{item().source_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_TABLE": {
+                          "value": "'@{item().source_table}'",
+                          "type": "Expression"
                         }
                       },
                       "datasetParameters": {
@@ -143,9 +147,9 @@
                       }
                     },
                     "staging": {},
-                    "compute": {
-                      "coreCount": 8,
-                      "computeType": "General"
+                    "integrationRuntime": {
+                      "referenceName": "DCS-MASK-PRIV-IR",
+                      "type": "IntegrationRuntimeReference"
                     },
                     "traceLevel": "None",
                     "cacheSinks": {}
@@ -215,23 +219,373 @@
                           "value": "@activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths",
                           "type": "Expression"
                         },
-                        "P_FAIL_ON_NONCONFORMING_DATA": {
-                          "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMING_DATA",
+                        "DF_FAIL_ON_NONCONFORMANT_DATA": {
+                          "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA",
+                          "type": "Expression"
+                        },
+                        "DF_FIELD_DATE_FORMAT": {
+                          "value": "'@{activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}'",
                           "type": "Expression"
                         }
                       },
                       "datasetParameters": {
                         "SnowflakeSource": {},
                         "SnowflakeSink": {}
+                      },
+                      "linkedServiceParameters": {
+                        "SnowflakeSource": {
+                          "linkedService": {
+                            "DB_NAME": {
+                              "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                              "type": "Expression"
+                            },
+                            "WH_NAME": {
+                              "value": "@pipeline().parameters.P_SOURCE_WAREHOUSE",
+                              "type": "Expression"
+                            },
+                            "ROLE_NAME": {
+                              "value": "@pipeline().parameters.P_SOURCE_ROLE",
+                              "type": "Expression"
+                            }
+                          }
+                        },
+                        "SnowflakeSink": {
+                          "linkedService": {
+                            "DB_NAME": {
+                              "value": "@pipeline().parameters.P_SINK_DATABASE",
+                              "type": "Expression"
+                            },
+                            "WH_NAME": {
+                              "value": "@pipeline().parameters.P_SINK_WAREHOUSE",
+                              "type": "Expression"
+                            },
+                            "ROLE_NAME": {
+                              "value": "@pipeline().parameters.P_SINK_ROLE",
+                              "type": "Expression"
+                            }
+                          }
+                        }
                       }
                     },
                     "staging": {},
-                    "compute": {
-                      "coreCount": 8,
-                      "computeType": "General"
+                    "integrationRuntime": {
+                      "referenceName": "DCS-MASK-PRIV-IR",
+                      "type": "IntegrationRuntimeReference"
                     },
                     "traceLevel": "None",
                     "cacheSinks": {}
+                  }
+                },
+                {
+                  "name": "Failed Perform Masking Per Table",
+                  "type": "Fail",
+                  "dependsOn": [
+                    {
+                      "activity": "Capture Failure Status",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "@concat('Perform Masking Per Table Failed for: ', item().source_table)",
+                      "type": "Expression"
+                    },
+                    "errorCode": "500"
+                  }
+                },
+                {
+                  "name": "Capture Success Status",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Perform Masking Per Table",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').ActivityRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@if(equals(activity('Perform Masking Per Table').Status,'Failed'),activity('Perform Masking Per Table').Error.message,'N/A')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').ExecutionEndTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').ExecutionStartTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "@concat('{','''','DF_FIELD_ALGORITHM_ASSIGNMENT','''',':','''',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments,'''',',','''','DF_COLUMNS_TO_MASK','''',':','''',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask,'''',',','''', 'DF_BODY_TYPE_MAPPING','''',':','',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping,'',',','''','DF_NUMBER_OF_BATCHES','''',':',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches,'}')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').PipelineName}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').PipelineRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_status": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').Status}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "sink_db_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SINK_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_schema_name": {
+                        "value": {
+                          "value": "@item().sink_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_table_name": {
+                        "value": {
+                          "value": "@item().sink_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "src_db_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_schema_name": {
+                        "value": {
+                          "value": "@item().source_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_table_name": {
+                        "value": {
+                          "value": "@item().source_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_MetadataStore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Capture Failure Status",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Perform Masking Per Table",
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').ActivityRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@if(equals(activity('Perform Masking Per Table').Status,'Failed'),activity('Perform Masking Per Table').Error.message,'N/A')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').ExecutionEndTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').ExecutionStartTime}",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "@concat('{','''','DF_FIELD_ALGORITHM_ASSIGNMENT','''',':','''',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments,'''',',','''','DF_COLUMNS_TO_MASK','''',':','''',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask,'''',',','''', 'DF_BODY_TYPE_MAPPING','''',':','',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping,'',',','''','DF_NUMBER_OF_BATCHES','''',':',activity('Get Masking Parameters').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches,'}')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').PipelineName}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').PipelineRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_status": {
+                        "value": {
+                          "value": "@{activity('Perform Masking Per Table').Status}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "sink_db_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SINK_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_schema_name": {
+                        "value": {
+                          "value": "@item().sink_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_table_name": {
+                        "value": {
+                          "value": "@item().sink_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_dataset": {
+                        "value": "Snowflake",
+                        "type": "String"
+                      },
+                      "src_db_name": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_schema_name": {
+                        "value": {
+                          "value": "@item().source_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_table_name": {
+                        "value": {
+                          "value": "@item().source_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_MetadataStore')]",
+                    "type": "LinkedServiceReference"
                   }
                 }
               ]
@@ -240,7 +594,14 @@
           {
             "name": "Select Tables Without Required Masking",
             "type": "Lookup",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "Reset Masking Condition",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -253,7 +614,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\nWHERE source_dataset = 'SNOWFLAKE'\nAND sink_dataset = 'SNOWFLAKE'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} dd\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}';",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\nWHERE source_dataset = 'SNOWFLAKE'\nAND sink_dataset = 'SNOWFLAKE'\nAND source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND is_masked = 'N'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} dd\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'SNOWFLAKE'\nAND am.source_dataset = 'SNOWFLAKE'\nAND am.sink_dataset = 'SNOWFLAKE'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND am.is_masked = 'N';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -358,7 +719,7 @@
                           "enableStaging": true,
                           "stagingSettings": {
                             "linkedServiceName": {
-                              "referenceName": "[parameters('BlobStoreStagingArea')]",
+                              "referenceName": "[parameters('AzureBlobStorage')]",
                               "type": "LinkedServiceReference"
                             },
                             "path": {
@@ -373,7 +734,19 @@
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_SCHEMA": "@item().source_schema",
-                              "DS_TABLE": "@item().source_table"
+                              "DS_TABLE": "@item().source_table",
+                              "DS_DBNAME": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "DS_ROLENAME": {
+                                "value": "@pipeline().parameters.P_SOURCE_ROLE",
+                                "type": "Expression"
+                              },
+                              "DS_WHNAME": {
+                                "value": "@pipeline().parameters.P_SOURCE_WAREHOUSE",
+                                "type": "Expression"
+                              }
                             }
                           }
                         ],
@@ -383,10 +756,328 @@
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_SCHEMA": "@item().sink_schema",
-                              "DS_TABLE": "@item().sink_table"
+                              "DS_TABLE": "@item().sink_table",
+                              "DS_DBNAME": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "DS_ROLENAME": {
+                                "value": "@pipeline().parameters.P_SINK_ROLE",
+                                "type": "Expression"
+                              },
+                              "DS_WHNAME": {
+                                "value": "@pipeline().parameters.P_SINK_WAREHOUSE",
+                                "type": "Expression"
+                              }
                             }
                           }
                         ]
+                      },
+                      {
+                        "name": "Failed Snowflake Copy via Copy Activity",
+                        "type": "Fail",
+                        "dependsOn": [
+                          {
+                            "activity": "Capture Failure Status_copy",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "message": {
+                            "value": "@concat('Snowflake Copy via Copy Activity Failed for: ', item().source_table)",
+                            "type": "Expression"
+                          },
+                          "errorCode": "500"
+                        }
+                      },
+                      {
+                        "name": "Capture Success Status_copy",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Snowflake Copy via Copy Activity",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').ActivityRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@if(equals(activity('Snowflake Copy via Copy Activity').Status,'Failed'),activity('Snowflake Copy via Copy Activity').Error.message,'N/A')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').ExecutionEndTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').ExecutionStartTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "input_parameters": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').PipelineName}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').PipelineRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_status": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').Status}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "sink_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_schema_name": {
+                              "value": {
+                                "value": "@item().sink_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table_name": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "src_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_schema_name": {
+                              "value": {
+                                "value": "@item().source_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_table_name": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('AzSql_MetadataStore')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Capture Failure Status_copy",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Snowflake Copy via Copy Activity",
+                            "dependencyConditions": [
+                              "Failed"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').ActivityRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@if(equals(activity('Snowflake Copy via Copy Activity').Status,'Failed'),activity('Snowflake Copy via Copy Activity').Error.message,'N/A')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').ExecutionEndTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').ExecutionStartTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "input_parameters": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').PipelineName}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').PipelineRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_status": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Copy Activity').Status}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "sink_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_schema_name": {
+                              "value": {
+                                "value": "@item().sink_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table_name": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "src_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_schema_name": {
+                              "value": {
+                                "value": "@item().source_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_table_name": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('AzSql_MetadataStore')]",
+                          "type": "LinkedServiceReference"
+                        }
                       }
                     ],
                     "ifTrueActivities": [
@@ -431,18 +1122,401 @@
                             "datasetParameters": {
                               "SnowflakeSource": {},
                               "SnowflakeSink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "SnowflakeSource": {
+                                "linkedService": {
+                                  "DB_NAME": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "WH_NAME": {
+                                    "value": "@pipeline().parameters.P_SOURCE_WAREHOUSE",
+                                    "type": "Expression"
+                                  },
+                                  "ROLE_NAME": {
+                                    "value": "@pipeline().parameters.P_SOURCE_ROLE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "SnowflakeSink": {
+                                "linkedService": {
+                                  "DB_NAME": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "WH_NAME": {
+                                    "value": "@pipeline().parameters.P_SINK_WAREHOUSE",
+                                    "type": "Expression"
+                                  },
+                                  "ROLE_NAME": {
+                                    "value": "@pipeline().parameters.P_SINK_ROLE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
-                          "compute": {
-                            "coreCount": 8,
-                            "computeType": "General"
+                          "integrationRuntime": {
+                            "referenceName": "DCS-MASK-PRIV-IR",
+                            "type": "IntegrationRuntimeReference"
                           },
                           "traceLevel": "None",
                           "cacheSinks": {}
                         }
+                      },
+                      {
+                        "name": "Failed Snowflake Copy via Dataflow Activity",
+                        "type": "Fail",
+                        "dependsOn": [
+                          {
+                            "activity": "Capture Failure Status_copy_dataflow",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "message": {
+                            "value": "@concat('Snowflake Copy via Dataflow Activity Failed for: ', item().source_table)",
+                            "type": "Expression"
+                          },
+                          "errorCode": "500"
+                        }
+                      },
+                      {
+                        "name": "Capture Success Status_copy_dataflow",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Snowflake Copy via Dataflow Activity",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').ActivityRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@if(equals(activity('Snowflake Copy via Dataflow Activity').Status,'Failed'),activity('Snowflake Copy via Dataflow Activity').Error.message,'N/A')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').ExecutionEndTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').ExecutionStartTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "input_parameters": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').PipelineName}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').PipelineRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_status": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').Status}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "sink_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_schema_name": {
+                              "value": {
+                                "value": "@item().sink_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table_name": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "src_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_schema_name": {
+                              "value": {
+                                "value": "@item().source_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_table_name": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('AzSql_MetadataStore')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Capture Failure Status_copy_dataflow",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Snowflake Copy via Dataflow Activity",
+                            "dependencyConditions": [
+                              "Failed"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').ActivityRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@if(equals(activity('Snowflake Copy via Dataflow Activity').Status,'Failed'),activity('Snowflake Copy via Dataflow Activity').Error.message,'N/A')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').ExecutionEndTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').ExecutionStartTime}",
+                                "type": "Expression"
+                              },
+                              "type": "DateTime"
+                            },
+                            "input_parameters": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').PipelineName}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').PipelineRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_status": {
+                              "value": {
+                                "value": "@{activity('Snowflake Copy via Dataflow Activity').Status}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "sink_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_schema_name": {
+                              "value": {
+                                "value": "@item().sink_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table_name": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_dataset": {
+                              "value": "Snowflake",
+                              "type": "String"
+                            },
+                            "src_db_name": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_schema_name": {
+                              "value": {
+                                "value": "@item().source_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_table_name": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('AzSql_MetadataStore')]",
+                          "type": "LinkedServiceReference"
+                        }
                       }
                     ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Reset Masking Condition",
+            "type": "IfCondition",
+            "dependsOn": [],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@pipeline().parameters.P_RESET_MASKING",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Reset Masking Flag",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_MetadataStore')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "update @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} set is_masked='N' where source_dataset='SNOWFLAKE' and source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}' and source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}' and sink_dataset='SNOWFLAKE' and sink_database = '@{pipeline().parameters.P_SINK_DATABASE}' and sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'",
+                          "type": "Expression"
+                        }
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
                   }
                 }
               ]
@@ -455,33 +1529,57 @@
         "parameters": {
           "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
-            "defaultValue": false
+            "defaultValue": true
           },
           "P_COPY_USE_DATAFLOW": {
             "type": "bool",
             "defaultValue": false
           },
-          "P_FAIL_ON_NONCONFORMING_DATA": {
+          "P_FAIL_ON_NONCONFORMANT_DATA": {
             "type": "bool",
             "defaultValue": true
           },
           "P_SOURCE_DATABASE": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "DEMO_DB"
           },
           "P_SINK_DATABASE": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "DEMO_DB_TGT"
           },
           "P_SOURCE_SCHEMA": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "PROD_APP_SCHEMA"
           },
           "P_SINK_SCHEMA": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "ANALYTICS_APP_SCHEMA"
+          },
+          "P_SOURCE_ROLE": {
+            "type": "string",
+            "defaultValue": "DCS_AZURE_ROLE"
+          },
+          "P_SINK_ROLE": {
+            "type": "string",
+            "defaultValue": "DCS_AZURE_ROLE"
+          },
+          "P_SOURCE_WAREHOUSE": {
+            "type": "string",
+            "defaultValue": "DCS_AZURE_WH"
+          },
+          "P_SINK_WAREHOUSE": {
+            "type": "string",
+            "defaultValue": "DCS_AZURE_WH"
+          },
+          "P_RESET_MASKING": {
+            "type": "bool",
+            "defaultValue": true
           }
         },
         "variables": {
           "METADATA_SCHEMA": {
             "type": "String",
-            "defaultValue": "dbo"
+            "defaultValue": "dcsazure_metadata_store"
           },
           "METADATA_RULESET_TABLE": {
             "type": "String",
@@ -498,13 +1596,17 @@
           "STAGING_STORAGE_PATH": {
             "type": "String",
             "defaultValue": "staging-container"
+          },
+          "CAPTURE_LOG_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "capture_adf_execution_sp"
           }
         },
         "folder": {
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2024-04-30T23:32:46Z"
+        "lastPublishTime": "2024-06-04T17:12:00Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_mask_metadata_ds')]",
@@ -521,7 +1623,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Metadata Datastore')]",
+          "referenceName": "[parameters('AzSql_MetadataStore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -593,14 +1695,14 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_MetadataStore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset"
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_MetadataStore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping"
@@ -630,17 +1732,32 @@
             },
             {
               "name": "FilterSnowflakeType"
+            },
+            {
+              "name": "ParseMetadata"
+            },
+            {
+              "name": "DateFormatString"
+            },
+            {
+              "name": "FilteredColumnsWithDateFormat"
+            },
+            {
+              "name": "DateFormatHeader"
+            },
+            {
+              "name": "AllMaskingParameters"
             }
           ],
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
-            "     DF_SOURCE_DATABASE as string (''),",
-            "     DF_SOURCE_SCHEMA as string (''),",
-            "     DF_SOURCE_TABLE as string (''),",
-            "     DF_METADATA_SCHEMA as string (''),",
+            "     DF_METADATA_SCHEMA as string ('dcsazure_metadata_store'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping')",
+            "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
+            "     DF_SOURCE_DATABASE as string ('DEMO_DB'),",
+            "     DF_SOURCE_SCHEMA as string ('PROD_APP_SCHEMA'),",
+            "     DF_SOURCE_TABLE as string ('PERSON')",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -652,6 +1769,7 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
+            "          metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -689,8 +1807,10 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'left')~> RulesetWithTypes",
-            "RulesetWithTypes derive(adf_type_conversion = concat(identified_column, ' as ', adf_type)) ~> RulesetWithAlgorithmTypeMapping",
-            "RulesetWithAlgorithmTypeMapping aggregate(FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "RulesetWithTypes derive(output_row = 1,",
+            "          adf_type_conversion = concat(identified_column, ' as ', adf_type)) ~> RulesetWithAlgorithmTypeMapping",
+            "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
             "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
@@ -699,7 +1819,20 @@
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
             "TypeMapping filter(equalsIgnoreCase(dataset, 'SNOWFLAKE')) ~> FilterSnowflakeType",
-            "ModifyNumberOfBatches sink(validateSchema: false,",
+            "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
+            "     format: 'json',",
+            "     documentForm: 'singleDocument') ~> ParseMetadata",
+            "ParseMetadata derive(output_row = 1,",
+            "          date_format_string = parsed_metadata.date_format) ~> DateFormatString",
+            "DateFormatString filter(not(isNull(date_format_string))) ~> FilteredColumnsWithDateFormat",
+            "FilteredColumnsWithDateFormat aggregate(groupBy(output_row),",
+            "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}')) ~> DateFormatHeader",
+            "ModifyNumberOfBatches, DateFormatHeader join(GenerateMaskParameters@output_row == DateFormatHeader@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> AllMaskingParameters",
+            "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
             "     store: 'cache',",
@@ -725,7 +1858,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSource",
@@ -735,7 +1868,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Sink_New')]",
+                "referenceName": "[parameters('Snowflake')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSink"
@@ -745,7 +1878,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('dcsazure_mask_ls')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -800,7 +1933,8 @@
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
             "     DF_NUMBER_OF_BATCHES as integer (100),",
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
-            "     P_FAIL_ON_NONCONFORMING_DATA as boolean (true())",
+            "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
+            "     DF_FIELD_DATE_FORMAT as string ('{}')",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -825,7 +1959,7 @@
             "     store: 'restservice',",
             "     timeout: 30,",
             "     requestInterval: 0,",
-            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT],",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
             "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
@@ -834,7 +1968,7 @@
             "     addResponseCode: true,",
             "     requestFormat: ['type' -> 'json'],",
             "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
-            "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
+            "     columnTypeMap: ['body'->'$DF_COLUMNS_TO_MASK']) ~> DCSForAzureAPI",
             "SnowflakeSource derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
             "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
@@ -886,19 +2020,49 @@
       "dependsOn": []
     },
     {
+      "name": "[concat(parameters('factoryName'), '/default')]",
+      "type": "Microsoft.DataFactory/factories/managedVirtualNetworks",
+      "apiVersion": "2018-06-01",
+      "properties": {},
+      "dependsOn": []
+    },
+    {
       "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_mask_source_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Snowflake_Source_New')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Snowflake')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "DB_NAME": {
+              "value": "@dataset().DS_DBNAME",
+              "type": "Expression"
+            },
+            "WH_NAME": {
+              "value": "@dataset().DS_WHNAME",
+              "type": "Expression"
+            },
+            "ROLE_NAME": {
+              "value": "@dataset().DS_ROLENAME",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
             "type": "string"
           },
           "DS_TABLE": {
+            "type": "string"
+          },
+          "DS_DBNAME": {
+            "type": "string"
+          },
+          "DS_ROLENAME": {
+            "type": "string"
+          },
+          "DS_WHNAME": {
             "type": "string"
           }
         },
@@ -927,14 +2091,37 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Snowflake_Sink_New')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Snowflake')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "DB_NAME": {
+              "value": "@dataset().DS_DBNAME",
+              "type": "Expression"
+            },
+            "WH_NAME": {
+              "value": "@dataset().DS_WHNAME",
+              "type": "Expression"
+            },
+            "ROLE_NAME": {
+              "value": "@dataset().DS_ROLENAME",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
             "type": "string"
           },
           "DS_TABLE": {
+            "type": "string"
+          },
+          "DS_DBNAME": {
+            "type": "string"
+          },
+          "DS_ROLENAME": {
+            "type": "string"
+          },
+          "DS_WHNAME": {
             "type": "string"
           }
         },
@@ -970,7 +2157,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSource",
@@ -980,7 +2167,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Sink_New')]",
+                "referenceName": "[parameters('Snowflake')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SnowflakeSink"
