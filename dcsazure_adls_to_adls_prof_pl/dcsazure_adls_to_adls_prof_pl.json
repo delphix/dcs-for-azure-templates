@@ -6,13 +6,13 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "Metadata Datastore": {
+    "AzSql_jl_azsqlserver_ls": {
       "type": "string"
     },
-    "AzureDataLakeStorage_Generic_Source": {
+    "AzureDataLakeStorage": {
       "type": "string"
     },
-    "DCSForAzureProd": {
+    "DelphixComplianceService_d4b5045c": {
       "type": "string"
     }
   },
@@ -29,7 +29,14 @@
           {
             "name": "Identify Nested Schemas",
             "type": "GetMetadata",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "Reset Discovery Condition",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -490,14 +497,14 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table,\n    metadata\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}')\nAND dataset = 'ADLS'",
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table,\n    metadata\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}')\nAND dataset = 'ADLS'\nAND (is_profiled is NULL or is_profiled='N')",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_adls_to_adls_delta_metadata_prof_ds1",
+                "referenceName": "dcsazure_adls_to_adls_delta_metadata_prof_ds11",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -783,7 +790,7 @@
             },
             "userProperties": [],
             "linkedServiceName": {
-              "referenceName": "[parameters('Metadata Datastore')]",
+              "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
               "type": "LinkedServiceReference"
             },
             "typeProperties": {
@@ -903,15 +910,351 @@
                         "SourceData1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
-                      },
-                      "linkedServiceParameters": {}
+                      }
                     },
                     "staging": {},
-                    "compute": {
-                      "coreCount": 8,
-                      "computeType": "General"
+                    "integrationRuntime": {
+                      "referenceName": "ADF-CUSTOM-IR",
+                      "type": "IntegrationRuntimeReference"
                     },
                     "traceLevel": "Fine"
+                  }
+                },
+                {
+                  "name": "Capture Profile Success Status",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Profile",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').ActivityRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@if(equals(activity('Profile').Status,'Failed'),activity('Profile').Error.message,'N/A')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "@concat('DF_COLUMN_DELIMITER: ',json(item().metadata).column_delimiter, '; DF_QUOTE_CHARACTER: ',json(item().metadata).quote_character,'; DF_ESCAPE_CHARACTER: ',json(item().metadata).escape_character)",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineName}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_status": {
+                        "value": {
+                          "value": "@{activity('Profile').Status}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_dataset": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_db_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_schema_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_table_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_dataset": {
+                        "value": "ADLS",
+                        "type": "String"
+                      },
+                      "src_db_name": {
+                        "value": {
+                          "value": "@item().specified_database",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_file_format": {
+                        "value": "DELIMITED",
+                        "type": "String"
+                      },
+                      "src_schema_name": {
+                        "value": {
+                          "value": "@item().specified_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_table_name": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionStartTime}",
+                          "type": "Expression"
+                        },
+                        "type": "Datetime"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionEndTime}",
+                          "type": "Expression"
+                        },
+                        "type": "Datetime"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Failed Profile",
+                  "type": "Fail",
+                  "dependsOn": [
+                    {
+                      "activity": "Capture Failure Success Status",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "@concat('Profile Failed for: ', item().identified_table)",
+                      "type": "Expression"
+                    },
+                    "errorCode": "500"
+                  }
+                },
+                {
+                  "name": "Capture Failure Success Status",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Profile",
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').ActivityRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@if(equals(activity('Profile').Status,'Failed'),activity('Profile').Error.message,'N/A')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "@concat('DF_COLUMN_DELIMITER: ',json(item().metadata).column_delimiter, '; DF_QUOTE_CHARACTER: ',json(item().metadata).quote_character,'; DF_ESCAPE_CHARACTER: ',json(item().metadata).escape_character)",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineName}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@{activity('Profile').PipelineRunId}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_status": {
+                        "value": {
+                          "value": "@{activity('Profile').Status}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "sink_dataset": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_db_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_file_format": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_schema_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "sink_table_name": {
+                        "value": "N/A",
+                        "type": "String"
+                      },
+                      "src_dataset": {
+                        "value": "ADLS",
+                        "type": "String"
+                      },
+                      "src_db_name": {
+                        "value": {
+                          "value": "@item().specified_database",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_file_format": {
+                        "value": "DELIMITED",
+                        "type": "String"
+                      },
+                      "src_schema_name": {
+                        "value": {
+                          "value": "@item().specified_schema",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "src_table_name": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionStartTime}",
+                          "type": "Expression"
+                        },
+                        "type": "Datetime"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@{activity('Profile').ExecutionEndTime}",
+                          "type": "Expression"
+                        },
+                        "type": "Datetime"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
+                    "type": "LinkedServiceReference"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Reset Discovery Condition",
+            "type": "IfCondition",
+            "dependsOn": [],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@pipeline().parameters.P_RESET_DISCOVERY",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Reset Discovery Flag",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "update @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} set is_profiled = NULL where dataset='ADLS' and specified_database = '@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}' and specified_schema like '@{pipeline().parameters.P_DIRECTORY}%'",
+                          "type": "Expression"
+                        }
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
                   }
                 }
               ]
@@ -923,10 +1266,12 @@
         },
         "parameters": {
           "P_STORAGE_CONTAINER_TO_PROFILE": {
-            "type": "String"
+            "type": "String",
+            "defaultValue": "delimited-src-cont"
           },
           "P_DIRECTORY": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "level-1-1"
           },
           "P_SUFFIXES_TO_SCAN": {
             "type": "array",
@@ -961,12 +1306,29 @@
           },
           "P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS": {
             "type": "array",
-            "defaultValue": []
+            "defaultValue": [
+              "level-2-1",
+              "level-2-2"
+            ]
           },
           "P_MIXED_FILE_SCHEMA_DISAMBIGUATION": {
             "type": "object",
             "defaultValue": {
-              "DCS_EXAMPLE_PREFIX": {
+              "customer": {
+                "suffixes": [
+                  "csv",
+                  "txt",
+                  "NO_EXT"
+                ]
+              },
+              "orders": {
+                "suffixes": [
+                  "csv",
+                  "txt",
+                  "NO_EXT"
+                ]
+              },
+              "staffs": {
                 "suffixes": [
                   "csv",
                   "txt",
@@ -974,12 +1336,16 @@
                 ]
               }
             }
+          },
+          "P_RESET_DISCOVERY": {
+            "type": "bool",
+            "defaultValue": true
           }
         },
         "variables": {
           "METADATA_SCHEMA": {
             "type": "String",
-            "defaultValue": "dbo"
+            "defaultValue": "dcsazure_metadata_store"
           },
           "METADATA_RULESET_TABLE": {
             "type": "String",
@@ -996,17 +1362,21 @@
           "HETEROGENEOUS_SCHEMAS_TO_CHECK": {
             "type": "Array",
             "defaultValue": []
+          },
+          "CAPTURE_LOG_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "capture_adf_execution_sp"
           }
         },
         "folder": {
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-05-03T20:24:02Z"
+        "lastPublishTime": "2024-06-06T19:36:56Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_delta_metadata_prof_ds1')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_delta_metadata_prof_ds11')]",
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory_prof_ds')]",
         "[concat(variables('factoryId'), '/pipelines/dcsazure_adls_to_adls_prof_file_pl')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_prof_df')]"
@@ -1018,7 +1388,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "referenceName": "[parameters('AzureDataLakeStorage')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -1060,12 +1430,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delta_metadata_prof_ds1')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delta_metadata_prof_ds11')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Metadata Datastore')]",
+          "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -1132,7 +1502,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "referenceName": "[parameters('AzureDataLakeStorage')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -1427,7 +1797,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
                     "type": "LinkedServiceReference"
                   }
                 }
@@ -1477,7 +1847,7 @@
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-05-03T20:24:02Z"
+        "lastPublishTime": "2024-06-03T21:11:58Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",
@@ -1497,7 +1867,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+                "referenceName": "[parameters('AzureDataLakeStorage')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData1MillRowDataSampling",
@@ -1505,7 +1875,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead"
@@ -1514,7 +1884,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore"
@@ -1524,7 +1894,7 @@
             {
               "name": "CallDCSForAzureProfiling",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureProd')]",
+                "referenceName": "[parameters('DelphixComplianceService_d4b5045c')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -1750,7 +2120,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Generic_Source')]",
+          "referenceName": "[parameters('AzureDataLakeStorage')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
