@@ -39,6 +39,8 @@ steps:
 
 ### How It Works
 The profiling pipeline has a few stages:
+* Reset Discovery Condition
+  * Checks against the `P_RESET_DISCOVERY` parameter to determine if we should profile from scratch or profile from where it left off after last execution
 * Determine the Delta Path
   * As this can be configured at the catalog or schema level, we need to determine the path by querying for additional
     information about both the catalog and the schema using `DESCRIBE` queries
@@ -58,10 +60,26 @@ The profiling pipeline has a few stages:
       * If the table either does not contain data or cannot be read, run the
         `dcsazure_Databricks_to_Databricks_prof_empty_tables_df` which updates the row count accordingly
 
+### Variables
+
+If you have configured your database using the metadata store scripts, these variables will not need editing. If you
+have customized your metadata store, then these variables may need editing.
+
+* `STAGING_STORAGE_PATH` - This is a path that specifies where we should stage data as it moves through the pipeline
+  and should reference a storage container in a storage account (default `staging-container`)
+* `P_METADATA_SCHEMA` - This is the schema to be used for in the self-hosted AzureSQL database for storing metadata
+  (default `dbo`)
+* `P_METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset
+  (default `discovered_ruleset`)
+* `readerVersion` - This is the variable to provide delta read version
+  (default `2`)
+* `unprofilable_tables` - This is the variable to get list of unprofilable tables which doesn't match the read version
+  (default `[]]`)
+* `CAPTURE_LOG_PROCEDURE_NAME` - This is the procedure to be used for capturing the logs and marked the profiling and masking flags
+  (default `capture_adf_execution_sp`)
+
 ### Parameters
 
-* `P_SOURCE_DATABASE` - This is the catalog in Databricks that we will profile
+* `P_SOURCE_CATALOG` - This is the catalog in Databricks that we will profile
 * `P_SOURCE_SCHEMA` - This is the schema within the above catalog that we will profile
-* `P_STAGING_STORAGE_PATH` - This is the name of a storage container in 
-* `P_METADATA_SCHEMA` - This is the schema to be used for in the self-hosted AzureSQL database for storing metadata (default `dbo`)
-* `P_METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset (default `discovered_ruleset`)
+* `P_RESET_DISCOVERY` - Boolean - This is the flag to control whether to re-profile from start, or from where it left off after last execution. Default value is true, which will re-profile from start.
