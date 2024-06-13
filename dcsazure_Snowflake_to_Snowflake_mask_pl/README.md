@@ -19,7 +19,7 @@ These linked services types are needed for the following steps:
 when performing a data copy from Snowflake. This will be used for the following steps:
 * If Copy Via Dataflow (If Condition activity)
 
-`Snowflake` (source) - Linked service associated with unmasked Snowflake data. This will be used for the following
+`Snowflake` (source) - Linked service associated with unmasked Snowflake data needs to be parameterized for database name, role name and warehouse name. This will be used for the following
 steps:
 * dcsazure_Snowflake_to_Snowflake_mask_df/SnowflakeSource (dataFlow)
 * dcsazure_Snowflake_to_Snowflake_mask_df/SnowflakeSink (dataFlow)
@@ -38,6 +38,8 @@ steps:
 * dcsazure_Snowflake_to_Snowflake_mask_df (dataFlow)
 
 ### How It Works
+* Reset Masking Condition
+  * Checks against the `P_RESET_MASKING` parameter to determine if we should mask from scratch or mask from where it left off after last execution
 * Select Tables Without Required Masking. This is done by querying the metadata data store.
   * Filter If Copy Unmasked Enabled. This is done by applying a filter based on the value of `P_COPY_UNMASKED_TABLES`
     * For Each Table With No Masking. Provided we have any rows left after applying the filter
@@ -65,6 +67,8 @@ have customized your metadata store, then these variables may need editing.
   associated datatype required in ADF as needed for the pipeline (default `adf_type_mapping`)
 * `STAGING_STORAGE_PATH` - This is a path that specifies where we should stage data as it moves through the pipeline
   and should reference a storage container in a storage account (default `staging-container`)
+* `CAPTURE_LOG_PROCEDURE_NAME` - This is the procedure to be used for capturing the logs and marked the profiling and masking flags
+  (default `capture_adf_execution_sp`)
 
 ### Parameters
 
@@ -81,4 +85,9 @@ have customized your metadata store, then these variables may need editing.
   data
 * `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that we will mask
 * `P_SINK_SCHEMA` - String - This is the schema within the above sink database where we will place masked data
+* `P_SOURCE_ROLE` - String - This is the role in Snowflake that will be used to access  source Snowflake. This role needs permissions to query source schema.
+* `P_SOURCE_WAREHOUSE` - String - This is the warehouse in source Snowflake that will be used to execute the queries
+* `P_SINK_ROLE` - String - This is the role in Snowflake that will be used to access sink Snowflake. This role needs permissions to query source schema.
+* `P_SINK_WAREHOUSE` - String - This is the warehouse in sink Snowflake that will be used to execute the queries
+* `P_RESET_MASKING` - Boolean - This is the flag to control whether to re-mask from start, or from where it left off after last execution. Default value is true, which will re-mask from start.
 

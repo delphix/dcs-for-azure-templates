@@ -36,6 +36,8 @@ steps:
 
 ### How It Works
 The profiling pipeline has a few stages:
+* Reset Discovery Condition
+  * Checks against the `P_RESET_DISCOVERY` parameter to determine if we should profile from scratch or profile from where it left off after last execut
 * Identify Nested Schemas
   * Using a `Get Metadata` activity, collect the items under the specified `P_DIRECTORY` directory
   * For each item in that list, identify if the schema of the files in that child directory is expected to be
@@ -70,6 +72,8 @@ have customized your metadata store, then these variables may need editing.
   accumulator for the list of directories with heterogeneous schemas.
 * `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
   accumulator for the list of directories with homogeneous schemas.
+* `CAPTURE_LOG_PROCEDURE_NAME` - This is the procedure to be used for capturing the logs and marked the profiling and masking flags
+  (default `capture_adf_execution_sp)
 
 ### Parameters
 
@@ -86,6 +90,7 @@ have customized your metadata store, then these variables may need editing.
 * `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` - This is the list of file prefixes that can be used to disambiguate directories
   with heterogeneous schemas, see the details in the notes below (default
   `{"DCS_EXAMPLE_PREFIX":{"suffixes":["csv","txt","NO_EXT"]}}`)
+* `P_RESET_DISCOVERY` - Boolean - This is the flag to control whether to re-profile from start, or from where it left off after last execution. Default value is true, which will re-profile from start.
 
 
 #### Notes

@@ -6,19 +6,19 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "AzureDataLakeStorage_Staging": {
+    "DatabricksStg_ADLS": {
       "type": "string"
     },
-    "AzureDatabricksDeltaLake_Source": {
+    "AzSql_jl_azsqlserver_ls": {
       "type": "string"
     },
-    "Metadata Datastore": {
+    "AzureDatabricks": {
       "type": "string"
     },
-    "AzureDataLakeStorage_Source": {
+    "Databricks_AzureDataLakeStorage": {
       "type": "string"
     },
-    "DCSForAzureDev": {
+    "DelphixComplianceService_d4b5045c": {
       "type": "string"
     }
   },
@@ -38,7 +38,7 @@
             "type": "Copy",
             "dependsOn": [
               {
-                "activity": "Set Delta Path",
+                "activity": "Reset Discovery Condition",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -56,7 +56,7 @@
               "source": {
                 "type": "AzureDatabricksDeltaLakeSource",
                 "query": {
-                  "value": "WITH table_metadata AS (\n  SELECT\n    table_catalog as table_catalog,\n    table_schema as table_schema,\n    table_name as table_name,\n    to_json(\n      named_struct(\n        'metadata_version', 1,\n        'container_name', '@{variables('CONTAINER_NAME')}',\n        'catalog_path', '@{variables('DELTA_PATH')}',\n        'table_path', storage_sub_directory\n      )\n    ) as metadata\n  FROM\n    @{pipeline().parameters.P_SOURCE_DATABASE}.INFORMATION_SCHEMA.TABLES\n  WHERE\n    LOWER(TABLE_CATALOG) = LOWER('@{pipeline().parameters.P_SOURCE_DATABASE}') \n    AND LOWER(TABLE_SCHEMA) = LOWER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n)\nSELECT\n  'DATABRICKS' AS dataset,\n  t.TABLE_CATALOG AS specified_database,\n  t.TABLE_SCHEMA AS specified_schema,\n  t.TABLE_NAME AS identified_table,\n  c.COLUMN_NAME AS identified_column,\n  c.DATA_TYPE AS identified_column_type,\n  CASE\n    WHEN c.FULL_DATA_TYPE LIKE 'varchar%' THEN substring(c.FULL_DATA_TYPE,9, POSITION(')' IN c.FULL_DATA_TYPE) - POSITION('(' IN c.FULL_DATA_TYPE) -1) \n    WHEN c.FULL_DATA_TYPE = 'string' THEN 500\n    ELSE -1\n  END AS identified_column_max_length,\n  c.ORDINAL_POSITION AS ordinal_position,\n  m.metadata AS metadata\nFROM\n  @{pipeline().parameters.P_SOURCE_DATABASE}.INFORMATION_SCHEMA.TABLES t\n  JOIN @{pipeline().parameters.P_SOURCE_DATABASE}.INFORMATION_SCHEMA.COLUMNS c\n    ON t.table_catalog = c.table_catalog AND t.table_schema = c.table_schema AND t.table_name = c.table_name\n  JOIN table_metadata m\n    ON t.table_catalog = m.table_catalog AND t.table_schema = m.table_schema AND t.table_name = m.table_name\nWHERE\n  t.table_catalog = '@{pipeline().parameters.P_SOURCE_DATABASE}' AND t.table_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}' AND t.data_source_format = 'DELTA';",
+                  "value": "SELECT\n  'DATABRICKS' AS dataset,\n  t.TABLE_CATALOG AS specified_database,\n  t.TABLE_SCHEMA AS specified_schema,\n  t.TABLE_NAME AS identified_table,\n  c.COLUMN_NAME AS identified_column,\n  c.DATA_TYPE AS identified_column_type,\n  CASE\n    WHEN c.FULL_DATA_TYPE LIKE 'varchar%' THEN substring(c.FULL_DATA_TYPE,9, POSITION(')' IN c.FULL_DATA_TYPE) - POSITION('(' IN c.FULL_DATA_TYPE) -1) \n    WHEN c.FULL_DATA_TYPE = 'string' THEN 500\n    ELSE -1\n  END AS identified_column_max_length,\n  c.ORDINAL_POSITION AS ordinal_position\nFROM\n  @{pipeline().parameters.P_SOURCE_CATALOG}.INFORMATION_SCHEMA.TABLES t\n  JOIN @{pipeline().parameters.P_SOURCE_CATALOG}.INFORMATION_SCHEMA.COLUMNS c\n    ON t.table_catalog = c.table_catalog AND t.table_schema = c.table_schema AND t.table_name = c.table_name\nWHERE\n  t.table_catalog = '@{pipeline().parameters.P_SOURCE_CATALOG}' AND t.table_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}' AND t.data_source_format = 'DELTA';",
                   "type": "Expression"
                 },
                 "exportSettings": {
@@ -82,11 +82,11 @@
               "enableStaging": true,
               "stagingSettings": {
                 "linkedServiceName": {
-                  "referenceName": "[parameters('AzureDataLakeStorage_Staging')]",
+                  "referenceName": "[parameters('DatabricksStg_ADLS')]",
                   "type": "LinkedServiceReference"
                 },
                 "path": {
-                  "value": "@pipeline().parameters.P_STAGING_STORAGE_PATH",
+                  "value": "@variables('P_STAGING_STORAGE_PATH')",
                   "type": "Expression"
                 }
               },
@@ -172,23 +172,13 @@
                       "name": "ordinal_position",
                       "type": "Int32"
                     }
-                  },
-                  {
-                    "source": {
-                      "name": "metadata",
-                      "type": "String"
-                    },
-                    "sink": {
-                      "name": "metadata",
-                      "type": "String"
-                    }
                   }
                 ]
               }
             },
             "inputs": [
               {
-                "referenceName": "dcsazure_Databricks_to_Databricks_for_mask_query_ds",
+                "referenceName": "dcsazure_Databricks_to_Databricks_for_prof_query_ds",
                 "type": "DatasetReference",
                 "parameters": {}
               }
@@ -199,11 +189,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('P_METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('P_METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -233,7 +223,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table,\n    metadata\nFROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_RULESET_TABLE}\nWHERE LOWER(specified_schema) = LOWER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_SOURCE_DATABASE}')\nAND dataset = 'DATABRICKS'",
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table\n  \nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')}\nWHERE LOWER(specified_schema) = LOWER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_SOURCE_CATALOG}')\nAND dataset = 'DATABRICKS'\nAND (is_profiled is NULL or is_profiled='N')",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -244,11 +234,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
-                    "value": "@pipeline().parameters.P_METADATA_SCHEMA",
+                    "value": "@variables('P_METADATA_SCHEMA')",
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
+                    "value": "@variables('P_METADATA_RULESET_TABLE')",
                     "type": "Expression"
                   }
                 }
@@ -328,7 +318,14 @@
                       {
                         "name": "Update Profile For Unprofiled Table",
                         "type": "ExecuteDataFlow",
-                        "dependsOn": [],
+                        "dependsOn": [
+                          {
+                            "activity": "Get Unprofiled Table Metadata",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
                         "policy": {
                           "timeout": "0.12:00:00",
                           "retry": 0,
@@ -355,19 +352,23 @@
                                 "type": "Expression"
                               },
                               "DF_METADATA_SCHEMA": {
-                                "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                                "value": "'@{variables('P_METADATA_SCHEMA')}'",
                                 "type": "Expression"
                               },
                               "DF_METADATA_RULESET_TABLE": {
-                                "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                                "value": "'@{variables('P_METADATA_RULESET_TABLE')}'",
                                 "type": "Expression"
                               },
-                              "DF_SOURCE_DB": {
-                                "value": "'@{pipeline().parameters.P_SOURCE_DATABASE}'",
+                              "DF_SOURCE_CATALOG": {
+                                "value": "'@{pipeline().parameters.P_SOURCE_CATALOG}'",
                                 "type": "Expression"
                               },
                               "DF_READ_SUPPORTED": {
                                 "value": "@lessOrEquals(int(activity('Get Table Details').output.firstRow.minReaderVersion), 1)",
+                                "type": "Expression"
+                              },
+                              "DF_METADATA": {
+                                "value": "'@{json(activity('Get Unprofiled Table Metadata').output.firstRow.metadata)}'",
                                 "type": "Expression"
                               }
                             },
@@ -377,9 +378,9 @@
                             }
                           },
                           "staging": {},
-                          "compute": {
-                            "coreCount": 8,
-                            "computeType": "General"
+                          "integrationRuntime": {
+                            "referenceName": "ADF-CUSTOM-IR",
+                            "type": "IntegrationRuntimeReference"
                           },
                           "traceLevel": "Fine"
                         }
@@ -397,10 +398,48 @@
                         ],
                         "userProperties": [],
                         "typeProperties": {
-                          "variableName": "DISCOVERED_TABLES_THAT_COULD_NOT_BE_PROFILED",
+                          "variableName": "unprofilable_tables",
                           "value": {
                             "value": "@item().identified_table",
                             "type": "Expression"
+                          }
+                        }
+                      },
+                      {
+                        "name": "Get Unprofiled Table Metadata",
+                        "type": "Lookup",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "source": {
+                            "type": "AzureSqlSource",
+                            "sqlReaderQuery": {
+                              "value": "SELECT JSON_OBJECT(\n'metadata_version': 2,\n'minReaderVersion': @{activity('Get Table Details').output.firstRow.minReaderVersion},\n'container_name': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}', 9, CHARINDEX('@','@{activity('Get Table Details').output.firstRow.location}')-9),\n'table_location': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}',  CHARINDEX('__unitystorage/','@{activity('Get Table Details').output.firstRow.location}'), len('@{activity('Get Table Details').output.firstRow.location}'))\n) as metadata;",
+                              "type": "Expression"
+                            },
+                            "queryTimeout": "02:00:00",
+                            "partitionOption": "None"
+                          },
+                          "dataset": {
+                            "referenceName": "dcsazure_Databricks_to_Databricks_metadata_prof_ds",
+                            "type": "DatasetReference",
+                            "parameters": {
+                              "DS_METADATA_SCHEMA": {
+                                "value": "@variables('P_METADATA_SCHEMA')",
+                                "type": "Expression"
+                              },
+                              "DS_METADATA_TABLE": {
+                                "value": "@variables('P_METADATA_RULESET_TABLE')",
+                                "type": "Expression"
+                              }
+                            }
                           }
                         }
                       }
@@ -409,7 +448,14 @@
                       {
                         "name": "Profile",
                         "type": "ExecuteDataFlow",
-                        "dependsOn": [],
+                        "dependsOn": [
+                          {
+                            "activity": "Get Table Metadata",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
                         "policy": {
                           "timeout": "0.12:00:00",
                           "retry": 0,
@@ -428,20 +474,20 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_CONTAINER": {
-                                "value": "'@{json(item().metadata).container_name}'",
+                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.metadata).container_name}'",
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DELTAPATH": {
-                                "value": "'@{concat(json(item().metadata).catalog_path, '/', json(item().metadata).table_path)}'",
+                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.metadata).table_location\n\n}'",
                                 "type": "Expression"
                               },
                               "DF_NUM_ROWS_TO_PROFILE": "1000",
                               "DF_METADATA_SCHEMA": {
-                                "value": "'@{pipeline().parameters.P_METADATA_SCHEMA}'",
+                                "value": "'@{variables('P_METADATA_SCHEMA')}'",
                                 "type": "Expression"
                               },
                               "DF_METADATA_RULESET_TABLE": {
-                                "value": "'@{pipeline().parameters.P_METADATA_RULESET_TABLE}'",
+                                "value": "'@{variables('P_METADATA_RULESET_TABLE')}'",
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DB": {
@@ -459,6 +505,10 @@
                               "DF_SOURCE_SCHEMA": {
                                 "value": "'@{item().specified_schema}'",
                                 "type": "Expression"
+                              },
+                              "DF_METADATA": {
+                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.metadata)\n\n}'",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
@@ -468,14 +518,340 @@
                             }
                           },
                           "staging": {},
-                          "compute": {
-                            "coreCount": 8,
-                            "computeType": "General"
+                          "integrationRuntime": {
+                            "referenceName": "ADF-CUSTOM-IR",
+                            "type": "IntegrationRuntimeReference"
                           },
                           "traceLevel": "None",
                           "cacheSinks": {
                             "firstRowOnly": true
                           }
+                        }
+                      },
+                      {
+                        "name": "Get Table Metadata",
+                        "type": "Lookup",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "source": {
+                            "type": "AzureSqlSource",
+                            "sqlReaderQuery": {
+                              "value": "SELECT JSON_OBJECT(\n'metadata_version': 2,\n'minReaderVersion': @{activity('Get Table Details').output.firstRow.minReaderVersion},\n'container_name': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}', 9, CHARINDEX('@','@{activity('Get Table Details').output.firstRow.location}')-9),\n'table_location': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}',  CHARINDEX('__unitystorage/','@{activity('Get Table Details').output.firstRow.location}'), len('@{activity('Get Table Details').output.firstRow.location}'))\n) as metadata;",
+                              "type": "Expression"
+                            },
+                            "queryTimeout": "02:00:00",
+                            "partitionOption": "None"
+                          },
+                          "dataset": {
+                            "referenceName": "dcsazure_Databricks_to_Databricks_metadata_prof_ds",
+                            "type": "DatasetReference",
+                            "parameters": {
+                              "DS_METADATA_SCHEMA": {
+                                "value": "@variables('P_METADATA_SCHEMA')",
+                                "type": "Expression"
+                              },
+                              "DS_METADATA_TABLE": {
+                                "value": "@variables('P_METADATA_RULESET_TABLE')",
+                                "type": "Expression"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "name": "Capture Profile Success Status",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Profile",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('P_METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@{activity('Profile').ActivityRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@if(equals(activity('Profile').Status,'Failed'),activity('Profile').Error.message,'N/A')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@{activity('Profile').PipelineName}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@{activity('Profile').PipelineRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_status": {
+                              "value": {
+                                "value": "@{activity('Profile').Status}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_db_name": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_schema_name": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_table_name": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_dataset": {
+                              "value": "DATABRICKS",
+                              "type": "String"
+                            },
+                            "src_db_name": {
+                              "value": {
+                                "value": "@item().specified_database",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_schema_name": {
+                              "value": {
+                                "value": "@item().specified_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_table_name": {
+                              "value": {
+                                "value": "@item().identified_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@{activity('Profile').ExecutionStartTime}",
+                                "type": "Expression"
+                              },
+                              "type": "Datetime"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@{activity('Profile').ExecutionEndTime}",
+                                "type": "Expression"
+                              },
+                              "type": "Datetime"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Failed Profile",
+                        "type": "Fail",
+                        "dependsOn": [
+                          {
+                            "activity": "Capture Failure Success Status",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "message": {
+                            "value": "@concat('Profile Failed for: ', item().identified_table)",
+                            "type": "Expression"
+                          },
+                          "errorCode": "500"
+                        }
+                      },
+                      {
+                        "name": "Capture Failure Success Status",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Profile",
+                            "dependencyConditions": [
+                              "Failed"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('P_METADATA_SCHEMA')}.@{variables('CAPTURE_LOG_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@{activity('Profile').ActivityRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@if(equals(activity('Profile').Status,'Failed'),activity('Profile').Error.message,'N/A')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@{activity('Profile').PipelineName}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@{activity('Profile').PipelineRunId}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_status": {
+                              "value": {
+                                "value": "@{activity('Profile').Status}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_db_name": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_schema_name": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "sink_table_name": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_dataset": {
+                              "value": "DATABRICKS",
+                              "type": "String"
+                            },
+                            "src_db_name": {
+                              "value": {
+                                "value": "@item().specified_database",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_file_format": {
+                              "value": "N/A",
+                              "type": "String"
+                            },
+                            "src_schema_name": {
+                              "value": {
+                                "value": "@item().specified_schema",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "src_table_name": {
+                              "value": {
+                                "value": "@item().identified_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@{activity('Profile').ExecutionStartTime}",
+                                "type": "Expression"
+                              },
+                              "type": "Datetime"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@{activity('Profile').ExecutionEndTime}",
+                                "type": "Expression"
+                              },
+                              "type": "Datetime"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
+                          "type": "LinkedServiceReference"
                         }
                       }
                     ]
@@ -512,337 +888,46 @@
             }
           },
           {
-            "name": "Determine Source Catalog Data Path",
-            "type": "Lookup",
+            "name": "Reset Discovery Condition",
+            "type": "IfCondition",
             "dependsOn": [],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
             "userProperties": [],
             "typeProperties": {
-              "source": {
-                "type": "AzureDatabricksDeltaLakeSource",
-                "query": {
-                  "value": "DESCRIBE CATALOG EXTENDED @{pipeline().parameters.P_SOURCE_DATABASE}",
-                  "type": "Expression"
-                }
-              },
-              "dataset": {
-                "referenceName": "dcsazure_Databricks_to_Databricks_for_prof_query_ds",
-                "type": "DatasetReference",
-                "parameters": {}
-              },
-              "firstRowOnly": false
-            }
-          },
-          {
-            "name": "For Each Line In Describe Catalog Output",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "Determine Source Catalog Data Path",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@activity('Determine Source Catalog Data Path').output.value",
+              "expression": {
+                "value": "@pipeline().parameters.P_RESET_DISCOVERY",
                 "type": "Expression"
               },
-              "activities": [
+              "ifTrueActivities": [
                 {
-                  "name": "Check For Catalog Storage Location",
-                  "type": "IfCondition",
+                  "name": "Reset Discovery Flag",
+                  "type": "Script",
                   "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
                   "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
+                    "type": "LinkedServiceReference"
+                  },
                   "typeProperties": {
-                    "expression": {
-                      "value": "@equals(item().info_name, 'Storage Location')",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
+                    "scripts": [
                       {
-                        "name": "Set Full Catalog Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "FULL_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@item().info_value",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Container Name With Prefix",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Full Catalog Storage Path",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CONTAINER_NAME_WITH_PREFIX",
-                          "value": {
-                            "value": "@split(variables('FULL_STORAGE_LOCATION'),'@')[0]",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Catalog Storage Path Without __unitystorage",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Full Catalog Storage Path",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CATALOG_STORAGE_SUB_DIRECTORY",
-                          "value": {
-                            "value": "@split(variables('FULL_STORAGE_LOCATION'), '__unitystorage/')[1]",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Container Name",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Container Name With Prefix",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CONTAINER_NAME",
-                          "value": {
-                            "value": "@replace(variables('CONTAINER_NAME_WITH_PREFIX'), 'abfss://', '')",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Catalog Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Catalog Storage Path Without __unitystorage",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "CATALOG_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@concat('__unitystorage/',variables('CATALOG_STORAGE_SUB_DIRECTORY'))",
-                            "type": "Expression"
-                          }
+                        "type": "Query",
+                        "text": {
+                          "value": "update @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} set is_profiled = NULL where dataset='DATABRICKS' and specified_database = '@{pipeline().parameters.P_SOURCE_CATALOG}' and specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'",
+                          "type": "Expression"
                         }
                       }
-                    ]
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
                   }
                 }
               ]
-            }
-          },
-          {
-            "name": "Determine Source Schema Data Path",
-            "type": "Lookup",
-            "dependsOn": [],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "typeProperties": {
-              "source": {
-                "type": "AzureDatabricksDeltaLakeSource",
-                "query": {
-                  "value": "DESCRIBE SCHEMA EXTENDED @{pipeline().parameters.P_SOURCE_DATABASE}.@{pipeline().parameters.P_SOURCE_SCHEMA}",
-                  "type": "Expression"
-                }
-              },
-              "dataset": {
-                "referenceName": "dcsazure_Databricks_to_Databricks_for_prof_query_ds",
-                "type": "DatasetReference",
-                "parameters": {}
-              },
-              "firstRowOnly": false
-            }
-          },
-          {
-            "name": "For Each Line In Describe Schema Output",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "Determine Source Schema Data Path",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@activity('Determine Source Schema Data Path').output.value",
-                "type": "Expression"
-              },
-              "activities": [
-                {
-                  "name": "Check For Schema Storage Location",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@and(equals(item().database_description_item, 'Location'),greater(length(item().database_description_value), 0))",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Set Full Schema Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "FULL_SCHEMA_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@item().database_description_value",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Schema Storage Path Without __unitystorage",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Full Schema Storage Path",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "SCHEMA_STORAGE_SUB_DIRECTORY",
-                          "value": {
-                            "value": "@split(variables('FULL_SCHEMA_STORAGE_LOCATION'), '__unitystorage/')[1]",
-                            "type": "Expression"
-                          }
-                        }
-                      },
-                      {
-                        "name": "Set Schema Storage Path",
-                        "type": "SetVariable",
-                        "dependsOn": [
-                          {
-                            "activity": "Set Schema Storage Path Without __unitystorage",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
-                        "policy": {
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "SCHEMA_STORAGE_LOCATION",
-                          "value": {
-                            "value": "@concat('__unitystorage/',variables('SCHEMA_STORAGE_SUB_DIRECTORY'))",
-                            "type": "Expression"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "name": "Set Delta Path",
-            "type": "SetVariable",
-            "dependsOn": [
-              {
-                "activity": "For Each Line In Describe Catalog Output",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              },
-              {
-                "activity": "For Each Line In Describe Schema Output",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "policy": {
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "typeProperties": {
-              "variableName": "DELTA_PATH",
-              "value": {
-                "value": "@if(empty(variables('SCHEMA_STORAGE_LOCATION')),variables('CATALOG_STORAGE_LOCATION'),variables('SCHEMA_STORAGE_LOCATION'))",
-                "type": "Expression"
-              }
             }
           }
         ],
@@ -850,87 +935,65 @@
           "elapsedTimeMetric": {}
         },
         "parameters": {
-          "P_SOURCE_DATABASE": {
-            "type": "string"
+          "P_SOURCE_CATALOG": {
+            "type": "string",
+            "defaultValue": "dcsazure_src_catalog"
           },
           "P_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "P_STAGING_STORAGE_PATH": {
-            "type": "string"
-          },
-          "P_METADATA_SCHEMA": {
             "type": "string",
-            "defaultValue": "dbo"
+            "defaultValue": "italy_prod_schema"
           },
-          "P_METADATA_RULESET_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_ruleset"
+          "P_RESET_DISCOVERY": {
+            "type": "bool",
+            "defaultValue": true
           }
         },
         "variables": {
-          "FULL_STORAGE_LOCATION": {
-            "type": "String"
+          "P_METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dcsazure_metadata_store"
           },
-          "CONTAINER_NAME": {
-            "type": "String"
+          "P_METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
           },
-          "CONTAINER_NAME_WITH_PREFIX": {
-            "type": "String"
-          },
-          "CATALOG_STORAGE_SUB_DIRECTORY": {
-            "type": "String"
-          },
-          "CATALOG_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "DISCOVERED_TABLES_THAT_COULD_NOT_BE_PROFILED": {
-            "type": "Array"
+          "P_STAGING_STORAGE_PATH": {
+            "type": "String",
+            "defaultValue": "databricks-stg-cont"
           },
           "readerVersion": {
             "type": "Integer",
-            "defaultValue": 1
+            "defaultValue": 2
           },
-          "SINK_DELTA_PATH": {
-            "type": "String"
+          "unprofilable_tables": {
+            "type": "Array",
+            "defaultValue": []
           },
-          "DELTA_PATH": {
-            "type": "String"
-          },
-          "FULL_SCHEMA_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "SCHEMA_STORAGE_SUB_DIRECTORY": {
-            "type": "String"
-          },
-          "SCHEMA_STORAGE_LOCATION": {
-            "type": "String"
-          },
-          "INFERRED_HEADER": {
-            "type": "Array"
+          "CAPTURE_LOG_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "capture_adf_execution_sp"
           }
         },
         "folder": {
           "name": "dcsazure_Databricks_to_Databricks"
         },
         "annotations": [],
-        "lastPublishTime": "2024-03-05T19:59:07Z"
+        "lastPublishTime": "2024-06-07T20:15:14Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_for_mask_query_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_metadata_prof_ds')]",
         "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_for_prof_query_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_metadata_prof_ds')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_Databricks_to_Databricks_prof_df_empty_tables')]",
         "[concat(variables('factoryId'), '/dataflows/dcsazure_Databricks_to_Databricks_prof_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_for_mask_query_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_for_prof_query_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDatabricksDeltaLake_Source')]",
+          "referenceName": "[parameters('AzureDatabricks')]",
           "type": "LinkedServiceReference"
         },
         "folder": {
@@ -949,17 +1012,15 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Metadata Datastore')]",
+          "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
           "DS_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "lnguyen"
+            "type": "string"
           },
           "DS_METADATA_TABLE": {
-            "type": "string",
-            "defaultValue": "discovered_metadata"
+            "type": "string"
           }
         },
         "folder": {
@@ -1011,25 +1072,6 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_for_prof_query_ds')]",
-      "type": "Microsoft.DataFactory/factories/datasets",
-      "apiVersion": "2018-06-01",
-      "properties": {
-        "linkedServiceName": {
-          "referenceName": "[parameters('AzureDatabricksDeltaLake_Source')]",
-          "type": "LinkedServiceReference"
-        },
-        "folder": {
-          "name": "dcsazure_Databricks_to_Databricks"
-        },
-        "annotations": [],
-        "type": "AzureDatabricksDeltaLakeDataset",
-        "typeProperties": {},
-        "schema": []
-      },
-      "dependsOn": []
-    },
-    {
       "name": "[concat(parameters('factoryName'), '/dcsazure_Databricks_to_Databricks_prof_df_empty_tables')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
@@ -1042,7 +1084,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead"
@@ -1051,7 +1093,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",
@@ -1076,8 +1118,9 @@
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_METADATA_SCHEMA as string (''),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_SOURCE_DB as string (''),",
-            "     DF_READ_SUPPORTED as boolean (true())",
+            "     DF_SOURCE_CATALOG as string (''),",
+            "     DF_READ_SUPPORTED as boolean (true()),",
+            "     DF_METADATA as string",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -1105,12 +1148,13 @@
             "     tableName: ($DF_METADATA_RULESET_TABLE),",
             "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
             "MetadataStoreRead filter(equalsIgnoreCase(dataset, 'DATABRICKS')",
-            "&& equalsIgnoreCase(specified_database, $DF_SOURCE_DB)",
+            "&& equalsIgnoreCase(specified_database, $DF_SOURCE_CATALOG)",
             "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_SCHEMA)",
             "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)) ~> FilterRowsToUpdate",
             "UpdateProfiledColumns alterRow(updateIf(true())) ~> ChecksBeforeSave",
             "FilterRowsToUpdate derive(last_profiled_updated_timestamp = currentTimestamp(),",
-            "          row_count = case($DF_READ_SUPPORTED,0,-1)) ~> UpdateProfiledColumns",
+            "          row_count = case($DF_READ_SUPPORTED,0,-1),",
+            "          metadata = $DF_METADATA) ~> UpdateProfiledColumns",
             "ChecksBeforeSave sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     input(",
@@ -1123,6 +1167,7 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
+            "          metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -1158,7 +1203,8 @@
             "          confidence_score,",
             "          rows_profiled,",
             "          assigned_algorithm,",
-            "          last_profiled_updated_timestamp",
+            "          last_profiled_updated_timestamp,",
+            "          metadata",
             "     )) ~> WriteToMetadataStore"
           ]
         }
@@ -1178,7 +1224,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+                "referenceName": "[parameters('Databricks_AzureDataLakeStorage')]",
                 "type": "LinkedServiceReference"
               },
               "name": "DatabricksSource1MillRowDataSampling",
@@ -1186,7 +1232,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead"
@@ -1195,7 +1241,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('AzSql_jl_azsqlserver_ls')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore"
@@ -1205,7 +1251,7 @@
             {
               "name": "CallDCSForAzureProfiling",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureDev')]",
+                "referenceName": "[parameters('DelphixComplianceService_d4b5045c')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -1265,7 +1311,8 @@
             "     DF_SOURCE_DB as string (''),",
             "     DF_TABLE_ROW_COUNT as integer,",
             "     DF_SOURCE_TABLE as string (''),",
-            "     DF_SOURCE_SCHEMA as string ('')",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_METADATA as string",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -1361,7 +1408,8 @@
             "     broadcast: 'left')~> JoinDetailsAndMetadata",
             "UpdateProfiledColumns alterRow(updateIf(true())) ~> ChecksBeforeSave",
             "FilterOnlyNewlyProfiledRows derive(last_profiled_updated_timestamp = currentTimestamp(),",
-            "          row_count = $DF_TABLE_ROW_COUNT) ~> UpdateProfiledColumns",
+            "          row_count = $DF_TABLE_ROW_COUNT,",
+            "          metadata = $DF_METADATA) ~> UpdateProfiledColumns",
             "JoinDetailsAndMetadata filter(!equalsIgnoreCase(domain, profiled_domain)",
             "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
             "|| rowsConsidered != rows_profiled",
@@ -1379,6 +1427,7 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
+            "          metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -1413,7 +1462,8 @@
             "          profiled_algorithm = algorithm,",
             "          confidence_score = confidence,",
             "          rows_profiled = rowsConsidered,",
-            "          last_profiled_updated_timestamp",
+            "          last_profiled_updated_timestamp,",
+            "          metadata",
             "     )) ~> WriteToMetadataStore"
           ]
         }
