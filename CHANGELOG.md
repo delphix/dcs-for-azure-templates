@@ -1,5 +1,29 @@
 # CHANGELOG
 
+# 0.0.6
+* Add support for handling custom date format in DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)
+* Add support for handling custom date format in DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake (Legacy) linked service type)
+* Add support for handling custom date format in DCS for Azure ADLS to ADLS Masking Pipeline (for Gen2 Data Lake)
+* Improve computation for number of batches in DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)
+* Improve computation for number of batches in DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake (Legacy) linked service type)
+* Correct location of datasets for DCS for Azure ADLS to ADLS Profiling Pipeline
+* Provide descriptions for steps in the following dataflows
+  * `dcsazure_adls_to_adls`
+    * `dcsazure_adls_to_adls_delimited_copy_df`
+    * `dcsazure_adls_to_adls_delimited_mask_df`
+    * `dcsazure_adls_to_adls_delimited_prof_df`
+    * `dcsazure_adls_to_adls_mask_params_df`
+  * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy`
+    * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_copy_df`
+    * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_df`
+    * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_params_df`
+    * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_df`
+  * `dcsazure_Snowflake_to_Snowflake`
+    * `dcsazure_Snowflake_to_Snowflake_copy_df`
+    * `dcsazure_Snowflake_to_Snowflake_mask_df`
+    * `dcsazure_Snowflake_to_Snowflake_mask_params_df`
+    * `dcsazure_Snowflake_to_Snowflake_prof_df`
+
 # 0.0.5
 * Add support for handling non-conformant data to DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake linked service type)
 * Add support for handling non-conformant data to DCS for Azure Snowflake to Snowflake Masking Pipeline (with Snowflake (Legacy) linked service type)
