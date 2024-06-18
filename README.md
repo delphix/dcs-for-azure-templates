@@ -143,11 +143,15 @@ sample_template_pl
 ```
 
 These files, since they are meant to be imported directly into Data Factory Studio are not well-suited to version
-control (as they are one very long line). To make these files more suited to version control, you can leverage `jq`.
+control (as they are one very long line). To make these files more suited to version control, the following utility
+script has been provided [./scripts/format.sh](./scripts/format.sh). To leverage the script, export the template from
+the data factory studio, this will result in a zip file downloaded to your local machine. To leverage the script, move
+the template from your Downloads directory to the base directory of the repo. From there run (from a terminal)
+`./scripts/format.sh`.
 
-For the files in the example above, this can be done with:
-`cat manifest.json | jq '.' > manifest.json.fmt && mv manifest.json.fmt manifest.json` and
-`cat sample_template_pl.json | jq '.' > sample_template_pl.json.fmt && mv sample_template_pl.json.fmt sample_template_pl.json`
+Using the example above, the script will unzip the template, re-format the files leveraging `jq` and then remove the
+zip file. Note that this will only unzip the pipelines that we already have support for in this repo. Manual unzip will
+need to be performed for new pipelines.
 
 New templates will need to have an associated `README.md` and for them to be built into the `releases` folder, edits
 will have to be made to the `docker-compose.yaml`. For this example, you'd have to add a line
