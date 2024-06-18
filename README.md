@@ -107,6 +107,24 @@ algorithms) should be applied when masking data. This is not preferred as it is 
 * `adf_type_mapping` - This table is used to track how data should be treated as it flows through masking pipeline in
    Azure Data Factory, where applicable. The values in this table are inserted in the migration scripts.
 
+## Additional Resources
+
+* Dataflows documentation
+  * [Profiling dataflow](./documentation/dataflows/prof_df.md)
+  * [Masking dataflow](./documentation/dataflows/mask_df.md)
+  * [Masking Parameters dataflow](./documentation/dataflows/mask_params_df.md)
+  * [Copy dataflow](./documentation/dataflows/copy_df.md)
+* Pipeline documentation - Documentation for each pipeline is included in the released version of the template
+  * [dcsazure_Databricks_to_Databricks_mask_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_mask_pl.md)
+  * [dcsazure_Databricks_to_Databricks_prof_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_prof_pl.md)
+  * [dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl](./documentation/pipelines/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl.md)
+  * [dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl](./documentation/pipelines/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl.md)
+  * [dcsazure_Snowflake_to_Snowflake_mask_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_mask_pl.md)
+  * [dcsazure_Snowflake_to_Snowflake_prof_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_prof_pl.md)
+  * [dcsazure_adls_to_adls_mask_pl](./documentation/pipelines/dcsazure_adls_to_adls_mask_pl.md)
+  * [dcsazure_adls_to_adls_prof_pl](./documentation/pipelines/dcsazure_adls_to_adls_prof_pl.md)
+
+
 ## Contribution
 Contributions are welcome!
 
