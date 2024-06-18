@@ -39,29 +39,38 @@ steps:
 
 ### How It Works
 The profiling pipeline has a few stages:
-* Determine the Delta Path
-  * As this can be configured at the catalog or schema level, we need to determine the path by querying for additional
-    information about both the catalog and the schema using `DESCRIBE` queries
-    * We need to parse the output of the `DESCRIBE` query to determine the location for the data
 * Schema Discovery From Databricks
   * We query the `information_schema` for more details about the columns within each table, persisting the data into the
     `discovered_ruleset` table of the metadata store
 * Select Discovered Tables
   * After the previous step, we query the database for all tables we found in the specified schema and perform profiling
-* ForEach Discovered Table
+* For Each Discovered Table
   * Each table that we've discovered needs to be profiled, the process for that is as follows:
     * Get the row count from the table
     * Get details for the table
     * Check that the table is not empty and that the table can be read
       * If the table contains data and can be read, run the `dcsazure_Databricks_to_Databricks_prof_df` dataflow, which
-        samples the data from the source, and calls the DCS for Azure service to profile the data
+        samples the data from the source, and calls the DCS for Azure service to profile the data, persisting the
+        metadata we acquired earlier, as well as the results of the profiling to the metadata store
       * If the table either does not contain data or cannot be read, run the
-        `dcsazure_Databricks_to_Databricks_prof_empty_tables_df` which updates the row count accordingly
+        `dcsazure_Databricks_to_Databricks_prof_empty_tables_df` which updates the row count and metadata accordingly
+
+### Variables
+
+If you have configured your database using the metadata store scripts, these variables will not need editing. If you
+have customized your metadata store, then these variables may need editing.
+
+* `P_STAGING_STORAGE_PATH` - This is a path that specifies where we should stage data as it moves through the pipeline
+  and should reference a storage container in a storage account (default `staging-container`)
+* `P_METADATA_SCHEMA` - This is the schema to be used for in the self-hosted AzureSQL database for storing metadata (default `dbo`)
+* `P_METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset (default `discovered_ruleset`)
+
+The following variables are used by the pipeline and should not be edited unless directed.
+* `unprofilable_tables` - Array - Default value `[]`, this is used internally to track the tables we couldn't profile
+* `readerVersion` - Integer - Default value `2`, this is the value of the maximum reader version supported by ADF's
+  internal Spark cluster
 
 ### Parameters
 
-* `P_SOURCE_DATABASE` - This is the catalog in Databricks that we will profile
-* `P_SOURCE_SCHEMA` - This is the schema within the above catalog that we will profile
-* `P_STAGING_STORAGE_PATH` - This is the name of a storage container in 
-* `P_METADATA_SCHEMA` - This is the schema to be used for in the self-hosted AzureSQL database for storing metadata (default `dbo`)
-* `P_METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset (default `discovered_ruleset`)
+* `P_SOURCE_CATALOG` - String - This is the catalog in Databricks that contains data we wish to profile
+* `P_SOURCE_SCHEMA` - String - This is the schema within the above source catalog that we will profile
