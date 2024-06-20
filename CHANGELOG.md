@@ -1,12 +1,16 @@
 # CHANGELOG
 
+# 0.0.8
+* Update DCS for Azure Databricks to Databricks Masking pipeline:
+  * Since Delta Lake Copy Activities are unsupported, remove this option from the pipeline
+
 # 0.0.7
 * Address [#4](https://github.com/delphix/dcs-for-azure-templates/issues/4)
   * Update DCS for Azure Databricks to Databricks Profile Pipeline
     * Determine table metadata using `describe detail` query
     * Rename some parameters and variables to be more consistent
     * Reduce number of parameters by moving reasonably static components to variables
-  * Update DCS for Azure Databricks to Databricks Making Pipeline
+  * Update DCS for Azure Databricks to Databricks Masking Pipeline
     * Determine sink table metadata using `describe detail` query
     * Rename some parameters and variables to be more consistent
     * Add support for handling non-conformant data
