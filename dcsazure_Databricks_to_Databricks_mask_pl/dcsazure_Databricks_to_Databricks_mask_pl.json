@@ -49,7 +49,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -124,6 +124,12 @@
                   "dependsOn": [
                     {
                       "activity": "Get Sink Table Details",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    },
+                    {
+                      "activity": "Get Source Metadata Mask",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -226,7 +232,8 @@
                               "DF_SOURCE_TABLE": {
                                 "value": "'@{item().source_table}'",
                                 "type": "Expression"
-                              }
+                              },
+                              "DF_COLUMN_WIDTH_ESTIMATE": "1000"
                             },
                             "datasetParameters": {
                               "Ruleset": {},
@@ -274,11 +281,11 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_CONTAINER": {
-                                "value": "'@{json(item().metadata).container_name}'",
+                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).container_name}'",
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DELTAPATH": {
-                                "value": "'@{json(item().metadata).table_location}'",
+                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).table_location}'",
                                 "type": "Expression"
                               },
                               "DF_SINK_CONTAINER": {
@@ -379,6 +386,44 @@
                       }
                     ]
                   }
+                },
+                {
+                  "name": "Get Source Metadata Mask",
+                  "type": "Lookup",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "source": {
+                      "type": "AzureSqlSource",
+                      "sqlReaderQuery": {
+                        "value": "SELECT TOP 1 metadata\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')}\nWHERE dataset = 'DATABRICKS'\nAND specified_database = '@{item().source_database}'\nAND specified_schema = '@{item().source_schema}'\nAND identified_table = '@{item().source_table}'\n",
+                        "type": "Expression"
+                      },
+                      "queryTimeout": "02:00:00",
+                      "partitionOption": "None"
+                    },
+                    "dataset": {
+                      "referenceName": "dcsazure_Databricks_to_Databricks_metadata_mask_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_METADATA_SCHEMA": {
+                          "value": "@variables('P_METADATA_SCHEMA')",
+                          "type": "Expression"
+                        },
+                        "DS_METADATA_TABLE": {
+                          "value": "@variables('P_METADATA_RULESET_TABLE')",
+                          "type": "Expression"
+                        }
+                      }
+                    }
+                  }
                 }
               ]
             }
@@ -400,7 +445,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, metadata, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
+                  "value": "SELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nEXCEPT\nSELECT DISTINCT source_schema, source_database, source_table, sink_schema, sink_database, sink_table\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')} dd\nJOIN @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = dd.specified_database AND am.source_schema = dd.specified_schema AND am.source_table = dd.identified_table)\nWHERE dd.dataset = 'DATABRICKS'\nAND am.source_dataset = 'DATABRICKS'\nAND am.sink_dataset = 'DATABRICKS'\nAND dd.assigned_algorithm IS NOT NULL\nAND dd.assigned_algorithm != ''\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\nAND am.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\nAND am.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\nAND dd.row_count IS NOT NULL\nAND dd.row_count > 0;",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -545,6 +590,12 @@
                       "dependencyConditions": [
                         "Succeeded"
                       ]
+                    },
+                    {
+                      "activity": "Get Source Metadata No Masking",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
                     }
                   ],
                   "userProperties": [],
@@ -591,7 +642,7 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_CONTAINER": {
-                                "value": "'@{json(item().metadata).container_name}'",
+                                "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.metadata).container_name}'",
                                 "type": "Expression"
                               },
                               "DF_SINK_CONTAINER": {
@@ -599,7 +650,7 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DELTAPATH": {
-                                "value": "'@{json(item().metadata).table_location}'",
+                                "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.metadata).table_location}'",
                                 "type": "Expression"
                               },
                               "DF_SINK_DELTAPATH": {
@@ -610,8 +661,7 @@
                             "datasetParameters": {
                               "SourceData": {},
                               "SinkData": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -622,6 +672,44 @@
                         }
                       }
                     ]
+                  }
+                },
+                {
+                  "name": "Get Source Metadata No Masking",
+                  "type": "Lookup",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "source": {
+                      "type": "AzureSqlSource",
+                      "sqlReaderQuery": {
+                        "value": "SELECT TOP 1 metadata\nFROM @{variables('P_METADATA_SCHEMA')}.@{variables('P_METADATA_RULESET_TABLE')}\nWHERE dataset = 'DATABRICKS'\nAND specified_database = '@{item().source_database}'\nAND specified_schema = '@{item().source_schema}'\nAND identified_table = '@{item().source_table}'",
+                        "type": "Expression"
+                      },
+                      "queryTimeout": "02:00:00",
+                      "partitionOption": "None"
+                    },
+                    "dataset": {
+                      "referenceName": "dcsazure_Databricks_to_Databricks_metadata_mask_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_METADATA_SCHEMA": {
+                          "value": "@variables('P_METADATA_SCHEMA')",
+                          "type": "Expression"
+                        },
+                        "DS_METADATA_TABLE": {
+                          "value": "@variables('P_METADATA_RULESET_TABLE')",
+                          "type": "Expression"
+                        }
+                      }
+                    }
                   }
                 }
               ]
@@ -668,11 +756,11 @@
           },
           "P_METADATA_SCHEMA": {
             "type": "String",
-            "defaultValue": "databricks_metadata"
+            "defaultValue": "dbo"
           },
           "P_METADATA_RULESET_TABLE": {
             "type": "String",
-            "defaultValue": "discovered_ruleset2"
+            "defaultValue": "discovered_ruleset"
           },
           "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
             "type": "String",
@@ -684,14 +772,14 @@
           },
           "P_BLOB_STORE_STAGING_STORAGE_PATH": {
             "type": "String",
-            "defaultValue": "staging-cont"
+            "defaultValue": "staging-container"
           }
         },
         "folder": {
           "name": "dcsazure_Databricks_to_Databricks"
         },
         "annotations": [],
-        "lastPublishTime": "2024-06-20T23:32:35Z"
+        "lastPublishTime": "2024-07-02T22:07:01Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_metadata_mask_ds')]",
@@ -854,7 +942,7 @@
             },
             {
               "name": "DateFormatHeader",
-              "description": "Create DateFormatAssignment, grouped by output_row (which is always 1), generating a JSON string that maps a column to its specified date format. Also create NoFormatHeader, that generates a JSON string containing an empty map when all values are null"
+              "description": "Create DateFormatAssignment, grouped by output_row (which is always 1), generating a JSON string that maps a column to its specified date format"
             },
             {
               "name": "AllMaskingParameters",
@@ -866,7 +954,19 @@
             },
             {
               "name": "RemoveUnnecessaryColumns",
-              "description": "Remove intermediate column NoFormatHeader"
+              "description": "Remove intermediate columns"
+            },
+            {
+              "name": "SplitOnDateFormat",
+              "description": "Split the data into two streams, data that contains a specified date\nformat, and data that does not"
+            },
+            {
+              "name": "NoFormatHeader",
+              "description": "Create NoFormatHeader, that generates a JSON string containing an empty map when all values are null, grouped by output_row (which is always 1)"
+            },
+            {
+              "name": "JoinDateHeaders",
+              "description": "Full outer join both DateFormatHeader and NoFormatHeader where output_row = output_row"
             }
           ],
           "scriptLines": [
@@ -946,21 +1046,30 @@
             "     documentForm: 'singleDocument') ~> ParseMetadata",
             "ParseMetadata derive(output_row = 1,",
             "          date_format_string = parsed_metadata.date_format) ~> DateFormatString",
-            "DateFormatString aggregate(groupBy(output_row),",
-            "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
-            "          NoFormatHeader = reduce(collect(date_format_string), '{', #acc + #item + ',', #result + '}')) ~> DateFormatHeader",
+            "SplitOnDateFormat@ContainsDateFormat aggregate(groupBy(output_row),",
+            "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}')) ~> DateFormatHeader",
             "ModifyNumberOfBatches, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
             "     joinType:'inner',",
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'auto')~> AllMaskingParameters",
-            "DateFormatHeader derive(DateFormatAssignments = coalesce(DateFormatAssignments,NoFormatHeader)) ~> DateFormatHeaderHandlingNulls",
+            "JoinDateHeaders derive(DateFormatAssignments = coalesce(DateFormatAssignments,NoFormatHeader),",
+            "          output_row = coalesce(DateFormatHeader@output_row, NoFormatHeader@output_row)) ~> DateFormatHeaderHandlingNulls",
             "DateFormatHeaderHandlingNulls select(mapColumn(",
             "          output_row,",
             "          DateFormatAssignments",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> RemoveUnnecessaryColumns",
+            "DateFormatString split(not(isNull(date_format_string)),",
+            "     disjoint: false) ~> SplitOnDateFormat@(ContainsDateFormat, DoesNotContainDateFormat)",
+            "SplitOnDateFormat@DoesNotContainDateFormat aggregate(groupBy(output_row),",
+            "     NoFormatHeader = reduce(collect(date_format_string), '{', #acc + #item + ',', #result + '}')) ~> NoFormatHeader",
+            "DateFormatHeader, NoFormatHeader join(DateFormatHeader@output_row == NoFormatHeader@output_row,",
+            "     joinType:'outer',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinDateHeaders",
             "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
@@ -1006,7 +1115,7 @@
           "transformations": [
             {
               "name": "DCSForAzureAPI",
-              "description": "Call DCS for Azure services, using /v1/masking/batchMaskByColumn, where the data from the FlattenValuesOutOfArray is included in the request body, and the following headers are included in the request:\n\n    'Run-Id' - Used for tracing requests\n    'Field-Algorithm-Assignment' - Defines the algorithm to apply to which field, defined in DF_FIELD_ALGORITHM_ASSIGNMENT\n    'Fail-On-Non-Conformant-Data' - Defines failure behavior if a non-conformant data error is encountered, driven by parameter DF_FAIL_ON_NONCONFORMANT_DATA\n    'Field-Date-Format' - Defines the date format to apply to which field, defined in DF_FIELD_DATE_FORMAT The format of the response is defined in DF_BODY_TYPE_MAPPING",
+              "description": "Call DCS for Azure services, using /v1/masking/batchMaskByColumn, where the data from the FlattenValuesOutOfArray is included in the request body, and the following headers are included in the request:\n'Run-Id' - Used for tracing requests\n'Field-Algorithm-Assignment' - Defines the algorithm to apply to which field, defined in DF_FIELD_ALGORITHM_ASSIGNMENT\n'Fail-On-Non-Conformant-Data' - Defines failure behavior if a non-conformant data error is encountered, driven by parameter DF_FAIL_ON_NONCONFORMANT_DATA\n'Field-Date-Format' - Defines the date format to apply to which field, defined in DF_FIELD_DATE_FORMAT The format of the response is defined in DF_BODY_TYPE_MAPPING",
               "linkedService": {
                 "referenceName": "[parameters('DCSForAzureProd')]",
                 "type": "LinkedServiceReference"

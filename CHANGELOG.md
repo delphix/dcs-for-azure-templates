@@ -1,5 +1,18 @@
 # CHANGELOG
 
+# 0.0.9
+* Update dataflows for generating masking params to fix a bug in custom date format handling.
+  * This bug is encountered when only some columns of a table have date format specified.
+    * This is not encountered when no columns in a table have date format specified.
+    * This is not encountered when all columns in a table have date format specified.
+* Specifically the updated dataflows are:
+  * `dcsazure_adls_to_adls_mask_params_df`
+  * `dcsazure_Databricks_to_Databricks_mask_params_df`
+  * `dcsazure_Snowflake_to_Snowflake_mask_params_df`
+  * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_params_df`
+* Update `dcsazure_Databricks_to_Databricks_mask_pl` pipeline to fix an issue where selecting distinct metadata causes
+  the same table to be selected for masking multiple times, leading to duplicate data in the destination.
+
 # 0.0.8
 * Update DCS for Azure Databricks to Databricks Masking pipeline:
   * Since Delta Lake Copy Activities are unsupported, remove this option from the pipeline
