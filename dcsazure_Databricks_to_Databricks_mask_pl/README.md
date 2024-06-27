@@ -8,6 +8,7 @@ This pipeline will perform masking of data from your Databricks Delta Lake from 
 1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.01.01.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage service associated with your Databricks source data.
+1. Configure the Azure Data Lake Storage service associated with your Databricks sink data (if required).
 1. Configure the Azure Databricks Delta Lake service associated with your Databricks Deltalake source data.
 
 
@@ -20,18 +21,19 @@ These linked services types are needed for the following steps:
 `Azure Data Lake Storage` (source) - Linked service associated with Databricks source data. This will be used for the
 following steps:
 * Switch On Copy Methodology And Supported Write (Switch activity)
-* dcsazure_Databricks_to_Databricks_mask_df/DatabricksSource (dataFlow)
-* dcsazure_Databricks_to_Databricks_copy_df/DatabricksSource (dataFlow)
+* dcsazure_Databricks_to_Databricks_mask_df/Source (dataFlow)
+* dcsazure_Databricks_to_Databricks_copy_df/SourceData (dataFlow)
+* dcsazure_Databricks_to_Databricks_copy_source_ds (Parquet dataset)
 
 `Azure Data Lake Storage` (sink) - Linked service associated with Databricks sink data. This will be used for the
 following steps:
-* dcsazure_Databricks_to_Databricks_mask_df/DatabricksSink (dataFlow)
-* dcsazure_Databricks_to_Databricks_copy_df/DatabricksSink (dataFlow)
+* dcsazure_Databricks_to_Databricks_mask_df/Sink (dataFlow)
+* dcsazure_Databricks_to_Databricks_copy_df/SinkData (dataFlow)
+* dcsazure_Databricks_to_Databricks_copy_sink_ds (Parquet dataset)
 
 `Azure Databricks Delta Lake` (source) - Linked service associated with Databricks Delta Lake. This will be used for the
 following steps:
 * dcsazure_Databricks_to_Databricks_for_mask_query_ds (Azure Databricks Delta Lake dataset)
-* dcsazure_Databricks_to_Databricks_copy_ds (Azure Databricks Delta Lake dataset)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
@@ -61,16 +63,10 @@ steps:
     * For Each Table With No Masking. Provided we have any rows left after applying the filter
       * Get Sink Table Details No Masking. Query Databricks for sink table details
       * Get Sink Table Metadata No Masking. Query Metadata store to construct metadata information for sink table
-      * Switch On Copy Methodology And Supported Write. Evaluate whether and how to copy data to the sink table
-        * Default - We don't know how to handle this. Fail the pipeline
-        * `DATAFLOW_UNSUPPORTED` - We wish to copy via dataflow, but the writer version is unsupported. Fail the
-          pipeline
-        * `DATAFLOW_SUPPORTED` - We wish to copy via dataflow, and the writer version is supported. Call
+      * If Copy Write Supported. Evaluate whether we can copy data to the sink table
+        * If true, the writer version is supported, copy data by calling
           `dcsazure_Databricks_to_Databricks_copy_df`
-        * `ACTIVITY_UNSUPPORTED` - We wish to copy via copy activity, but the writer version is unsupported. Fail the
-          pipeline
-        * `ACTIVITY_SUPPORTED` - We wish to copy via copy activity, and the writer version is supported. Use copy
-          activity to copy between source and sink tables
+        * If false, the writer version is unsupported, fail the pipeline
 
 
 ### Variables
@@ -96,15 +92,14 @@ internal Spark cluster
 
 ### Parameters
 
-* `P_METADATA_SCHEMA` - String - This is the schema to be used for in the self-hosted AzureSQL database for storing metadata (default `dbo`)
-* `P_METADATA_RULESET_TABLE` - String - This is the table to be used for storing the discovered ruleset (default `discovered_ruleset`)
-* `P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE` - String - This is the table used for determining where data that is run through the pipeline starts and ends (default `adf_data_mapping`)
-* `P_METADATA_ADF_TYPE_MAPPING_TABLE` - String - This is the table used for determining how Azure Data Factory should interpret data that flows through the pipeline (default `adf_type_mapping`)
-* `P_COPY_UNMASKED_TABLES` - Bool - This enables the pipeline to copy data from source to destination when a mapping exists, but no algorithms have been defined (default `false`)
-* `P_SOURCE_DB` - String - This is the source database (catalog) in Databricks that contains the unmasked data
-* `P_SINK_DB` - String - This is the sink database (catalog) in Databricks that will serve as a destination for masked data
-* `P_SOURCE_SCHEMA` - String - This is the source schema in Databricks (that lives under the specified catalog) and that contains the unmasked data
-* `P_SINK_SCHEMA` - String - This is the sink schema in Databricks (that lives under the specified catalog) and that will serve as a destination for masked data
-* `P_BLOB_STORE_STAGING_STORAGE_PATH` - String - This is a storage container that can be used by Databricks as a staging area
-* `P_COPY_USE_DATAFLOW` - Bool - This enables the pipeline to use a data flow to copy data from source to sink when there is no data to mask (this value does not matter if `P_COPY_UNMASKED_TABLES` is `false`)
+* `P_COPY_UNMASKED_TABLES` - Bool - This enables the pipeline to copy data from source to destination when a mapping
+exists, but no algorithms have been defined (default `false`)
+* `P_FAIL_ON_NONCONFORMANT_DATA` - Bool - This will fail the pipeline if non-conformant data is encountered (default
+`true`)
+* `P_SOURCE_CATALOG` - String - This is the source catalog in Databricks that contains the unmasked data
+* `P_SINK_CATALOG` - String - This is the sink catalog in Databricks that will serve as a destination for masked data
+* `P_SOURCE_SCHEMA` - String - This is the source schema in Databricks (that lives under the specified source catalog)
+and that contains the unmasked data
+* `P_SINK_SCHEMA` - String - This is the sink schema in Databricks (that lives under the specified sink catalog) and
+that will serve as a destination for masked data
 
