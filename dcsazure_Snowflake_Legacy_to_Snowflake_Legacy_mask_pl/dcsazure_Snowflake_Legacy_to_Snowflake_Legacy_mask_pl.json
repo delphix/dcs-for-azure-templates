@@ -508,7 +508,7 @@
           "name": "dcsazure_Snowflake_Legacy_to_Snowflake_Legacy"
         },
         "annotations": [],
-        "lastPublishTime": "2024-06-04T17:41:39Z"
+        "lastPublishTime": "2024-06-13T20:35:54Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_metadata_ds')]",
@@ -664,7 +664,19 @@
             },
             {
               "name": "RemoveUnnecessaryColumns",
-              "description": "Remove intermediate column NoFormatHeader"
+              "description": "Remove intermediate columns"
+            },
+            {
+              "name": "SplitOnDateFormat",
+              "description": "Split the data into two streams, data that contains a specified date\nformat, and data that does not"
+            },
+            {
+              "name": "NoFormatHeader",
+              "description": "Create NoFormatHeader, that generates a JSON string containing an empty map when all values are null, grouped by output_row (which is always 1)"
+            },
+            {
+              "name": "JoinDateHeaders",
+              "description": "Full outer join both DateFormatHeader and NoFormatHeader where output_row = output_row"
             }
           ],
           "scriptLines": [
@@ -744,7 +756,7 @@
             "     documentForm: 'singleDocument') ~> ParseMetadata",
             "ParseMetadata derive(output_row = 1,",
             "          date_format_string = parsed_metadata.date_format) ~> DateFormatString",
-            "DateFormatString aggregate(groupBy(output_row),",
+            "SplitOnDateFormat@ContainsDateFormat aggregate(groupBy(output_row),",
             "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          NoFormatHeader = reduce(collect(date_format_string), '{', #acc + #item + ',', #result + '}')) ~> DateFormatHeader",
             "ModifyNumberOfBatches, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
@@ -752,13 +764,23 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'auto')~> AllMaskingParameters",
-            "DateFormatHeader derive(DateFormatAssignments = coalesce(DateFormatAssignments,NoFormatHeader)) ~> DateFormatHeaderHandlingNulls",
+            "JoinDateHeaders derive(DateFormatAssignments = coalesce(DateFormatAssignments,DateFormatHeader@NoFormatHeader),",
+            "          output_row = coalesce(DateFormatHeader@output_row, NoFormatHeader@output_row)) ~> DateFormatHeaderHandlingNulls",
             "DateFormatHeaderHandlingNulls select(mapColumn(",
             "          output_row,",
             "          DateFormatAssignments",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> RemoveUnnecessaryColumns",
+            "DateFormatString split(not(isNull(date_format_string)),",
+            "     disjoint: false) ~> SplitOnDateFormat@(ContainsDateFormat, DoesNotContainDateFormat)",
+            "SplitOnDateFormat@DoesNotContainDateFormat aggregate(groupBy(output_row),",
+            "     NoFormatHeader = reduce(collect(date_format_string), '{', #acc + #item + ',', #result + '}')) ~> NoFormatHeader",
+            "DateFormatHeader, NoFormatHeader join(DateFormatHeader@output_row == NoFormatHeader@output_row,",
+            "     joinType:'outer',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinDateHeaders",
             "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
@@ -805,7 +827,7 @@
           "transformations": [
             {
               "name": "DCSForAzureAPI",
-              "description": "Call DCS for Azure services, using /v1/masking/batchMaskByColumn, where the data from the FlattenValuesOutOfArray is included in the request body, and the following headers are included in the request:\n\n    'Run-Id' - Used for tracing requests\n    'Field-Algorithm-Assignment' - Defines the algorithm to apply to which field, defined in DF_FIELD_ALGORITHM_ASSIGNMENT\n    'Fail-On-Non-Conformant-Data' - Defines failure behavior if a non-conformant data error is encountered, driven by parameter DF_FAIL_ON_NONCONFORMANT_DATA\n    'Field-Date-Format' - Defines the date format to apply to which field, defined in DF_FIELD_DATE_FORMAT The format of the response is defined in DF_BODY_TYPE_MAPPING",
+              "description": "Call DCS for Azure services, using /v1/masking/batchMaskByColumn, where the data from the FlattenValuesOutOfArray is included in the request body, and the following headers are included in the request:\n'Run-Id' - Used for tracing requests\n'Field-Algorithm-Assignment' - Defines the algorithm to apply to which field, defined in DF_FIELD_ALGORITHM_ASSIGNMENT\n'Fail-On-Non-Conformant-Data' - Defines failure behavior if a non-conformant data error is encountered, driven by parameter DF_FAIL_ON_NONCONFORMANT_DATA\n'Field-Date-Format' - Defines the date format to apply to which field, defined in DF_FIELD_DATE_FORMAT The format of the response is defined in DF_BODY_TYPE_MAPPING",
               "linkedService": {
                 "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
