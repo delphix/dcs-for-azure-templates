@@ -1,4 +1,4 @@
-# Masking Dataflow
+# Unfiltered Masking Dataflow
 
 The masking dataflow is used to consume unmasked data from a source location, mask the data leveraging Delphix
 Compliance Services APIs, and prepare it to be written to a sink location.

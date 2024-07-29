@@ -1,5 +1,15 @@
 # CHANGELOG
 
+# 0.0.10
+* Add support for conditional masking to the following pipelines:
+  * `dcsazure_adls_to_adls_mask_pl`
+  * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl`
+  * `dcsazure_Snowflake_to_Snowflake_mask_pl`
+  * `dcsazure_Databricks_to_Databricks_mask_pl`
+* Update documentation to describe how to use conditional masking
+* Update pipeline documentation to describe how conditionally masked tables are masked
+* Update documentation to describe how masking parameters are computed
+
 # 0.0.9
 * Update dataflows for generating masking params to fix a bug in custom date format handling.
   * This bug is encountered when only some columns of a table have date format specified.
