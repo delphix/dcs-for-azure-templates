@@ -107,12 +107,107 @@ algorithms) should be applied when masking data. This is not preferred as it is 
 * `adf_type_mapping` - This table is used to track how data should be treated as it flows through masking pipeline in
    Azure Data Factory, where applicable. The values in this table are inserted in the migration scripts.
 
+## Building A Ruleset
+
+For data to be masked, there must be a mapping in the `adf_dta_mapping` table, and at least one `assigned_algorithm`
+assigned to the table. Note that the `profiled_algorithm` that is populated as a result of the profiling pipeline should
+always produce a valid algorithm name.
+
+### Conditional Masking
+
+To apply different algorithms based on data assigned to a key column, it is important to set the `assigned_algorithm`
+correctly for the masking pipeline to work.
+
+#### Defining the Key Conditions
+
+The key column is the column whose value must be evaluated to determine which algorithm to apply. The assigned algorithm
+of a key column is to be a JSON array consisting of JSON objects that contain "alias" and "condition" keys. As such the
+key column itself cannot be masked.
+
+The `alias` key defines the alias for the filter condition, this will be used when defining conditional algorithms. All
+conditions should be mutually exclusive, otherwise you can end up with the same input rows being masked with different
+algorithms. The conditions must be compatible with ADF expression language.
+Note that `default` can be used as an alias and should not have any associated conditions, this is because
+the query to determine the conditions will automatically build the conditions for the default condition by combining
+with a logical and the negation of all other conditions. Also note that we support a shortcut for referencing the value
+in the key column (`%` by default), so that more complex filter conditions can be built.
+
+Consider a key column with values `KEY_1`, `KEY_2`, `KEY_3`, `KEY_4`, `KEY_5`, and `KEY_6`. Consider a few different
+key aliases that help us identify `KEY_1`, `KEY_2`, `KEY_3`, and set a default behavior for everything else as well.
+
+We can construct the value of `assigned_algorithm` using a structure like the following:
+```
+[
+    {
+        "alias": "K1",
+        "condition":"% == 'KEY_1'"
+    },
+    {
+        "alias": "K2",
+        "condition":"endsWith(%, '2')"
+    },
+    {
+        "alias": "K3",
+        "condition":"startsWith(%, 'KEY_3')"
+    },
+    {
+        "alias": "default"
+    }
+]
+```
+
+What this means is that the table will need to me masked in 4 stages (one for each condition), `K1` will mask all rows
+where the value in the key column is exactly equal to `KEY_1`, `K2` will mask all rows where the value in the key column
+ends with `2`, `K3` will mask all rows where the value in the key column starts with `KEY_3`, and `default` will mask
+all rows that are not equal to `KEY_1` and that don't end with `2` and that don't start with `KEY_3`.
+
+Note that the alias names must be unique per table.
+
+#### Defining the Conditional Algorithms
+
+Conditional algorithms are defined by specifying the key colum, using the key column's aliases and assigning an
+algorithm names in those conditions.
+
+Considering the example above that describes how to specify the key column's aliases. Let's suppose that column's name
+is `row_type`. We can conditionally define the algorithms to the conditions based on their aliases as follows:
+
+```
+{
+    "key_column":"row_type",
+    "conditions": [
+        {
+            "alias":"K1",
+            "algorithm":"dlpx-core: Phone US"
+        },
+        {
+            "alias":"K2",
+            "algorithm":"dlpx-core: Email SL"
+        },
+        {
+            "alias":"K3",
+            "algorithm":"dlpx-core: CM Digits"
+        },
+        {
+            "alias":"default",
+            "algorithm":"dlpx-core: CM Alpha-Numeric"
+        }
+    ]
+}
+```
+
+Note that we're specifying the key column and referring to the column by name, we're specifying the conditions in which
+we will apply masking, which are referred to by the alias defined in the key column, and we specify the algorithms to
+apply to each of the conditions separately.
+
+
 ## Additional Resources
 
 * Dataflows documentation
   * [Profiling dataflow](./documentation/dataflows/prof_df.md)
-  * [Masking dataflow](./documentation/dataflows/mask_df.md)
-  * [Masking Parameters dataflow](./documentation/dataflows/mask_params_df.md)
+  * [Filtered Masking dataflow](./documentation/dataflows/filtered_mask_df)
+  * [Filtered Masking Parameters dataflow](./documentation/dataflows/filtered_mask_params_df)
+  * [Unfiltered Masking dataflow](./documentation/dataflows/unfiltered_mask_df)
+  * [Unfiltered Masking Parameters dataflow](./documentation/dataflows/unfiltered_mask_params_df)
   * [Copy dataflow](./documentation/dataflows/copy_df.md)
 * Pipeline documentation - Documentation for each pipeline is included in the released version of the template
   * [dcsazure_Databricks_to_Databricks_mask_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_mask_pl.md)
