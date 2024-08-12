@@ -518,7 +518,7 @@
             "type": "ForEach",
             "dependsOn": [
               {
-                "activity": "Determine All Heterogeneous Schema",
+                "activity": "Determine All Heterogeneous Schemas",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -527,7 +527,7 @@
             "userProperties": [],
             "typeProperties": {
               "items": {
-                "value": "@activity('Determine All Heterogeneous Schema').output.resultSets[0].rows",
+                "value": "@if(greater(length(activity('Determine All Heterogeneous Schemas').output.resultSets), 0), activity('Determine All Heterogeneous Schemas').output.resultSets[0].rows, json('[]'))",
                 "type": "Expression"
               },
               "isSequential": false,
@@ -764,7 +764,7 @@
             }
           },
           {
-            "name": "Determine All Heterogeneous Schema",
+            "name": "Determine All Heterogeneous Schemas",
             "type": "Script",
             "dependsOn": [
               {
@@ -1001,7 +1001,7 @@
           "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-06-04T17:42:10Z"
+        "lastPublishTime": "2024-06-12T17:35:47Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_prof_ds')]",

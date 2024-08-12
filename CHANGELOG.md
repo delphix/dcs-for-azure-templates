@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.10
+* Fix a bug in `dcsazure_adls_to_adls_prof_pl` that causes the pipeline to fail when there are no directories with
+  heterogeneous schemas to profile
+
 # 0.0.9
 * Update dataflows for generating masking params to fix a bug in custom date format handling.
   * This bug is encountered when only some columns of a table have date format specified.
