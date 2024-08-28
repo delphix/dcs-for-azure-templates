@@ -8,6 +8,7 @@ services:
       sh -c "
              apt-get update &&
              apt-get install -y zip &&
+             mkdir releases &&
              zip dcsazure_adls_to_adls_prof_pl.zip dcsazure_adls_to_adls_prof_pl/* &&
              zip dcsazure_adls_to_adls_mask_pl.zip dcsazure_adls_to_adls_mask_pl/* &&
              zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl/* &&
