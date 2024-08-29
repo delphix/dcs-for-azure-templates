@@ -2,6 +2,7 @@
 -- * V2024.01.01.0__create_initial_tables
 -- * V2024.04.18.0__add_adls_to_adls_support
 -- * V2024.05.02.0__update_adls_to_adls_support
+-- * V2024.08.25.0__add_conditional_masking_support
 -- The contents of each of those files will
 
 
@@ -269,3 +270,5 @@ BEGIN
 			PRINT 'adf_file_structure is NULL or empty';
 		END
 END;
+-- source: V2024.08.25.0__add_conditional_masking_support
+ALTER TABLE discovered_ruleset ALTER COLUMN assigned_algorithm VARCHAR(MAX);

@@ -1,5 +1,15 @@
 # CHANGELOG
 
+# 0.0.11
+* Add support for conditional masking to the following pipelines:
+  * `dcsazure_adls_to_adls_mask_pl`
+  * `dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl`
+  * `dcsazure_Snowflake_to_Snowflake_mask_pl`
+  * `dcsazure_Databricks_to_Databricks_mask_pl`
+* Update documentation to describe how to use conditional masking
+* Update pipeline documentation to describe how conditionally masked tables are masked
+* Update documentation to describe how masking parameters are computed
+
 # 0.0.10
 * Fix a bug in `dcsazure_adls_to_adls_prof_pl` that causes the pipeline to fail when there are no directories with
   heterogeneous schemas to profile
