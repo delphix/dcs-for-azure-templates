@@ -9,10 +9,24 @@ following linked services in your data factory:
 
 ### To Import Latest Version Templates
 
-Run `docker-compose -f docker-compose.yaml up && stty sane`, this will create the latest version of all templates
-and put them in the `releases` directory. The `stty sane` is to fix the terminal as docker-compose doesn't always
-clean up after itself correctly. From there, you can import the template into your data factory using the Data
-Factory Studio:
+To create the latest version of all templates:
+
+* Clone this repository and change to its directory:
+```sh
+git clone https://github.com/delphix/dcs-for-azure-templates.git
+
+cd dcs-for-azure-templates
+```
+
+* Run the following command:
+
+```sh
+docker-compose -f docker-compose.yaml up && stty sane
+```
+   * The templates will be available in the `releases` directory. 
+   * The `stty sane` is to fix the terminal as docker-compose doesn't always clean up after itself correctly. 
+
+From there, you can import the template into your data factory using the Data Factory Studio:
 * From the `Author` tab, click the `+` next to the search bar for the Factory Resources
 * Select `Pipeline`, then `Import from pipeline template`
   * This will open a file explorer window, you can select the recently built template
