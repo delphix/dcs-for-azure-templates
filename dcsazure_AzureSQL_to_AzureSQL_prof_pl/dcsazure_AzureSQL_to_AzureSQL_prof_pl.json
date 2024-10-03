@@ -1,0 +1,609 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "factoryName": {
+      "type": "string",
+      "metadata": "Data Factory name"
+    },
+    "Azure SQL Source": {
+      "type": "string"
+    },
+    "MetaData Datastore": {
+      "type": "string"
+    },
+    "ProdDCSForAzureService": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+  },
+  "resources": [
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "description": "DCSAzure - AzureSQL to AzureSQL Profiling Pipeline",
+        "activities": [
+          {
+            "name": "Schema Discovery From AzureSQL",
+            "type": "Copy",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT \n    '@{variables('DATASET')}' AS dataset,\n    T.TABLE_CATALOG AS specified_database,\n    S.NAME AS specified_schema,\n    T.TABLE_NAME AS identified_table,\n    C.COLUMN_NAME AS identified_column,\n    UPPER(C.DATA_TYPE) AS identified_column_type,\n    COALESCE(C.CHARACTER_MAXIMUM_LENGTH,-1) AS identified_column_max_length,\n    C.ORDINAL_POSITION AS ordinal_position,\n\tSUM(P.rows) AS row_count\nFROM\n    INFORMATION_SCHEMA.COLUMNS C,\n    INFORMATION_SCHEMA.TABLES T\n\tJOIN SYS.SCHEMAS AS S ON T.TABLE_SCHEMA = S.NAME\n\tJOIN SYS.TABLES AS ST ON ST.SCHEMA_ID = S.SCHEMA_ID\n\tJOIN SYS.PARTITIONS AS P ON P.OBJECT_ID = ST.OBJECT_ID\nWHERE\n    UPPER(T.TABLE_CATALOG) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n    AND UPPER(C.TABLE_SCHEMA) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n    AND C.TABLE_NAME = T.TABLE_NAME\n    AND C.TABLE_SCHEMA = T.TABLE_SCHEMA\n    AND T.TABLE_TYPE = 'BASE TABLE'\nGROUP BY T.TABLE_CATALOG, S.NAME, T.TABLE_NAME, C.COLUMN_NAME, C.DATA_TYPE, C.CHARACTER_MAXIMUM_LENGTH, C.ORDINAL_POSITION\nORDER BY T.TABLE_NAME, C.ORDINAL_POSITION",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "sink": {
+                "type": "AzureSqlSink",
+                "writeBehavior": "upsert",
+                "upsertSettings": {
+                  "useTempDB": true,
+                  "keys": [
+                    "dataset",
+                    "specified_database",
+                    "specified_schema",
+                    "identified_table",
+                    "identified_column"
+                  ]
+                },
+                "sqlWriterUseTableLock": false,
+                "disableMetricsCollection": false
+              },
+              "enableStaging": false,
+              "translator": {
+                "type": "TabularTranslator",
+                "typeConversion": true,
+                "typeConversionSettings": {
+                  "allowDataTruncation": true,
+                  "treatBooleanAsNumber": false
+                }
+              }
+            },
+            "inputs": [
+              {
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_source_ds",
+                "type": "DatasetReference",
+                "parameters": {}
+              }
+            ],
+            "outputs": [
+              {
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@variables('METADATA_SCHEMA')",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@variables('METADATA_RULESET_TABLE')",
+                    "type": "Expression"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Select Discovered Tables",
+            "type": "Lookup",
+            "dependsOn": [
+              {
+                "activity": "Schema Discovery From AzureSQL",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table\n  \nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE LOWER(specified_schema) = LOWER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_SOURCE_DATABASE}')\nAND dataset = '@{variables('DATASET')}'",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@variables('METADATA_SCHEMA')",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@variables('METADATA_RULESET_TABLE')",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "For Each Discovered Table",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Select Discovered Tables",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Discovered Tables').output.value",
+                "type": "Expression"
+              },
+              "activities": [
+                {
+                  "name": "Profile",
+                  "type": "ExecuteDataFlow",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataflow": {
+                      "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_df",
+                      "type": "DataFlowReference",
+                      "parameters": {
+                        "runId": {
+                          "value": "'@{pipeline().RunId}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_SCHEMA": {
+                          "value": "'@{item().specified_schema}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_TABLE": {
+                          "value": "'@{item().identified_table}'",
+                          "type": "Expression"
+                        },
+                        "DF_NUM_ROWS_TO_PROFILE": "1000",
+                        "DF_METADATA_SCHEMA": {
+                          "value": "'@{variables('METADATA_SCHEMA')}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_RULESET_TABLE": {
+                          "value": "'@{variables('METADATA_RULESET_TABLE')}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_DATABASE": {
+                          "value": "'@{item().specified_database}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_DATASET": {
+                          "value": "'@{variables('DATASET')}'",
+                          "type": "Expression"
+                        }
+                      },
+                      "datasetParameters": {
+                        "Source1MillRowDataSampling": {},
+                        "MetadataStoreRead": {},
+                        "WriteToMetadataStore": {}
+                      }
+                    },
+                    "staging": {},
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
+                    "traceLevel": "Fine"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_SOURCE_DATABASE": {
+            "type": "string",
+            "defaultValue": "shared-azure-sql-server"
+          },
+          "P_SOURCE_SCHEMA": {
+            "type": "string",
+            "defaultValue": "test_sql_data"
+          }
+        },
+        "variables": {
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
+          "METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
+          },
+          "DATASET": {
+            "type": "String",
+            "defaultValue": "AZURESQL"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL_prof_pl"
+        },
+        "annotations": [],
+        "lastPublishTime": "2024-10-03T11:28:48Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_prof_source_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_to_AzureSQL_prof_df')]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_source_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "description": "DCSAzure - Azure SQL to AzureSQL Profling Query Dataset",
+        "linkedServiceName": {
+          "referenceName": "[parameters('Azure SQL Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL_ds"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [
+          {
+            "name": "TABLE_CATALOG",
+            "type": "nvarchar"
+          },
+          {
+            "name": "TABLE_SCHEMA",
+            "type": "nvarchar"
+          },
+          {
+            "name": "TABLE_NAME",
+            "type": "nvarchar"
+          },
+          {
+            "name": "TABLE_TYPE",
+            "type": "varchar"
+          }
+        ],
+        "typeProperties": {}
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "description": "DCS Azure - AzureSQL to AzureSQL profiling metadata dataset",
+        "linkedServiceName": {
+          "referenceName": "[parameters('MetaData Datastore')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_METADATA_SCHEMA": {
+            "type": "string"
+          },
+          "DS_METADATA_TABLE": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL_ds"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [],
+        "typeProperties": {
+          "schema": {
+            "value": "@dataset().DS_METADATA_SCHEMA",
+            "type": "Expression"
+          },
+          "table": {
+            "value": "@dataset().DS_METADATA_TABLE",
+            "type": "Expression"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "description": "DCSAzure - AzureSQL to AzureSQL Profiling Dataflow",
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL_df"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Azure SQL Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "Source1MillRowDataSampling",
+              "description": "Import the first million rows of unmasked data from the desired source dataset"
+            },
+            {
+              "linkedService": {
+                "referenceName": "[parameters('MetaData Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "MetadataStoreRead",
+              "description": "Import data from Metadata Datastore, querying the ruleset table"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('MetaData Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "WriteToMetadataStore",
+              "description": "Sink results of profiling to metadata data store by sinking the unrolled results of the profiling call to the appropriate columns in the metadata store"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "CallDCSForAzureProfiling",
+              "linkedService": {
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "type": "LinkedServiceReference"
+              }
+            },
+            {
+              "name": "CreateRandomIdColumn",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID column, which is generated via the random expression. The current timestamp in milliseconds is used as the seed for the number generation"
+            },
+            {
+              "name": "SortByRandomId",
+              "description": "Sort the sample rows based on the randomly generated IDs"
+            },
+            {
+              "name": "CreateFinalSelectionId",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID column that increments by 1 and starts at 1. It is incremented in order of the DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID added previously, making it so that the surrogate key is in order of the randomly assigned value, creating a shuffled set of rows"
+            },
+            {
+              "name": "GetRandomRows",
+              "description": "Take the first DF_NUM_ROWS_TO_PROFILE from the shuffled row set"
+            },
+            {
+              "name": "CreateItemsList",
+              "description": "For every column that we didn't add collect it to produce a list of values"
+            },
+            {
+              "name": "ParseAPIResponse",
+              "description": "Parse the API response from profiling call"
+            },
+            {
+              "name": "AssertNoFailures",
+              "description": "Confirm that we received a 200 response status from the API request"
+            },
+            {
+              "name": "FlattenDetails",
+              "description": "Unroll the API response body into columnName, domain, algorithm, confidence, and rowsConsidered"
+            },
+            {
+              "name": "FilterRowsToUpdate",
+              "description": "Filter ruleset table down to the table in question by specifying dataset, specified_database, specified_schema, and identified_table - making sure they match the dataset associated with each version of the dataflow, DF_SOURCE_DATABASE, DF_SOURCE_SCHEMA, and DF_SOURCE_TABLE (respectively). This filters the ruleset down to only the columns that need to be profiled for this particular table"
+            },
+            {
+              "name": "JoinDetailsAndMetadata",
+              "description": "Inner join on FlattenDetails and FilterRowsToUpdate based on matching column names"
+            },
+            {
+              "name": "ChecksBeforeSave",
+              "description": "Alter rows using Update if (only update rows that need updating)"
+            },
+            {
+              "name": "UpdateProfiledColumns",
+              "description": "Updating the columns row_count, metadata, and last_profiled_updated_timestamp"
+            },
+            {
+              "name": "FilterOnlyNewlyProfiledRows",
+              "description": "Filter rows where the profiling results are different from previous dataflow executions (i.e. the profiled_domain, profiled_algorithm, rows_profiled, confidence_score or row_count have changed)"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
+            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_SOURCE_DATABASE as string,",
+            "     DF_SOURCE_DATASET as string ('AZURESQL')",
+            "}",
+            "source(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     limit: 1000000,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_SOURCE_SCHEMA),",
+            "     tableName: ($DF_SOURCE_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED',",
+            "     partitionBy('roundRobin', 32)) ~> Source1MillRowDataSampling",
+            "source(output(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          container_name as string,",
+            "          delta_path as string,",
+            "          row_count as long,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp",
+            "     ),",
+            "     allowSchemaDrift: false,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
+            "CreateItemsList call(mapColumn(",
+            "          each(match(true()))",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false,",
+            "     output(",
+            "          headers as [string,string],",
+            "          body as string,",
+            "          status as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     format: 'rest',",
+            "     store: 'restservice',",
+            "     timeout: 30,",
+            "     requestInterval: 0,",
+            "     headers = ['Run-Id' -> $runId],",
+            "     httpMethod: 'POST',",
+            "     entity: '/v1/discovery/profileByColumn',",
+            "     headerColumnName: 'headers',",
+            "     bodyColumnName: 'body',",
+            "     statusColumnName: 'status',",
+            "     addResponseCode: true,",
+            "     requestFormat: ['type' -> 'json']) ~> CallDCSForAzureProfiling",
+            "Source1MillRowDataSampling derive(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID = random(millisecond(currentTimestamp()))) ~> CreateRandomIdColumn",
+            "CreateRandomIdColumn sort(asc(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID, true)) ~> SortByRandomId",
+            "SortByRandomId keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID as long),",
+            "     startAt: 1L,",
+            "     stepValue: 1L) ~> CreateFinalSelectionId",
+            "CreateFinalSelectionId filter(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID < ($DF_NUM_ROWS_TO_PROFILE +1)) ~> GetRandomRows",
+            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), $$ = collect($$))) ~> CreateItemsList",
+            "CallDCSForAzureProfiling parse(body = body ? (timestamp as date,",
+            "          status as string,",
+            "          message as string,",
+            "          trace_id as string,",
+            "          items as (details as (columnName as string, domain as string, algorithm as string, confidence as float, rowsConsidered as integer)[])),",
+            "     format: 'json',",
+            "     documentForm: 'singleDocument') ~> ParseAPIResponse",
+            "ParseAPIResponse assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
+            "     abort: true) ~> AssertNoFailures",
+            "AssertNoFailures foldDown(unroll(body.items.details),",
+            "     mapColumn(",
+            "          columnName = body.items.details.columnName,",
+            "          domain = body.items.details.domain,",
+            "          algorithm = body.items.details.algorithm,",
+            "          confidence = body.items.details.confidence,",
+            "          rowsConsidered = body.items.details.rowsConsidered",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false) ~> FlattenDetails",
+            "MetadataStoreRead filter(equalsIgnoreCase(dataset, $DF_SOURCE_DATASET)",
+            "&& equalsIgnoreCase(specified_database, $DF_SOURCE_DATABASE)",
+            "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_SCHEMA)",
+            "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)) ~> FilterRowsToUpdate",
+            "FlattenDetails, FilterRowsToUpdate join(columnName <=> identified_column,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'left')~> JoinDetailsAndMetadata",
+            "UpdateProfiledColumns alterRow(updateIf(true())) ~> ChecksBeforeSave",
+            "FilterOnlyNewlyProfiledRows derive(last_profiled_updated_timestamp = currentTimestamp()) ~> UpdateProfiledColumns",
+            "JoinDetailsAndMetadata filter(!equalsIgnoreCase(domain, profiled_domain)",
+            "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
+            "|| rowsConsidered != rows_profiled",
+            "|| toDecimal(confidence) != toDecimal(confidence_score)) ~> FilterOnlyNewlyProfiledRows",
+            "ChecksBeforeSave sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     input(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          row_count as long,",
+            "          metadata as string,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp",
+            "     ),",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     insertable: false,",
+            "     updateable: true,",
+            "     deletable: false,",
+            "     upsertable: false,",
+            "     keys:(array(\"dataset\", \"specified_database\", \"specified_schema\", \"identified_table\", \"identified_column\")),",
+            "     skipKeyWrites:true,",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     errorHandlingOption: 'stopOnFirstError',",
+            "     mapColumn(",
+            "          dataset,",
+            "          specified_database,",
+            "          specified_schema,",
+            "          identified_table,",
+            "          identified_column,",
+            "          identified_column_type,",
+            "          identified_column_max_length,",
+            "          ordinal_position,",
+            "          row_count,",
+            "          profiled_domain = domain,",
+            "          profiled_algorithm = algorithm,",
+            "          confidence_score = confidence,",
+            "          rows_profiled = rowsConsidered,",
+            "          last_profiled_updated_timestamp",
+            "     )) ~> WriteToMetadataStore"
+          ]
+        }
+      },
+      "dependsOn": []
+    }
+  ]
+}

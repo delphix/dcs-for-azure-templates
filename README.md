@@ -261,6 +261,7 @@ when there is a conditional date format.
   * [dcsazure_Snowflake_to_Snowflake_prof_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_prof_pl.md)
   * [dcsazure_adls_to_adls_mask_pl](./documentation/pipelines/dcsazure_adls_to_adls_mask_pl.md)
   * [dcsazure_adls_to_adls_prof_pl](./documentation/pipelines/dcsazure_adls_to_adls_prof_pl.md)
+  * [dcsazure_AzureSQL_to_AzureSQL_prof_pl](./documentation/pipelines/dcsazure_AzureSQL_to_AzureSQL_prof_pl.md)
 
 
 ## Contribution
