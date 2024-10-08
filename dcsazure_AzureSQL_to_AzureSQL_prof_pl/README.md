@@ -5,11 +5,11 @@ This pipeline will perform automated sensitive data discovery on your AzureSQL I
 
 ### Prerequisites
 1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.01.01.0`+).
-1. Configure the DCS for Azure REST service.
-1. Configure the AzureSQL linked service.
+2. Configure the DCS for Azure REST service.
+3. Configure the AzureSQL linked service.
 
 ### Importing
-There are several linked services that will need to be selected in order to perform the profiling of your AzureSQL 
+There are several linked services that will need to be selected in order to perform the profiling of your AzureSQL
 instance.
 
 These linked services types are needed for the following steps:

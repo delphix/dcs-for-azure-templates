@@ -16,7 +16,7 @@ Factory Studio:
 * From the `Author` tab, click the `+` next to the search bar for the Factory Resources
 * Select `Pipeline`, then `Import from pipeline template`
   * This will open a file explorer window, you can select the recently built template
-  from the `releases` folder. 
+  from the `releases` folder.
 * After selecting the appropriate template, you will be asked to to select the linked
 services for various steps in the pipeline.
 * Each template will be different, please refer to the `README.md` file
@@ -261,7 +261,7 @@ when there is a conditional date format.
   * [dcsazure_Snowflake_to_Snowflake_prof_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_prof_pl.md)
   * [dcsazure_adls_to_adls_mask_pl](./documentation/pipelines/dcsazure_adls_to_adls_mask_pl.md)
   * [dcsazure_adls_to_adls_prof_pl](./documentation/pipelines/dcsazure_adls_to_adls_prof_pl.md)
-  * [dcsazure_AzureSQL_to_AzureSQL_prof_pl](./documentation/pipelines/dcsazure_AzureSQL_to_AzureSQL_prof_pl.md)
+  * [dcsazure_AzureSQL_to_AzureSQL_prof_pl](./dcsazure_AzureSQL_to_AzureSQL_prof_pl/README.md)
 
 
 ## Contribution
