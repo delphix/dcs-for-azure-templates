@@ -256,7 +256,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL_prof_pl"
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
         "lastPublishTime": "2024-10-03T11:28:48Z"
@@ -278,7 +278,7 @@
           "type": "LinkedServiceReference"
         },
         "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL_ds"
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -323,7 +323,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL_ds"
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -348,7 +348,7 @@
       "properties": {
         "description": "DCSAzure - AzureSQL to AzureSQL Profiling Dataflow",
         "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL_df"
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
