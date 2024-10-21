@@ -3,10 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "factoryName": { "type": "string", "metadata": "Data Factory name" },
-    "AzureSQL_Mask_Metadata_Datastore": { "type": "string" },
-    "AzureSQL_Source_DB": { "type": "string" },
-    "AzureSQL_Sink_DB": { "type": "string" },
-    "ProdDCSForAzureService": { "type": "string" }
+    "azuresql_mask_metadata_store_db": { "type": "string" },
+    "azuresql_mask_source_db": { "type": "string" },
+    "azuresql_mask_sink_db": { "type": "string" },
+    "MaskRestService": { "type": "string" }
   },
   "variables": {
     "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
@@ -283,7 +283,10 @@
                                 "type": "Expression"
                               },
                               "DF_COLUMN_WIDTH_ESTIMATE": "1000",
-                              "DF_FILTER_KEY": "''",
+                              "DF_FILTER_KEY": {
+                                "value": "'@{item().filter_alias}'",
+                                "type": "Expression"
+                              },
                               "DF_DATASET": {
                                 "value": "'@{item().source_dataset}'",
                                 "type": "Expression"
@@ -719,7 +722,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSQL_Mask_Metadata_Datastore')]",
+          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -754,7 +757,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Source_DB')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -764,7 +767,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Sink_DB')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -836,7 +839,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Mask_Metadata_Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -844,7 +847,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Mask_Metadata_Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -1044,7 +1047,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Source_DB')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -1054,7 +1057,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Sink_DB')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -1065,7 +1068,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('MaskRestService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -1189,17 +1192,23 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "FlattenAggregateData derive(each(match(type=='string'), $$ = iif(",
+            "    greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), ",
+            "    substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), ",
+            "    $$",
+            "))) ~> TrimMaskedStrings",
             "JoinMaskedAndUnmaskedData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'table',",
             "     store: 'sqlserver',",
             "     schemaName: ($DF_SINK_SCHEMA),",
             "     tableName: ($DF_SINK_TABLE),",
+            "     preSQLs:[(concat('SET IDENTITY_INSERT', ' ', $DF_SINK_SCHEMA, '.', $DF_SINK_TABLE, ' ', 'ON'))],",
             "     insertable: true,",
             "     updateable: false,",
             "     deletable: false,",
             "     upsertable: false,",
+            "     postSQLs:[(concat('SET IDENTITY_INSERT', ' ', $DF_SINK_SCHEMA, '.', $DF_SINK_TABLE, ' ', 'OFF'))],",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
             "     errorHandlingOption: 'stopOnFirstError',",
@@ -1225,7 +1234,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Mask_Metadata_Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -1233,7 +1242,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Mask_Metadata_Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -1589,7 +1598,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Source_DB')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -1599,7 +1608,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Sink_DB')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -1610,7 +1619,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('MaskRestService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -1739,7 +1748,11 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "FlattenAggregateData derive(each(match(type=='string'), $$ = iif(",
+            "    greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), ",
+            "    substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), ",
+            "    $$",
+            "))) ~> TrimMaskedStrings",
             "Source filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
             "JoinMaskedAndUnmaskedData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -1747,10 +1760,12 @@
             "     store: 'sqlserver',",
             "     schemaName: ($DF_SINK_SCHEMA),",
             "     tableName: ($DF_SINK_TABLE),",
+            "     preSQLs:[(concat('SET IDENTITY_INSERT', ' ', $DF_SINK_SCHEMA, '.', $DF_SINK_TABLE, ' ', 'ON'))],",
             "     insertable: true,",
             "     updateable: false,",
             "     deletable: false,",
             "     upsertable: false,",
+            "     postSQLs:[(concat('SET IDENTITY_INSERT', ' ', $DF_SINK_SCHEMA, '.', $DF_SINK_TABLE, ' ', 'OFF'))],",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
             "     errorHandlingOption: 'stopOnFirstError',",
@@ -1770,7 +1785,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSQL_Source_DB')]",
+          "referenceName": "[parameters('azuresql_mask_source_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -1800,7 +1815,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSQL_Sink_DB')]",
+          "referenceName": "[parameters('azuresql_mask_sink_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -1832,7 +1847,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Source_DB')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
@@ -1842,7 +1857,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSQL_Sink_DB')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",
