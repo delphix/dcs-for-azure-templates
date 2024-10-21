@@ -28,8 +28,6 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
 ('AZURESQL', 'binary', 'binary'),
 ('AZURESQL', 'varbinary', 'binary'),
 ('AZURESQL', 'image', 'binary'),
-('AZURESQL', 'geography', 'binary'),
-('AZURESQL', 'geometry', 'binary'),
 ('AZURESQL', 'json', 'string'),
 ('AZURESQL', 'uniqueidentifier', 'string'),
 ('AZURESQL', 'xml', 'string')
