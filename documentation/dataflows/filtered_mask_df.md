@@ -21,12 +21,14 @@ flowchart LR
     CreateSurrogateKey -->
     SelectColumnsUnmasked
     CreateSurrogateKey -->
+    CastRequiredColumnsAsStrings -->
     WrapValuesInArray -->
     AggregateColumnsByBatch -->
     FlattenValuesOutOfArray -->
     DCSForAzureAPI -->
     AssertNoFailures -->
     FlattenAggregateData -->
+    CastColumnsBackAsRequired -->
     TrimMaskedStrings --> JoinMaskedAndUnmaskedData
     SelectColumnsUnmasked --> JoinMaskedAndUnmaskedData
     JoinMaskedAndUnmaskedData --> Sink
@@ -40,11 +42,13 @@ data across all columns in the table - every row will have this value and it can
 table to be in a particular order before we apply a surrogate key
 * `CreateSurrogateKey` - Surrogate Key - Add a `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID` column that
 increments by `1` and starts at `1` after applying the sorting
-* `WrapValuesInArray` - Derived Column - For each column we wish to mask, convert the value into an array, this
-is needed to preserve `null` values as `null` when using `collect`, as `null` values become `[]`
+* `CastRequiredColumnsAsStrings` - Derived Column - For columns that require casting to string, cast them to string
+* `WrapValuesInArray` - Derived Column - For each column we wish to mask, convert the value into an array, this is
+needed to preserve `null` values as `null` when using `collect`, as `null` values become `[]`, and encode the column
+names to handle body type mapping changes
 * `AggregateColumnsByBatch` - Aggregate - For each column we wish to mask, aggregate to a list using `collect`,
-grouped by `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID` with integer division by `DF_NUMBER_OF_ROWS_PER_BATCH` - so there will be
-a targeted number of total rows in each aggregation, name the group as `DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP`
+grouped by `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID` with integer division by `DF_NUMBER_OF_ROWS_PER_BATCH` - so there will
+be a targeted number of total rows in each aggregation, name the group as `DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP`
 * `FlattenValuesOutOfArray` - Derived Column - For each column we wish to mask, flatten the value out of the
 array, in the case where the value was previously `[]`, it becomes `null`
 * `DCSForAzureAPI` - External Call - Call DCS for Azure services, using `/v1/masking/batchMaskByColumn`,
@@ -58,7 +62,9 @@ included in the request:
   * `'Field-Date-Format'` - Defines the date format to apply to which field, defined in `DF_FIELD_DATE_FORMAT`
 The format of the response is defined in `DF_BODY_TYPE_MAPPING`
 * `AssertNoFailures` - Assert - Confirm that we received a `200` response status from the API request
-* `FlattenAggregateData` - Flatten - Unroll the API response body into named columns
+* `FlattenAggregateData` - Flatten - Unroll the API response body into decoded named columns
+* `CastColumnsBackAsRequired` - Derived Column - For columns that need to be cast back to a compatible type, cast them
+  back
 * `TrimMaskedStrings` - Derived Column - For each column with a string type, trim the string to length based on
 the value in `DF_TRIM_LENGTHS` - this is needed as masking a string may produce a longer string that exceeds the column
 width in the sink
@@ -68,10 +74,19 @@ matching `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID`
 * `Sink` - Sink - Sink results of masking to data store by sinking the unrolled results of the masking call to
 the columns of the same name in the data sink
 
-### ADLS Modifications
+## ADLS Modifications
 
-As ADLS does not have an inherent order to the columns output for delimited text data sets, additional elements of the
-dataflow are added to preserve column ordering. In this case, the data flow appears as follows:
+Data in parquet and delimited files that are resident in ADLS and are masked with conditional algorithms, we cannot
+control the sink file name as the files are masked in multiple passes. Due to the fact that ADF does not support
+appending to the destination files, and as file name collisions in ADLS result in file overwrite, we are unable to
+control the sink file name directly, as successive passes will overwrite one another if we try to persist the file
+names as they were in the source.
+
+
+### ADLS Delimited Modifications
+
+As delimited files do not have an inherent order to the columns output for delimited text data sets, additional elements
+of the dataflow are added to preserve column ordering. In this case, the data flow appears as follows:
 ```mermaid
 flowchart LR
     Source -->
@@ -111,7 +126,10 @@ and storing the file name in `DELPHIX_COMPLIANCE_SERVICE_FILE_NAME`
 * `CreateAlterRow` - Alter Row - Add an alter row condition so that all rows will be inserted into the existing
   table with the correct column order
 * `WrapValuesInArray` - Derived Column - as above
-* `AggregateColumnsByBatch` - Aggregate - as above
+* `AggregateColumnsByBatch` - Aggregate - For each column we wish to mask, aggregate to a list using `collect`,
+grouped by `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID` using `DF_TARGET_BATCH_SIZE` to distribute the table into as many
+batches as are required to place the target number of rows in each batch, name the group as
+`DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP`
 * `FlattenValuesOutOfArray` - Derived Column - as above
 * `DCSForAzureAPI` - External Call - as above
 * `AssertNoFailures` - Assert - as above
@@ -125,5 +143,5 @@ and storing the file name in `DELPHIX_COMPLIANCE_SERVICE_FILE_NAME`
   performing the union by name
 * `Sink` - Sink - Sink results of masking to data store by sinking all columns but
 `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID`, `DELPHIX_COMPLIANCE_SERVICE_SORT_ID`, and `DELPHIX_COMPLIANCE_SERVICE_FILE_NAME`
-to the data sink, naming the file as `DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME`, and using the same metadata settings
-as were used in the source with `DF_COLUMN_DELIMITER`, `DF_QUOTE_CHARACTER`, `DF_ESCAPE_CHARACTER`, and `DF_NULL_VALUE`
+to the data sink, writing to `DF_SINK_CONTAINER` at `DF_SINK_DIRECTORY`, using the same metadata settings as were used
+in the source with `DF_COLUMN_DELIMITER`, `DF_QUOTE_CHARACTER`, `DF_ESCAPE_CHARACTER`, and `DF_NULL_VALUE`.
