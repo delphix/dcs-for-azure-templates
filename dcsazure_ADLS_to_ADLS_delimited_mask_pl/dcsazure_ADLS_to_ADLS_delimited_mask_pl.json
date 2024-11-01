@@ -186,6 +186,10 @@
                                 "value": "'@{variables('METADATA_ADF_TYPE_MAPPING_TABLE')}'",
                                 "type": "Expression"
                               },
+                              "DF_DATASET": {
+                                "value": "'@{variables('DATASET')}'",
+                                "type": "Expression"
+                              },
                               "DF_SOURCE_CONTAINER": {
                                 "value": "'@{item().source_database}'",
                                 "type": "Expression"
@@ -1261,7 +1265,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} rs\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = '@{variables('DATASET')}'\nAND am.source_dataset = '@{variables('DATASET')}'\nAND am.sink_dataset = '@{variables('DATASET')}'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CONTAINER}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%'\nEXCEPT\nSELECT DISTINCT\nsource_database,\nsource_schema,\nREVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\nsource_table,\nsink_database,\nsink_schema,\nREVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\nREVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\nsink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} rs\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE rs.dataset = '@{variables('DATASET')}'\nAND rs.assigned_algorithm IS NOT NULL\nAND rs.assigned_algorithm != ''\nAND am.source_dataset = '@{variables('DATASET')}'\nAND am.sink_dataset = '@{variables('DATASET')}'\nAND am.source_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\nAND am.sink_database = '@{pipeline().parameters.P_SINK_CONTAINER}'\nAND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\nAND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
+                  "value": "SELECT DISTINCT\n    source_database,\n    source_schema,\n    REVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\n    REVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\n    source_table,\n    sink_database,\n    sink_schema,\n    REVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\n    REVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\n    sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} rs\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE\n    rs.dataset = '@{variables('DATASET')}'\n    AND am.source_dataset = '@{variables('DATASET')}'\n    AND am.sink_dataset = '@{variables('DATASET')}'\n    AND am.source_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND am.sink_database = '@{pipeline().parameters.P_SINK_CONTAINER}'\n    AND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n    AND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%'\nEXCEPT\nSELECT DISTINCT\n    source_database,\n    source_schema,\n    REVERSE(SUBSTRING(REVERSE(source_schema), CHARINDEX('/', REVERSE(source_schema)), LEN(source_schema))) AS source_directory,\n    REVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS source_prefix,\n    source_table,\n    sink_database,\n    sink_schema,\n    REVERSE(SUBSTRING(REVERSE(sink_schema), CHARINDEX('/', REVERSE(sink_schema)), LEN(sink_schema))) AS sink_directory,\n    REVERSE(SUBSTRING(REVERSE(source_schema),0, CHARINDEX('/', REVERSE(source_schema)))) AS sink_prefix,\n    sink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} rs\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} am\nON (am.source_database = rs.specified_database AND am.source_schema = rs.specified_schema AND am.source_table = rs.identified_table)\nWHERE\n    rs.dataset = '@{variables('DATASET')}'\n    AND rs.assigned_algorithm IS NOT NULL\n    AND rs.assigned_algorithm != ''\n    AND am.source_dataset = '@{variables('DATASET')}'\n    AND am.sink_dataset = '@{variables('DATASET')}'\n    AND am.source_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND am.sink_database = '@{pipeline().parameters.P_SINK_CONTAINER}'\n    AND am.source_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n    AND am.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}%';",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -2607,7 +2611,7 @@
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2024-12-05T00:28:53Z"
+        "lastPublishTime": "2025-01-09T04:42:28Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds')]",
@@ -2922,10 +2926,6 @@
               "description": "Grouped by output_row produce the following aggregates\n\n    FieldAlgorithmAssignments - a JSON string that maps a column name to its assigned algorithm\n    ColumnsToMask - a list of the column names that have an algorithm assigned\n    DataFactoryTypeMapping - a string that can be used by ADF to parse the output of a call to the Delphix masking endpoint, leveraging the adf_type_conversion column derived previously\n    NumberOfBatches - an integer value determined by computing the number of batches leveraging the max row_count as specified in the ruleset table, and the sum of column_width_estimate column derived previously\n    TrimLengths - a list of the actual widths of the columns so that will be used by the masking data flow to trim output before sinking"
             },
             {
-              "name": "ModifyNumberOfBatches",
-              "description": "Modifies the number of batches to be at least 1"
-            },
-            {
               "name": "FilterAdlsType",
               "description": "Filter type mapping table down to only the dataset in question"
             },
@@ -2988,13 +2988,16 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -3030,23 +3033,21 @@
             "          output_row = 1,",
             "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
             "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
-            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(concat('x',hex(encode(identified_column)))), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
-            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    regexReplace(reduce(collect(concat('x',hex(encode(identified_column))) + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
-            "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count))+1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
-            "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
             "TypeMapping filter(equalsIgnoreCase(dataset, $DF_DATASET)) ~> FilterAdlsType",
-            "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
+            "FilterToSingleTable parse(parsed_metadata = algorithm_metadata ? (date_format as string),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseMetadata",
             "SplitOnDateFormat@ContainsDateFormat aggregate(groupBy(output_row),",
             "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}')) ~> DateFormatHeader",
             "ParseMetadata derive(output_row = 1,",
             "          date_format_string = parsed_metadata.date_format) ~> DateFormatString",
-            "ModifyNumberOfBatches, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
+            "GenerateMaskParameters, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
             "     joinType:'inner',",
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
@@ -3132,7 +3133,7 @@
             },
             {
               "name": "WrapValuesInArray",
-              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become []"
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become [], and encode the column names to handle body type mapping changes"
             },
             {
               "name": "SelectColumnsUnmasked",
@@ -3152,15 +3153,11 @@
             },
             {
               "name": "FlattenAggregateData",
-              "description": "Unroll the API response body into named columns"
+              "description": "Unroll the API response body into decoded named columns"
             },
             {
               "name": "JoinMaskedAndUnmaskedData",
               "description": "Inner join on SelectColumnsUnmasked and FlattenAggregateData based on matching DELPHIX_COMPLIANCE_SERVICE_BATCH_ID"
-            },
-            {
-              "name": "TrimMaskedStrings",
-              "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
             },
             {
               "name": "CreateSinkFileName",
@@ -3186,7 +3183,6 @@
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
-            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SINK_CONTAINER as string (''),",
             "     DF_SOURCE_DIRECTORY as string (''),",
@@ -3218,6 +3214,7 @@
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
             "     nullValue: ($DF_NULL_VALUE),",
             "     columnNamesAsHeader: true,",
+            "     multiLineRow: true,",
             "     wildcardPaths:[(concat($DF_SOURCE_DIRECTORY,iif(length($DF_SOURCE_PREFIX) == 0,iif(equals('NO_EXT',$DF_SOURCE_TABLE),'*',concat('*',$DF_SOURCE_TABLE)),iif(equals('NO_EXT',$DF_SOURCE_TABLE),concat($DF_SOURCE_PREFIX,'*'),concat($DF_SOURCE_PREFIX,'*',$DF_SOURCE_TABLE)))))],",
             "     partitionBy('roundRobin', 32)) ~> Source",
             "FlattenValuesOutOfArray call(mapColumn(",
@@ -3250,20 +3247,22 @@
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateSurrogateKey",
-            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), $$ = array($$))) ~> WrapValuesInArray",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
             "CreateSurrogateKey select(mapColumn(",
             "          each(match(!contains($DF_COLUMNS_TO_MASK,#item==name)))",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
             "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/($DF_TARGET_BATCH_SIZE/size($DF_COLUMNS_TO_MASK))))),",
-            "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
-            "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
             "     abort: true) ~> AssertNoFailures",
             "AssertNoFailures foldDown(unroll(body.items),",
             "     mapColumn(",
-            "          every(body.items,match(true()))",
+            "          every(body.items,match(name=='DELPHIX_COMPLIANCE_SERVICE_BATCH_ID')),",
+            "          every(body.items,match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
             "     ),",
             "     skipDuplicateMapInputs: false,",
             "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
@@ -3272,7 +3271,6 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
             "CombineRows derive(DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME = replace(DELPHIX_COMPLIANCE_SERVICE_FILE_NAME, $DF_SOURCE_DIRECTORY, $DF_SINK_DIRECTORY)) ~> CreateSinkFileName",
             "RemoveAllData alterRow(insertIf(true())) ~> CreateAlterRow",
             "CreateAlterRow, RemoveAmbiguousColumn union(byName: true)~> CombineRows",
@@ -3357,10 +3355,6 @@
             {
               "name": "GenerateMaskParameters",
               "description": "Grouped by output_row produce the following aggregates\n\n    FieldAlgorithmAssignments - a JSON string that maps a column name to its assigned algorithm\n    ColumnsToMask - a list of the column names that have an algorithm assigned\n    DataFactoryTypeMapping - a string that can be used by ADF to parse the output of a call to the Delphix masking endpoint, leveraging the adf_type_conversion column derived previously\n    NumberOfBatches - an integer value determined by computing the number of batches leveraging the max row_count as specified in the ruleset table, and the sum of column_width_estimate column derived previously\n    TrimLengths - a list of the actual widths of the columns so that will be used by the masking data flow to trim output before sinking"
-            },
-            {
-              "name": "ModifyNumberOfBatches",
-              "description": "Modifies the number of batches to be at least 1"
             },
             {
               "name": "FilterToDataSourceType",
@@ -3457,12 +3451,12 @@
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
-            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
-            "     DF_FILTER_KEY as string ('')",
+            "     DF_FILTER_KEY as string (''),",
+            "     DF_DATASET as string ('ADLS-DELIMITED')",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -3474,13 +3468,16 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -3516,17 +3513,15 @@
             "          output_row = 1,",
             "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
             "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
-            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(concat('x',hex(encode(identified_column)))), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
-            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    regexReplace(reduce(collect(concat('x',hex(encode(identified_column))) + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
-            "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count))+1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
-            "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
             "TypeMapping filter(equalsIgnoreCase(dataset, $DF_DATASET)) ~> FilterToDataSourceType",
-            "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
-            "          conditional_formatting = metadata ? (key_column as string,",
+            "FilterToSingleTable parse(parsed_metadata = algorithm_metadata ? (date_format as string),",
+            "          conditional_formatting = algorithm_metadata ? (key_column as string,",
             "          conditions as (alias as string, date_format as string)[]),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseMetadata",
@@ -3534,7 +3529,7 @@
             "     DateFormatAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(date_format_string)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}')) ~> DateFormatHeader",
             "FilterUnmatchingAlias derive(output_row = 1,",
             "          date_format_string = coalesce(conditional_date_format, parsed_metadata.date_format)) ~> DateFormatString",
-            "ModifyNumberOfBatches, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
+            "GenerateMaskParameters, RemoveUnnecessaryColumns join(GenerateMaskParameters@output_row == RemoveUnnecessaryColumns@output_row,",
             "     joinType:'inner',",
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
@@ -3628,7 +3623,6 @@
             "          identified_column_type = FlattenAlgorithmAssignments@identified_column_type,",
             "          identified_column_max_length = FlattenAlgorithmAssignments@identified_column_max_length,",
             "          row_count = FlattenAlgorithmAssignments@row_count,",
-            "          assigned_algorithm = FlattenAlgorithmAssignments@assigned_algorithm,",
             "          key_column,",
             "          assigned_algorithm = algorithm",
             "     ),",
@@ -3646,7 +3640,7 @@
             "          identified_column_max_length,",
             "          ordinal_position,",
             "          row_count,",
-            "          metadata,",
+            "          algorithm_metadata,",
             "          profiled_domain,",
             "          profiled_algorithm,",
             "          confidence_score,",
@@ -3726,7 +3720,7 @@
             },
             {
               "name": "WrapValuesInArray",
-              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become []"
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become [], and encode the column names to handle body type mapping changes"
             },
             {
               "name": "SelectColumnsUnmasked",
@@ -3746,19 +3740,11 @@
             },
             {
               "name": "FlattenAggregateData",
-              "description": "Unroll the API response body into named columns"
+              "description": "Unroll the API response body into decoded named columns"
             },
             {
               "name": "JoinMaskedAndUnmaskedData",
               "description": "Inner join on SelectColumnsUnmasked and FlattenAggregateData based on matching DELPHIX_COMPLIANCE_SERVICE_BATCH_ID"
-            },
-            {
-              "name": "TrimMaskedStrings",
-              "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
-            },
-            {
-              "name": "CreateSinkFileName",
-              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME by replacing DF_SOURCE_DIRECTORY with DF_SINK_DIRECTORY in the value in DELPHIX_COMPLIANCE_SERVICE_FILE_NAME"
             },
             {
               "name": "CreateAlterRow",
@@ -3779,6 +3765,10 @@
             {
               "name": "ApplyTableFilter",
               "description": "Filter base table based on supplied filter"
+            },
+            {
+              "name": "CreateSinkFileName",
+              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME by replacing DF_SOURCE_DIRECTORY with DF_SINK_DIRECTORY in the value in DELPHIX_COMPLIANCE_SERVICE_FILE_NAME"
             }
           ],
           "scriptLines": [
@@ -3816,6 +3806,7 @@
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
             "     nullValue: ($DF_NULL_VALUE),",
             "     columnNamesAsHeader: true,",
+            "     multiLineRow: true,",
             "     wildcardPaths:[(concat($DF_SOURCE_DIRECTORY,iif(length($DF_SOURCE_PREFIX) == 0,iif(equals('NO_EXT',$DF_SOURCE_TABLE),'*',concat('*',$DF_SOURCE_TABLE)),iif(equals('NO_EXT',$DF_SOURCE_TABLE),concat($DF_SOURCE_PREFIX,'*'),concat($DF_SOURCE_PREFIX,'*',$DF_SOURCE_TABLE)))))],",
             "     partitionBy('roundRobin', 32)) ~> Source",
             "FlattenValuesOutOfArray call(mapColumn(",
@@ -3848,20 +3839,22 @@
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateSurrogateKey",
-            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), $$ = array($$))) ~> WrapValuesInArray",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
             "CreateSurrogateKey select(mapColumn(",
             "          each(match(!contains($DF_COLUMNS_TO_MASK,#item==name)))",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
             "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/($DF_TARGET_BATCH_SIZE/size($DF_COLUMNS_TO_MASK))))),",
-            "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
-            "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
             "     abort: true) ~> AssertNoFailures",
             "AssertNoFailures foldDown(unroll(body.items),",
             "     mapColumn(",
-            "          every(body.items,match(true()))",
+            "          every(body.items,match(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")),",
+            "          every(body.items,match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
             "     ),",
             "     skipDuplicateMapInputs: false,",
             "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
@@ -3870,8 +3863,6 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
-            "CombineRows derive(DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME = replace(DELPHIX_COMPLIANCE_SERVICE_FILE_NAME, $DF_SOURCE_DIRECTORY, $DF_SINK_DIRECTORY)) ~> CreateSinkFileName",
             "RemoveAllData alterRow(insertIf(true())) ~> CreateAlterRow",
             "CreateAlterRow, RemoveAmbiguousColumn union(byName: true)~> CombineRows",
             "JoinMaskedAndUnmaskedData select(mapColumn(",
@@ -3881,6 +3872,7 @@
             "     skipDuplicateMapOutputs: true) ~> RemoveAmbiguousColumn",
             "CreateSurrogateKey filter(false()) ~> RemoveAllData",
             "Source filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
+            "CombineRows derive(DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME = replace(DELPHIX_COMPLIANCE_SERVICE_FILE_NAME, $DF_SOURCE_DIRECTORY, $DF_SINK_DIRECTORY)) ~> CreateSinkFileName",
             "CreateSinkFileName sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'delimited',",
@@ -3891,7 +3883,6 @@
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
             "     nullValue: ($DF_NULL_VALUE),",
             "     columnNamesAsHeader: true,",
-            "     rowUrlColumn:'DELPHIX_COMPLIANCE_SERVICE_SINK_FILE_NAME',",
             "     umask: 0022,",
             "     preCommands: [],",
             "     postCommands: [],",
@@ -3967,6 +3958,7 @@
             "     quoteChar: ($DF_QUOTE_CHARACTER),",
             "     nullValue: ($DF_NULL_VALUE),",
             "     columnNamesAsHeader: true,",
+            "     multiLineRow: true,",
             "     wildcardPaths:[(concat($DF_SOURCE_DIRECTORY,iif(length($DF_SOURCE_PREFIX) == 0,iif(equals('NO_EXT',$DF_SOURCE_SUFFIX),'*',concat('*',$DF_SOURCE_SUFFIX)),iif(equals('NO_EXT',$DF_SOURCE_SUFFIX),concat($DF_SOURCE_PREFIX,'*'),concat($DF_SOURCE_PREFIX,'*',$DF_SOURCE_SUFFIX)))))]) ~> Source",
             "Source derive(DELPHIX_COMPLIANCE_SERVICES_SINK_FILE_NAME = replace(DELPHIX_COMPLIANCE_SERVICES_FILE_NAME, $DF_SOURCE_DIRECTORY, $DF_SINK_DIRECTORY)) ~> CreateSinkFileName",
             "CreateSinkFileName sink(allowSchemaDrift: true,",

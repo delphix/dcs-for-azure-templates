@@ -1,8 +1,10 @@
 # CHANGELOG
 
 # 0.0.16
-* Add casting support to masking pipelines
-* TODO
+* Support casting columns to strings and back in masking pipelines
+* Separate algorithm metadata and source metadata to reduce errors when modifying masking configurations
+* Allow multi-line input in ADLS to ADLS delimited files for masking and copying
+* Address #33
 
 # 0.0.15
 * Add support for ADLS to ADLS Parquet discovery and masking pipelines

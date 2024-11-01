@@ -56,7 +56,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "WITH\ntables_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE ISJSON(assigned_algorithm) = 1\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\ntables_not_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE assigned_algorithm IS NOT NULL\n    AND assigned_algorithm != ''\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    EXCEPT\n    SELECT dataset, specified_database, specified_schema, identified_table\n    FROM tables_requiring_filters\n    WHERE dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\nall_filters AS\n(\n    SELECT DISTINCT\n        JSON_VALUE(kc.value, '$.alias') as filter_alias,\n        replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value,\n        d.identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n),\ndefault_filters AS\n(\n    SELECT DISTINCT\n        'default' as filter_alias,\n        STRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value,\n        identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n    GROUP BY identified_table\n),\nsources_and_filters AS (\n    SELECT\n        t.dataset,\n        t.specified_database,\n        t.specified_schema,\n        t.identified_table,\n        f.filter_alias,\n        f.filter_value\n    FROM tables_requiring_filters t JOIN default_filters f\n    ON t.identified_table = f.identified_table\n    UNION\n    SELECT\n        t.dataset,\n        t.specified_database,\n        t.specified_schema,\n        t.identified_table,\n        f.filter_alias,\n        f.filter_value\n    FROM tables_requiring_filters t JOIN all_filters f\n    ON t.identified_table = f.identified_table\n    UNION\n    SELECT\n        dataset,\n        specified_database,\n        specified_schema,\n        identified_table,\n        '',\n        ''\n    FROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n    dm.source_dataset,\n    dm.source_database,\n    dm.source_schema,\n    dm.source_table,\n    dm.sink_dataset,\n    dm.sink_database,\n    dm.sink_schema,\n    dm.sink_table,\n    rs.filter_alias,\n    rs.filter_value\nFROM\n    sources_and_filters rs\n    JOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n    ON (\n        rs.dataset = dm.source_dataset AND\n        rs.specified_database = dm.source_database AND\n        rs.specified_schema = dm.source_schema AND\n        rs.identified_table = dm.source_table\n    )\nWHERE\n    dm.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}' AND\n    dm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n    AND (ISJSON(dm.masked_status) = 0  OR dm.masked_status IS NULL)\nUNION\nSELECT DISTINCT\n    dm.source_dataset,\n    dm.source_database,\n    dm.source_schema,\n    dm.source_table,\n    dm.sink_dataset,\n    dm.sink_database,\n    dm.sink_schema,\n    dm.sink_table,\n    rs.filter_alias,\n    rs.filter_value\nFROM\n    sources_and_filters rs\n    JOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n    CROSS APPLY OPENJSON(dm.masked_status) kc\n    ON (\n        rs.dataset = dm.source_dataset AND\n        rs.specified_database = dm.source_database AND\n        rs.specified_schema = dm.source_schema AND\n        rs.identified_table = dm.source_table\n    )\nWHERE\n    dm.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}' AND\n    dm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n    AND ISJSON(dm.masked_status) = 1\n    AND kc.[key] = rs.filter_alias\n    AND kc.[value] = 'false'\n    AND (\n        (filter_alias = 'default' AND  \n            identified_table IN (\n                SELECT DISTINCT\n                    identified_table\n            FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n                CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n            WHERE\n                ISJSON(assigned_algorithm,ARRAY) = 1\n                AND JSON_VALUE(kc.value, '$.alias') = 'default'\n            )\n        )\n        OR\n        (filter_alias != 'default')\n    )",
+                  "value": "WITH\ntables_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE ISJSON(assigned_algorithm) = 1\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\ntables_not_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE ISJSON(assigned_algorithm) = 0\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    EXCEPT\n    SELECT dataset, specified_database, specified_schema, identified_table\n    FROM tables_requiring_filters\n    WHERE dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\nall_filters AS\n(\n    SELECT DISTINCT\n        JSON_VALUE(kc.value, '$.alias') as filter_alias,\n        replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value,\n        d.identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n),\ndefault_filters AS\n(\n    SELECT DISTINCT\n        'default' as filter_alias,\n        STRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value,\n        identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n    GROUP BY identified_table\n),\nsources_and_filters AS (\n    SELECT\n        t.dataset,\n        t.specified_database,\n        t.specified_schema,\n        t.identified_table,\n        f.filter_alias,\n        f.filter_value\n    FROM tables_requiring_filters t JOIN default_filters f\n    ON t.identified_table = f.identified_table\n    UNION\n    SELECT\n        t.dataset,\n        t.specified_database,\n        t.specified_schema,\n        t.identified_table,\n        f.filter_alias,\n        f.filter_value\n    FROM tables_requiring_filters t JOIN all_filters f\n    ON t.identified_table = f.identified_table\n    UNION\n    SELECT\n        dataset,\n        specified_database,\n        specified_schema,\n        identified_table,\n        '',\n        ''\n    FROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n    dm.source_dataset,\n    dm.source_database,\n    dm.source_schema,\n    dm.source_table,\n    dm.sink_dataset,\n    dm.sink_database,\n    dm.sink_schema,\n    dm.sink_table,\n    rs.filter_alias,\n    rs.filter_value\nFROM\n    sources_and_filters rs\n    JOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n    ON (\n        rs.dataset = dm.source_dataset AND\n        rs.specified_database = dm.source_database AND\n        rs.specified_schema = dm.source_schema AND\n        rs.identified_table = dm.source_table\n    )\nWHERE\n    dm.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}' AND\n    dm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n    AND (ISJSON(dm.masked_status) = 0  OR dm.masked_status IS NULL)\nUNION\nSELECT DISTINCT\n    dm.source_dataset,\n    dm.source_database,\n    dm.source_schema,\n    dm.source_table,\n    dm.sink_dataset,\n    dm.sink_database,\n    dm.sink_schema,\n    dm.sink_table,\n    rs.filter_alias,\n    rs.filter_value\nFROM\n    sources_and_filters rs\n    JOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n    CROSS APPLY OPENJSON(dm.masked_status) kc\n    ON (\n        rs.dataset = dm.source_dataset AND\n        rs.specified_database = dm.source_database AND\n        rs.specified_schema = dm.source_schema AND\n        rs.identified_table = dm.source_table\n    )\nWHERE\n    dm.sink_database = '@{pipeline().parameters.P_SINK_CATALOG}' AND\n    dm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n    AND ISJSON(dm.masked_status) = 1\n    AND kc.[key] = rs.filter_alias\n    AND kc.[value] = 'false'\n    AND (\n        (filter_alias = 'default' AND  \n            identified_table IN (\n                SELECT DISTINCT\n                    identified_table\n            FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n                CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n            WHERE\n                ISJSON(assigned_algorithm,ARRAY) = 1\n                AND JSON_VALUE(kc.value, '$.alias') = 'default'\n            )\n        )\n        OR\n        (filter_alias != 'default')\n    )",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -141,7 +141,7 @@
                     "source": {
                       "type": "AzureSqlSource",
                       "sqlReaderQuery": {
-                        "value": "SELECT TOP 1 metadata\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE dataset = '@{variables('DATASET')}'\nAND specified_database = '@{item().source_database}'\nAND specified_schema = '@{item().source_schema}'\nAND identified_table = '@{item().source_table}'\n",
+                        "value": "SELECT TOP 1 source_metadata\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE dataset = '@{variables('DATASET')}'\nAND specified_database = '@{item().source_database}'\nAND specified_schema = '@{item().source_schema}'\nAND identified_table = '@{item().source_table}'\n",
                         "type": "Expression"
                       },
                       "queryTimeout": "02:00:00",
@@ -283,11 +283,11 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_CONTAINER": {
-                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).container_name}'",
+                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).container_name}'",
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DELTAPATH": {
-                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).table_location}'",
+                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).table_location}'",
                                 "type": "Expression"
                               },
                               "DF_SINK_CONTAINER": {
@@ -332,6 +332,42 @@
                               },
                               "DF_FIELD_DATE_FORMAT": {
                                 "value": "'@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments }'",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_AS_STRINGS": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastAsStrings",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BINARY": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBinary",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBoolean",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DATE": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDate",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDouble",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_FLOAT": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToFloat",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_INTEGER": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToInteger",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_LONG": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToLong",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
+                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
                               }
                             },
@@ -431,7 +467,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\"\"\n}",
+                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\",\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToTimestamp}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -509,7 +545,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Source Metadata Mask').output.firstRow.metadata",
+                                "value": "@activity('Get Source Metadata Mask').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -598,7 +634,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\"\"\n}",
+                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\",\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToTimestamp}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -676,7 +712,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Source Metadata Mask').output.firstRow.metadata",
+                                "value": "@activity('Get Source Metadata Mask').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -807,11 +843,11 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_CONTAINER": {
-                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).container_name}'",
+                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).container_name}'",
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DELTAPATH": {
-                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).table_location}'",
+                                "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).table_location}'",
                                 "type": "Expression"
                               },
                               "DF_SINK_CONTAINER": {
@@ -860,6 +896,42 @@
                               },
                               "DF_FILTER_CONDITION": {
                                 "value": "@item().filter_value",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_AS_STRINGS": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastAsStrings",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BINARY": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBinary",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBoolean",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DATE": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDate",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDouble",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_FLOAT": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToFloat",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_INTEGER": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToInteger",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_LONG": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToLong",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
                               }
                             },
@@ -942,7 +1014,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_TARGET_BATCH_SIZE\": @{variables('TARGET_BATCH_SIZE')},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\"\"\n}",
+                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_TARGET_BATCH_SIZE\": @{variables('TARGET_BATCH_SIZE')},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\",\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToTimestamp}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1020,7 +1092,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Source Metadata Mask').output.firstRow.metadata",
+                                "value": "@activity('Get Source Metadata Mask').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1135,7 +1207,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_TARGET_BATCH_SIZE\": @{variables('TARGET_BATCH_SIZE')},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\"\"\n}",
+                                "value": "{\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).table_location}\",\n    \"DF_SINK_DELTAPATH\": \"@{json(activity('Get Sink Table Metadata').output.firstRow.metadata).table_location}\",\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}\",\n    \"DF_TRIM_LENGTHS\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].TrimLengths},\n    \"DF_TARGET_BATCH_SIZE\": @{variables('TARGET_BATCH_SIZE')},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}\",\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGERS\": @{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToIntegers}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1213,7 +1285,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Source Metadata Mask').output.firstRow.metadata",
+                                "value": "@activity('Get Source Metadata Mask').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1523,7 +1595,7 @@
                           "type": "Expression"
                         },
                         "DF_SOURCE_CONTAINER": {
-                          "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.metadata).container_name}'",
+                          "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.source_metadata).container_name}'",
                           "type": "Expression"
                         },
                         "DF_SINK_CONTAINER": {
@@ -1531,7 +1603,7 @@
                           "type": "Expression"
                         },
                         "DF_SOURCE_DELTAPATH": {
-                          "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.metadata).table_location}'",
+                          "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.source_metadata).table_location}'",
                           "type": "Expression"
                         },
                         "DF_SINK_DELTAPATH": {
@@ -1690,7 +1762,7 @@
                       },
                       "source_metadata": {
                         "value": {
-                          "value": "@activity('Get Source Metadata No Masking').output.firstRow.metadata",
+                          "value": "@activity('Get Source Metadata No Masking').output.firstRow.source_metadata",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -1854,7 +1926,7 @@
                       },
                       "source_metadata": {
                         "value": {
-                          "value": "@activity('Get Source Metadata No Masking').output.firstRow.metadata",
+                          "value": "@activity('Get Source Metadata No Masking').output.firstRow.source_metadata",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -1976,7 +2048,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "UPDATE\n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\nSET\n    mapping_complete = CAST(0 AS BIT),\n    masked_status = NULL\nWHERE\n    dataset = @{variables('DATASET')}\n    AND source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    AND sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\n    AND sink_catalog = '@{pipeline().parameters.P_SINK_CATALOG}'",
+                          "value": "UPDATE\n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\nSET\n    mapping_complete = CAST(0 AS BIT),\n    masked_status = NULL\nWHERE\n    source_dataset = '@{variables('DATASET')}'\n    AND source_database = '@{pipeline().parameters.P_SOURCE_CATALOG}'\n    AND source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    AND sink_database = '@{pipeline().parameters.P_SINK_CATALOG}'\n    AND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'",
                           "type": "Expression"
                         }
                       }
@@ -2194,7 +2266,7 @@
           "name": "dcsazure_Databricks_to_Databricks"
         },
         "annotations": [],
-        "lastPublishTime": "2024-10-23T00:48:31Z"
+        "lastPublishTime": "2024-12-09T21:26:31Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_metadata_mask_ds')]",
@@ -2515,7 +2587,7 @@
             },
             {
               "name": "RemoveUnnecessaryColumns",
-              "description": "Remove intermediate columns"
+              "description": "Remove redundant columns after joining date format and string casting parameters"
             },
             {
               "name": "SplitOnDateFormat",
@@ -2528,6 +2600,98 @@
             {
               "name": "JoinDateHeaders",
               "description": "Full outer join both DateFormatHeader and NoFormatHeader where output_row = output_row"
+            },
+            {
+              "name": "StringCastingHandling",
+              "description": "Derive columns for handling string casting"
+            },
+            {
+              "name": "SplitOnStringCasting",
+              "description": "Conditionally split based on utilization of string casting"
+            },
+            {
+              "name": "StringCastingWithAdfType",
+              "description": "Join columns that need to be cast to string and the type mapping table, so we can determine casting requirements"
+            },
+            {
+              "name": "SplitStringCastingBasedOnTypes",
+              "description": "Split rows based on the type it must be cast back to so that we can compute the aggregations as needed"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToBinary"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToBoolean"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToDate"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToDouble"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToFloat"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToInteger"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToLong"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToTimestamp"
+            },
+            {
+              "name": "AggregateColumnsToCastAsStrings",
+              "description": "Aggregating data to produce ColumnsToCastAsStrings"
+            },
+            {
+              "name": "JoinStringCastingBinary"
+            },
+            {
+              "name": "JoinStringCastingBoolean"
+            },
+            {
+              "name": "JoinStringCastingDate"
+            },
+            {
+              "name": "JoinStringCastingDouble"
+            },
+            {
+              "name": "JoinStringCastingFloat"
+            },
+            {
+              "name": "JoinStringCastingInteger"
+            },
+            {
+              "name": "JoinStringCastingLong"
+            },
+            {
+              "name": "JoinStringCastingTimestamp"
+            },
+            {
+              "name": "SimplifyStringCastingColumns"
+            },
+            {
+              "name": "GenerateOutputRowForDefaultStringCasting",
+              "description": "Create output_row so that we can aggregate on it for string casting when we are not using string casting"
+            },
+            {
+              "name": "AggregateDefaultCastingParameters"
+            },
+            {
+              "name": "JoinDefaultCastingParametersAndComputedCastingParameters"
+            },
+            {
+              "name": "DeriveCastingParametersUsingDefaults"
+            },
+            {
+              "name": "SimplifyCastingParameterColumns",
+              "description": "Select down to all columns of string casting parameters"
+            },
+            {
+              "name": "JoinDateFormatAndStringCastingParameters",
+              "description": "Combine date format and string casting related parameters into a single table"
             }
           ],
           "scriptLines": [
@@ -2551,13 +2715,18 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          is_profiled as string,",
+            "          last_update_pipeline_id as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -2593,16 +2762,17 @@
             "          adf_type_conversion = concat(identified_column, ' as ', adf_type),",
             "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
             "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
-            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(concat('x',hex(encode(identified_column)))), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
-            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    regexReplace(reduce(collect(concat('x',hex(encode(identified_column))) + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
             "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count)) +1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
             "TypeMapping filter(equalsIgnoreCase(dataset, 'DATABRICKS')) ~> FilterToDataSourceType",
-            "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
+            "FilterToSingleTable parse(parsed_metadata = algorithm_metadata ? (date_format as string,",
+            "          treat_as_string as boolean),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseMetadata",
             "ParseMetadata derive(output_row = 1,",
@@ -2616,9 +2786,19 @@
             "     broadcast: 'auto')~> AllMaskingParameters",
             "JoinDateHeaders derive(DateFormatAssignments = coalesce(DateFormatAssignments,NoFormatHeader),",
             "          output_row = coalesce(DateFormatHeader@output_row, NoFormatHeader@output_row)) ~> DateFormatHeaderHandlingNulls",
-            "DateFormatHeaderHandlingNulls select(mapColumn(",
-            "          output_row,",
-            "          DateFormatAssignments",
+            "JoinDateFormatAndStringCastingParameters select(mapColumn(",
+            "          output_row = DateFormatHeaderHandlingNulls@output_row,",
+            "          DateFormatAssignments,",
+            "          output_row = SimplifyCastingParameterColumns@output_row,",
+            "          ColumnsToCastAsStrings,",
+            "          ColumnsToCastBackToBinary,",
+            "          ColumnsToCastBackToBoolean,",
+            "          ColumnsToCastBackToDate,",
+            "          ColumnsToCastBackToDouble,",
+            "          ColumnsToCastBackToFloat,",
+            "          ColumnsToCastBackToInteger,",
+            "          ColumnsToCastBackToLong,",
+            "          ColumnsToCastBackToTimestamp",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> RemoveUnnecessaryColumns",
@@ -2631,6 +2811,149 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'auto')~> JoinDateHeaders",
+            "ParseMetadata derive(output_row = 1,",
+            "          treat_as_string = parsed_metadata.treat_as_string) ~> StringCastingHandling",
+            "StringCastingHandling split(not(isNull(treat_as_string)) && treat_as_string,",
+            "     disjoint: false) ~> SplitOnStringCasting@(StringCasting, NoStringCasting)",
+            "SplitOnStringCasting@StringCasting, FilterToDataSourceType join(identified_column_type == dataset_type,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> StringCastingWithAdfType",
+            "StringCastingWithAdfType split(not(isNull(adf_type)) && adf_type == 'binary',",
+            "     not(isNull(adf_type)) && adf_type == 'boolean',",
+            "     not(isNull(adf_type)) && adf_type == 'date',",
+            "     not(isNull(adf_type)) && adf_type == 'double',",
+            "     not(isNull(adf_type)) && adf_type == 'float',",
+            "     not(isNull(adf_type)) && adf_type == 'integer',",
+            "     not(isNull(adf_type)) && adf_type == 'long',",
+            "     not(isNull(adf_type)) && adf_type == 'timestamp',",
+            "     disjoint: false) ~> SplitStringCastingBasedOnTypes@(Binary, Boolean, Date, Double, Float, Integer, Long, Timestamp, StringOrElse)",
+            "SplitStringCastingBasedOnTypes@Binary aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToBinary = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToBinary",
+            "SplitStringCastingBasedOnTypes@Boolean aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToBoolean = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToBoolean",
+            "SplitStringCastingBasedOnTypes@Date aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToDate = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToDate",
+            "SplitStringCastingBasedOnTypes@Double aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToDouble = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToDouble",
+            "SplitStringCastingBasedOnTypes@Float aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToFloat = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToFloat",
+            "SplitStringCastingBasedOnTypes@Integer aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToInteger = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToInteger",
+            "SplitStringCastingBasedOnTypes@Long aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToLong = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToLong",
+            "SplitStringCastingBasedOnTypes@Timestamp aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToTimestamp = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToTimestamp",
+            "StringCastingWithAdfType aggregate(groupBy(output_row),",
+            "     ColumnsToCastAsStrings = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastAsStrings",
+            "AggregateColumnsToCastAsStrings, AggregateColumnsToCastBackToBinary join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToBinary@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingBinary",
+            "JoinStringCastingBinary, AggregateColumnsToCastBackToBoolean join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToBoolean@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingBoolean",
+            "JoinStringCastingBoolean, AggregateColumnsToCastBackToDate join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToDate@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingDate",
+            "JoinStringCastingDate, AggregateColumnsToCastBackToDouble join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToDouble@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingDouble",
+            "JoinStringCastingDouble, AggregateColumnsToCastBackToFloat join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToFloat@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingFloat",
+            "JoinStringCastingFloat, AggregateColumnsToCastBackToInteger join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToInteger@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingInteger",
+            "JoinStringCastingInteger, AggregateColumnsToCastBackToLong join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToLong@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingLong",
+            "JoinStringCastingLong, AggregateColumnsToCastBackToTimestamp join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToTimestamp@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingTimestamp",
+            "JoinStringCastingTimestamp select(mapColumn(",
+            "          output_row = AggregateColumnsToCastAsStrings@output_row,",
+            "          ColumnsToCastAsStrings,",
+            "          output_row = AggregateColumnsToCastBackToBinary@output_row,",
+            "          ColumnsToCastBackToBinary,",
+            "          output_row = AggregateColumnsToCastBackToBoolean@output_row,",
+            "          ColumnsToCastBackToBoolean,",
+            "          output_row = AggregateColumnsToCastBackToDate@output_row,",
+            "          ColumnsToCastBackToDate,",
+            "          output_row = AggregateColumnsToCastBackToDouble@output_row,",
+            "          ColumnsToCastBackToDouble,",
+            "          output_row = AggregateColumnsToCastBackToFloat@output_row,",
+            "          ColumnsToCastBackToFloat,",
+            "          output_row = AggregateColumnsToCastBackToInteger@output_row,",
+            "          ColumnsToCastBackToInteger,",
+            "          output_row = AggregateColumnsToCastBackToLong@output_row,",
+            "          ColumnsToCastBackToLong,",
+            "          output_row = AggregateColumnsToCastBackToTimestamp@output_row,",
+            "          ColumnsToCastBackToTimestamp",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SimplifyStringCastingColumns",
+            "SplitOnStringCasting@NoStringCasting derive(output_row = 1) ~> GenerateOutputRowForDefaultStringCasting",
+            "GenerateOutputRowForDefaultStringCasting aggregate(groupBy(output_row),",
+            "     ColumnsToCastAsStrings = toString(collect(null())),",
+            "          ColumnsToCastBackToBinary = toString(collect(null())),",
+            "          ColumnsToCastBackToBoolean = toString(collect(null())),",
+            "          ColumnsToCastBackToDate = toString(collect(null())),",
+            "          ColumnsToCastBackToDouble = toString(collect(null())),",
+            "          ColumnsToCastBackToFloat = toString(collect(null())),",
+            "          ColumnsToCastBackToInteger = toString(collect(null())),",
+            "          ColumnsToCastBackToLong = toString(collect(null())),",
+            "          ColumnsToCastBackToTimestamp = toString(collect(null()))) ~> AggregateDefaultCastingParameters",
+            "AggregateDefaultCastingParameters, SimplifyStringCastingColumns join(AggregateDefaultCastingParameters@output_row == SimplifyStringCastingColumns@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinDefaultCastingParametersAndComputedCastingParameters",
+            "JoinDefaultCastingParametersAndComputedCastingParameters derive(ColumnsToCastBackToBinary = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToBinary, AggregateDefaultCastingParameters@ColumnsToCastBackToBinary),",
+            "          ColumnsToCastBackToBoolean = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToBoolean, AggregateDefaultCastingParameters@ColumnsToCastBackToBoolean),",
+            "          ColumnsToCastBackToDate = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToDate, AggregateDefaultCastingParameters@ColumnsToCastBackToDate),",
+            "          ColumnsToCastBackToDouble = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToDouble, AggregateDefaultCastingParameters@ColumnsToCastBackToDouble),",
+            "          ColumnsToCastBackToFloat = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToFloat, AggregateDefaultCastingParameters@ColumnsToCastBackToFloat),",
+            "          ColumnsToCastBackToInteger = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToInteger, AggregateDefaultCastingParameters@ColumnsToCastBackToInteger),",
+            "          ColumnsToCastBackToLong = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToLong, AggregateDefaultCastingParameters@ColumnsToCastBackToLong),",
+            "          ColumnsToCastBackToTimestamp = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToTimestamp, AggregateDefaultCastingParameters@ColumnsToCastBackToTimestamp),",
+            "          ColumnsToCastAsStrings = coalesce(SimplifyStringCastingColumns@ColumnsToCastAsStrings,AggregateDefaultCastingParameters@ColumnsToCastAsStrings)) ~> DeriveCastingParametersUsingDefaults",
+            "DeriveCastingParametersUsingDefaults select(mapColumn(",
+            "          output_row = AggregateDefaultCastingParameters@output_row,",
+            "          ColumnsToCastAsStrings,",
+            "          ColumnsToCastBackToBinary,",
+            "          ColumnsToCastBackToBoolean,",
+            "          ColumnsToCastBackToDate,",
+            "          ColumnsToCastBackToDouble,",
+            "          ColumnsToCastBackToFloat,",
+            "          ColumnsToCastBackToInteger,",
+            "          ColumnsToCastBackToLong,",
+            "          ColumnsToCastBackToTimestamp,",
+            "          output_row = SimplifyStringCastingColumns@output_row",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SimplifyCastingParameterColumns",
+            "DateFormatHeaderHandlingNulls, SimplifyCastingParameterColumns join(DateFormatHeaderHandlingNulls@output_row == SimplifyCastingParameterColumns@output_row,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinDateFormatAndStringCastingParameters",
             "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
@@ -2695,7 +3018,7 @@
             },
             {
               "name": "WrapValuesInArray",
-              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become []"
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become [], and encode the column names to handle body type mapping changes"
             },
             {
               "name": "SelectColumnsUnmasked",
@@ -2715,7 +3038,7 @@
             },
             {
               "name": "FlattenAggregateData",
-              "description": "Unroll the API response body into named columns"
+              "description": "Unroll the API response body into decoded named columns"
             },
             {
               "name": "JoinMaskedAndUnmaskedData",
@@ -2724,6 +3047,14 @@
             {
               "name": "TrimMaskedStrings",
               "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
+            },
+            {
+              "name": "CastRequiredColumnsAsStrings",
+              "description": "For columns that require casting to string, cast them to string"
+            },
+            {
+              "name": "CastColumnsBackAsRequired",
+              "description": "For columns that need to be cast back to a compatible type, cast them back"
             }
           ],
           "scriptLines": [
@@ -2741,7 +3072,16 @@
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_SINK_TABLE as string (''),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
-            "     DF_FIELD_DATE_FORMAT as string ('{}')",
+            "     DF_FIELD_DATE_FORMAT as string ('{}'),",
+            "     DF_COLUMNS_TO_CAST_AS_STRINGS as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BINARY as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DATE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"])",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -2757,7 +3097,7 @@
             "     skipDuplicateMapOutputs: true,",
             "     output(",
             "          headers as [string,string],",
-            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, LAST_NAME as string, FIRST_NAME as string, EMAIL as string, PHONE as string, STAFF_ID as integer, ACTIVE as integer, STORE_ID as integer, MANAGER_ID as integer)[]),",
+            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[]),",
             "          status as string",
             "     ),",
             "     allowSchemaDrift: true,",
@@ -2780,20 +3120,22 @@
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateSurrogateKey",
-            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), $$ = array($$))) ~> WrapValuesInArray",
+            "CastRequiredColumnsAsStrings derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
             "CreateSurrogateKey select(mapColumn(",
             "          each(match(!contains($DF_COLUMNS_TO_MASK,#item==name)))",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
             "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
-            "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
-            "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
             "     abort: true) ~> AssertNoFailures",
             "AssertNoFailures foldDown(unroll(body.items),",
             "     mapColumn(",
-            "          every(body.items,match(true()))",
+            "          every(body.items,match(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")),",
+            "          every(body.items,match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
             "     ),",
             "     skipDuplicateMapInputs: false,",
             "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
@@ -2802,7 +3144,16 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_CAST_AS_STRINGS,#item==name)), $$ = toString($$))) ~> CastRequiredColumnsAsStrings",
+            "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN,#item==name)), $$ = toBoolean($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DATE,#item==name)), $$ = toDate(toString($$))),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE,#item==name)), $$ = toDouble($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_FLOAT,#item==name)), $$ = toFloat($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_INTEGER,#item==name)), $$ = toInteger($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_LONG,#item==name)), $$ = toLong($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP,#item==name)), $$ = toTimestamp(toString($$)))) ~> CastColumnsBackAsRequired",
             "JoinMaskedAndUnmaskedData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'delta',",
@@ -2907,7 +3258,7 @@
             },
             {
               "name": "RemoveUnnecessaryColumns",
-              "description": "Remove intermediate columns"
+              "description": "Remove redundant columns after joining date format and string casting parameters"
             },
             {
               "name": "SplitOnDateFormat",
@@ -2968,6 +3319,98 @@
             {
               "name": "FilterUnmatchingAlias",
               "description": "Filter down to only this filer alias, as necessary"
+            },
+            {
+              "name": "StringCastingHandling",
+              "description": "Derive columns for handling string casting"
+            },
+            {
+              "name": "SplitOnStringCasting",
+              "description": "Conditionally split based on utilization of string casting"
+            },
+            {
+              "name": "StringCastingWithAdfType",
+              "description": "Join columns that need to be cast to string and the type mapping table, so we can determine casting requirements"
+            },
+            {
+              "name": "SplitStringCastingBasedOnTypes",
+              "description": "Split rows based on the type it must be cast back to so that we can compute the aggregations as needed"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToBinary"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToBoolean"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToDate"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToDouble"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToFloat"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToInteger"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToLong"
+            },
+            {
+              "name": "AggregateColumnsToCastBackToTimestamp"
+            },
+            {
+              "name": "AggregateColumnsToCastAsStrings",
+              "description": "Aggregating data to produce ColumnsToCastAsStrings"
+            },
+            {
+              "name": "JoinStringCastingBinary"
+            },
+            {
+              "name": "JoinStringCastingBoolean"
+            },
+            {
+              "name": "JoinStringCastingDate"
+            },
+            {
+              "name": "JoinStringCastingDouble"
+            },
+            {
+              "name": "JoinStringCastingFloat"
+            },
+            {
+              "name": "JoinStringCastingInteger"
+            },
+            {
+              "name": "JoinStringCastingLong"
+            },
+            {
+              "name": "JoinStringCastingTimestamp"
+            },
+            {
+              "name": "SimplifyStringCastingColumns"
+            },
+            {
+              "name": "GenerateOutputRowForDefaultStringCasting",
+              "description": "Create output_row so that we can aggregate on it for string casting when we are not using string casting"
+            },
+            {
+              "name": "AggregateDefaultCastingParameters"
+            },
+            {
+              "name": "JoinDefaultCastingParametersAndComputedCastingParameters"
+            },
+            {
+              "name": "DeriveCastingParametersUsingDefaults"
+            },
+            {
+              "name": "SimplifyCastingParameterColumns",
+              "description": "Select down to all columns of string casting parameters"
+            },
+            {
+              "name": "JoinDateFormatAndStringCastingParameters",
+              "description": "Combine date format and string casting related parameters into a single table"
             }
           ],
           "scriptLines": [
@@ -2993,13 +3436,18 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          is_profiled as string,",
+            "          last_update_pipeline_id as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -3035,15 +3483,16 @@
             "          adf_type_conversion = concat(identified_column, ' as ', adf_type),",
             "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
             "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
-            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(concat('x',hex(encode(identified_column)))), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
             "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
-            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    regexReplace(reduce(collect(concat('x',hex(encode(identified_column))) + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "TypeMapping filter(equalsIgnoreCase(dataset, $DF_DATASET)) ~> FilterToDataSourceType",
-            "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
-            "          conditional_formatting = metadata ? (key_column as string,",
+            "FilterToSingleTable parse(parsed_metadata = algorithm_metadata ? (date_format as string,",
+            "          treat_as_string as boolean),",
+            "          conditional_formatting = algorithm_metadata ? (key_column as string,",
             "          conditions as (alias as string, date_format as string)[]),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseMetadata",
@@ -3058,9 +3507,19 @@
             "     broadcast: 'auto')~> AllMaskingParameters",
             "JoinDateHeaders derive(DateFormatAssignments = coalesce(DateFormatAssignments,NoFormatHeader),",
             "          output_row = coalesce(DateFormatHeader@output_row, NoFormatHeader@output_row)) ~> DateFormatHeaderHandlingNulls",
-            "DateFormatHeaderHandlingNulls select(mapColumn(",
-            "          output_row,",
-            "          DateFormatAssignments",
+            "JoinDateFormatAndStringCastingParameters select(mapColumn(",
+            "          output_row = DateFormatHeaderHandlingNulls@output_row,",
+            "          DateFormatAssignments,",
+            "          output_row = SimplifyCastingParameterColumns@output_row,",
+            "          ColumnsToCastAsStrings,",
+            "          ColumnsToCastBackToBinary,",
+            "          ColumnsToCastBackToBoolean,",
+            "          ColumnsToCastBackToDate,",
+            "          ColumnsToCastBackToDouble,",
+            "          ColumnsToCastBackToFloat,",
+            "          ColumnsToCastBackToInteger,",
+            "          ColumnsToCastBackToLong,",
+            "          ColumnsToCastBackToTimestamp",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> RemoveUnnecessaryColumns",
@@ -3162,7 +3621,7 @@
             "          identified_column_max_length,",
             "          ordinal_position,",
             "          row_count,",
-            "          metadata,",
+            "          algorithm_metadata,",
             "          profiled_domain,",
             "          profiled_algorithm,",
             "          confidence_score,",
@@ -3177,6 +3636,149 @@
             "     skipDuplicateMapInputs: false,",
             "     skipDuplicateMapOutputs: false) ~> FlattenConditionalFormatting",
             "FlattenConditionalFormatting filter(alias == $DF_FILTER_KEY || isNull(alias)) ~> FilterUnmatchingAlias",
+            "ParseMetadata derive(output_row = 1,",
+            "          treat_as_string = parsed_metadata.treat_as_string) ~> StringCastingHandling",
+            "StringCastingHandling split(not(isNull(treat_as_string)) && treat_as_string,",
+            "     disjoint: false) ~> SplitOnStringCasting@(StringCasting, NoStringCasting)",
+            "SplitOnStringCasting@StringCasting, FilterToDataSourceType join(identified_column_type == dataset_type,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> StringCastingWithAdfType",
+            "StringCastingWithAdfType split(not(isNull(adf_type)) && adf_type == 'binary',",
+            "     not(isNull(adf_type)) && adf_type == 'boolean',",
+            "     not(isNull(adf_type)) && adf_type == 'date',",
+            "     not(isNull(adf_type)) && adf_type == 'double',",
+            "     not(isNull(adf_type)) && adf_type == 'float',",
+            "     not(isNull(adf_type)) && adf_type == 'integer',",
+            "     not(isNull(adf_type)) && adf_type == 'long',",
+            "     not(isNull(adf_type)) && adf_type == 'timestamp',",
+            "     disjoint: false) ~> SplitStringCastingBasedOnTypes@(Binary, Boolean, Date, Double, Float, Integer, Long, Timestamp, StringOrElse)",
+            "SplitStringCastingBasedOnTypes@Binary aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToBinary = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToBinary",
+            "SplitStringCastingBasedOnTypes@Boolean aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToBoolean = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToBoolean",
+            "SplitStringCastingBasedOnTypes@Date aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToDate = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToDate",
+            "SplitStringCastingBasedOnTypes@Double aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToDouble = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToDouble",
+            "SplitStringCastingBasedOnTypes@Float aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToFloat = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToFloat",
+            "SplitStringCastingBasedOnTypes@Integer aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToInteger = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToInteger",
+            "SplitStringCastingBasedOnTypes@Long aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToLong = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToLong",
+            "SplitStringCastingBasedOnTypes@Timestamp aggregate(groupBy(output_row),",
+            "     ColumnsToCastBackToTimestamp = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastBackToTimestamp",
+            "StringCastingWithAdfType aggregate(groupBy(output_row),",
+            "     ColumnsToCastAsStrings = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']')) ~> AggregateColumnsToCastAsStrings",
+            "AggregateColumnsToCastAsStrings, AggregateColumnsToCastBackToBinary join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToBinary@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingBinary",
+            "JoinStringCastingBinary, AggregateColumnsToCastBackToBoolean join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToBoolean@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingBoolean",
+            "JoinStringCastingBoolean, AggregateColumnsToCastBackToDate join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToDate@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingDate",
+            "JoinStringCastingDate, AggregateColumnsToCastBackToDouble join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToDouble@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingDouble",
+            "JoinStringCastingDouble, AggregateColumnsToCastBackToFloat join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToFloat@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingFloat",
+            "JoinStringCastingFloat, AggregateColumnsToCastBackToInteger join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToInteger@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingInteger",
+            "JoinStringCastingInteger, AggregateColumnsToCastBackToLong join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToLong@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingLong",
+            "JoinStringCastingLong, AggregateColumnsToCastBackToTimestamp join(AggregateColumnsToCastAsStrings@output_row == AggregateColumnsToCastBackToTimestamp@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinStringCastingTimestamp",
+            "JoinStringCastingTimestamp select(mapColumn(",
+            "          output_row = AggregateColumnsToCastAsStrings@output_row,",
+            "          ColumnsToCastAsStrings,",
+            "          output_row = AggregateColumnsToCastBackToBinary@output_row,",
+            "          ColumnsToCastBackToBinary,",
+            "          output_row = AggregateColumnsToCastBackToBoolean@output_row,",
+            "          ColumnsToCastBackToBoolean,",
+            "          output_row = AggregateColumnsToCastBackToDate@output_row,",
+            "          ColumnsToCastBackToDate,",
+            "          output_row = AggregateColumnsToCastBackToDouble@output_row,",
+            "          ColumnsToCastBackToDouble,",
+            "          output_row = AggregateColumnsToCastBackToFloat@output_row,",
+            "          ColumnsToCastBackToFloat,",
+            "          output_row = AggregateColumnsToCastBackToInteger@output_row,",
+            "          ColumnsToCastBackToInteger,",
+            "          output_row = AggregateColumnsToCastBackToLong@output_row,",
+            "          ColumnsToCastBackToLong,",
+            "          output_row = AggregateColumnsToCastBackToTimestamp@output_row,",
+            "          ColumnsToCastBackToTimestamp",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SimplifyStringCastingColumns",
+            "SplitOnStringCasting@NoStringCasting derive(output_row = 1) ~> GenerateOutputRowForDefaultStringCasting",
+            "GenerateOutputRowForDefaultStringCasting aggregate(groupBy(output_row),",
+            "     ColumnsToCastAsStrings = toString(collect(null())),",
+            "          ColumnsToCastBackToBinary = toString(collect(null())),",
+            "          ColumnsToCastBackToBoolean = toString(collect(null())),",
+            "          ColumnsToCastBackToDate = toString(collect(null())),",
+            "          ColumnsToCastBackToDouble = toString(collect(null())),",
+            "          ColumnsToCastBackToFloat = toString(collect(null())),",
+            "          ColumnsToCastBackToInteger = toString(collect(null())),",
+            "          ColumnsToCastBackToLong = toString(collect(null())),",
+            "          ColumnsToCastBackToTimestamp = toString(collect(null()))) ~> AggregateDefaultCastingParameters",
+            "AggregateDefaultCastingParameters, SimplifyStringCastingColumns join(AggregateDefaultCastingParameters@output_row == SimplifyStringCastingColumns@output_row,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinDefaultCastingParametersAndComputedCastingParameters",
+            "JoinDefaultCastingParametersAndComputedCastingParameters derive(ColumnsToCastBackToBinary = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToBinary, AggregateDefaultCastingParameters@ColumnsToCastBackToBinary),",
+            "          ColumnsToCastBackToBoolean = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToBoolean, AggregateDefaultCastingParameters@ColumnsToCastBackToBoolean),",
+            "          ColumnsToCastBackToDate = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToDate, AggregateDefaultCastingParameters@ColumnsToCastBackToDate),",
+            "          ColumnsToCastBackToDouble = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToDouble, AggregateDefaultCastingParameters@ColumnsToCastBackToDouble),",
+            "          ColumnsToCastBackToFloat = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToFloat, AggregateDefaultCastingParameters@ColumnsToCastBackToFloat),",
+            "          ColumnsToCastBackToInteger = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToInteger, AggregateDefaultCastingParameters@ColumnsToCastBackToInteger),",
+            "          ColumnsToCastBackToLong = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToLong, AggregateDefaultCastingParameters@ColumnsToCastBackToLong),",
+            "          ColumnsToCastBackToTimestamp = coalesce(SimplifyStringCastingColumns@ColumnsToCastBackToTimestamp, AggregateDefaultCastingParameters@ColumnsToCastBackToTimestamp),",
+            "          ColumnsToCastAsStrings = coalesce(SimplifyStringCastingColumns@ColumnsToCastAsStrings,AggregateDefaultCastingParameters@ColumnsToCastAsStrings)) ~> DeriveCastingParametersUsingDefaults",
+            "DeriveCastingParametersUsingDefaults select(mapColumn(",
+            "          output_row = AggregateDefaultCastingParameters@output_row,",
+            "          ColumnsToCastAsStrings,",
+            "          ColumnsToCastBackToBinary,",
+            "          ColumnsToCastBackToBoolean,",
+            "          ColumnsToCastBackToDate,",
+            "          ColumnsToCastBackToDouble,",
+            "          ColumnsToCastBackToFloat,",
+            "          ColumnsToCastBackToInteger,",
+            "          ColumnsToCastBackToLong,",
+            "          ColumnsToCastBackToTimestamp,",
+            "          output_row = SimplifyStringCastingColumns@output_row",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SimplifyCastingParameterColumns",
+            "DateFormatHeaderHandlingNulls, SimplifyCastingParameterColumns join(DateFormatHeaderHandlingNulls@output_row == SimplifyCastingParameterColumns@output_row,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinDateFormatAndStringCastingParameters",
             "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
@@ -3242,7 +3844,7 @@
             },
             {
               "name": "WrapValuesInArray",
-              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become []"
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become [], and encode the column names to handle body type mapping changes"
             },
             {
               "name": "SelectColumnsUnmasked",
@@ -3262,7 +3864,7 @@
             },
             {
               "name": "FlattenAggregateData",
-              "description": "Unroll the API response body into named columns"
+              "description": "Unroll the API response body into decoded named columns"
             },
             {
               "name": "JoinMaskedAndUnmaskedData",
@@ -3275,6 +3877,14 @@
             {
               "name": "ApplyTableFilter",
               "description": "Filter base table based on supplied filter"
+            },
+            {
+              "name": "CastRequiredColumnsAsStrings",
+              "description": "For columns that require casting to string, cast them to string"
+            },
+            {
+              "name": "CastColumnsBackAsRequired",
+              "description": "For columns that need to be cast back to a compatible type, cast them back"
             }
           ],
           "scriptLines": [
@@ -3293,7 +3903,16 @@
             "     DF_SINK_TABLE as string (''),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
-            "     DF_FILTER_CONDITION as boolean (true())",
+            "     DF_FILTER_CONDITION as boolean (true()),",
+            "     DF_COLUMNS_TO_CAST_AS_STRINGS as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BINARY as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DATE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"])",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -3309,7 +3928,7 @@
             "     skipDuplicateMapOutputs: true,",
             "     output(",
             "          headers as [string,string],",
-            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, LAST_NAME as string, FIRST_NAME as string, EMAIL as string, PHONE as string, STAFF_ID as integer, ACTIVE as integer, STORE_ID as integer, MANAGER_ID as integer)[]),",
+            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[]),",
             "          status as string",
             "     ),",
             "     allowSchemaDrift: true,",
@@ -3332,20 +3951,22 @@
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateSurrogateKey",
-            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), $$ = array($$))) ~> WrapValuesInArray",
+            "CastRequiredColumnsAsStrings derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
             "CreateSurrogateKey select(mapColumn(",
             "          each(match(!contains($DF_COLUMNS_TO_MASK,#item==name)))",
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
             "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/($DF_TARGET_BATCH_SIZE/size($DF_COLUMNS_TO_MASK))))),",
-            "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
-            "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
             "     abort: true) ~> AssertNoFailures",
             "AssertNoFailures foldDown(unroll(body.items),",
             "     mapColumn(",
-            "          every(body.items,match(true()))",
+            "          every(body.items,match(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")),",
+            "          every(body.items,match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
             "     ),",
             "     skipDuplicateMapInputs: false,",
             "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
@@ -3354,8 +3975,17 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "FlattenAggregateData derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
             "Source filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_CAST_AS_STRINGS,#item==name)), $$ = toString($$))) ~> CastRequiredColumnsAsStrings",
+            "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN,#item==name)), $$ = toBoolean($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DATE,#item==name)), $$ = toDate(toString($$))),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE,#item==name)), $$ = toDouble($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_FLOAT,#item==name)), $$ = toFloat($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_INTEGER,#item==name)), $$ = toInteger($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_LONG,#item==name)), $$ = toLong($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP,#item==name)), $$ = toTimestamp(toString($$)))) ~> CastColumnsBackAsRequired",
             "JoinMaskedAndUnmaskedData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'delta',",
