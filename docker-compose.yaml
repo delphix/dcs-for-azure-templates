@@ -18,4 +18,5 @@ services:
              zip dcsazure_Databricks_to_Databricks_prof_pl.zip dcsazure_Databricks_to_Databricks_prof_pl/* &&
              zip dcsazure_Databricks_to_Databricks_mask_pl.zip dcsazure_Databricks_to_Databricks_mask_pl/* &&
              zip dcsazure_AzureSQL_to_AzureSQL_prof_pl.zip dcsazure_AzureSQL_to_AzureSQL_prof_pl/* &&
+             zip dcsazure_AzureSQL_to_AzureSQL_mask_pl.zip dcsazure_AzureSQL_to_AzureSQL_mask_pl/* &&
              mv *.zip releases/."
