@@ -6,6 +6,7 @@ services:
       - $PWD:/dcs-for-azure-templates
     command: >
       sh -c "
+             mkdir -p releases
              apt-get update &&
              apt-get install -y zip &&
              zip dcsazure_adls_to_adls_prof_pl.zip dcsazure_adls_to_adls_prof_pl/* &&
@@ -16,4 +17,5 @@ services:
              zip dcsazure_Snowflake_to_Snowflake_mask_pl.zip dcsazure_Snowflake_to_Snowflake_mask_pl/* &&
              zip dcsazure_Databricks_to_Databricks_prof_pl.zip dcsazure_Databricks_to_Databricks_prof_pl/* &&
              zip dcsazure_Databricks_to_Databricks_mask_pl.zip dcsazure_Databricks_to_Databricks_mask_pl/* &&
+             zip dcsazure_AzureSQL_to_AzureSQL_prof_pl.zip dcsazure_AzureSQL_to_AzureSQL_prof_pl/* &&
              mv *.zip releases/."
