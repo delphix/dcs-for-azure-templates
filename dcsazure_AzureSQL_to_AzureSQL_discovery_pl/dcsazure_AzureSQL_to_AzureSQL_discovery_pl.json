@@ -3,20 +3,20 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "factoryName": { "type": "string", "metadata": "Data Factory name" },
-    "azuresql_prof_metadata_store_db": { "type": "string" },
-    "azuresql_prof_source_db": { "type": "string" },
-    "MaskRestService": { "type": "string" }
+    "azuresql_discovery_metadata_store_db": { "type": "string" },
+    "azuresql_discovery_source_db": { "type": "string" },
+    "ProdDCSForAzureService": { "type": "string" }
   },
   "variables": {
     "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - AzureSQL to AzureSQL Profiling Pipeline",
+        "description": "DCSAzure - AzureSQL to AzureSQL Discovery Pipeline",
         "activities": [
           {
             "name": "Schema Discovery From AzureSQL",
@@ -73,14 +73,14 @@
             },
             "inputs": [
               {
-                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_source_ds",
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds",
                 "type": "DatasetReference",
                 "parameters": {}
               }
             ],
             "outputs": [
               {
-                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_discovery_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -123,7 +123,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_discovery_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -169,7 +169,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_AzureSQL_to_AzureSQL_prof_df",
+                      "referenceName": "dcsazure_AzureSQL_to_AzureSQL_discovery_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -315,7 +315,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_prof_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -427,7 +427,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_prof_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -477,7 +477,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_prof_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -530,19 +530,19 @@
         "lastPublishTime": "2024-10-03T11:28:48Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_prof_source_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_to_AzureSQL_prof_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_discovery_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_to_AzureSQL_discovery_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_source_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - Azure SQL to AzureSQL Profling Query Dataset",
+        "description": "DCSAzure - Azure SQL to AzureSQL Discovery Query Dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_prof_metadata_store_db')]",
+          "referenceName": "[parameters('azuresql_discovery_source_db')]",
           "type": "LinkedServiceReference"
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
@@ -559,13 +559,13 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_metadata_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_discovery_metadata_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCS Azure - AzureSQL to AzureSQL profiling metadata dataset",
+        "description": "DCS Azure - AzureSQL to AzureSQL Discovery metadata dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_prof_source_db')]",
+          "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -590,18 +590,18 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_prof_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_to_AzureSQL_discovery_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - AzureSQL to AzureSQL Profiling Dataflow",
+        "description": "DCSAzure - AzureSQL to AzureSQL Discovery Dataflow",
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_prof_metadata_store_db')]",
+                "referenceName": "[parameters('azuresql_discovery_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source1MillRowDataSampling",
@@ -609,7 +609,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_prof_source_db')]",
+                "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead",
@@ -619,7 +619,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_prof_source_db')]",
+                "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",
@@ -628,9 +628,9 @@
           ],
           "transformations": [
             {
-              "name": "CallDCSForAzureProfiling",
+              "name": "CallDCSForAzureDiscovery",
               "linkedService": {
-                "referenceName": "[parameters('MaskRestService')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
