@@ -4,9 +4,9 @@
   "parameters": {
     "factoryName": { "type": "string", "metadata": "Data Factory name" },
     "azuresql_mask_metadata_store_db": { "type": "string" },
-    "azuresql_mask_source_db": { "type": "string" },
     "azuresql_mask_sink_db": { "type": "string" },
-    "MaskRestService": { "type": "string" }
+    "azuresql_mask_source_db": { "type": "string" },
+    "ProdDCSForAzureService": { "type": "string" }
   },
   "variables": {
     "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
@@ -22,7 +22,12 @@
             "name": "Select Tables That Require Masking",
             "description": "Select tables with a data mapping and assigned algorithms, as well as filters that may be needed for conditional masking.",
             "type": "Lookup",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "For Each Table To Truncate",
+                "dependencyConditions": ["Succeeded"]
+              }
+            ],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -403,7 +408,12 @@
             "name": "Select Tables Without Required Masking",
             "description": "Select tables with a data mapping, and no assigned algorithms or rows.",
             "type": "Lookup",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "For Each Table To Truncate",
+                "dependencyConditions": ["Succeeded"]
+              }
+            ],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -554,6 +564,211 @@
                             }
                           }
                         ]
+                      },
+                      {
+                        "name": "Update Copy State2",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Copy Unmasked Data",
+                            "dependencyConditions": ["Succeeded"]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": { "value": "", "type": "Guid" },
+                            "error_message": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": "",
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": "",
+                              "type": "DateTimeOffset"
+                            },
+                            "input_parameters": {
+                              "value": "",
+                              "type": "String"
+                            },
+                            "pipeline_name": { "value": "", "type": "String" },
+                            "pipeline_run_id": { "value": "", "type": "Guid" },
+                            "pipeline_success": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "source_database": {
+                              "value": "",
+                              "type": "String"
+                            },
+                            "source_dataset": { "value": "", "type": "String" },
+                            "source_metadata": {
+                              "value": "",
+                              "type": "String"
+                            },
+                            "source_schema": { "value": "", "type": "String" },
+                            "source_table": { "value": "", "type": "String" }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Update Copy State Failed2",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Copy Unmasked Data",
+                            "dependencyConditions": ["Failed"]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Copy Unmasked Data').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@activity('Copy Unmasked Data').ErrorMessage.value",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@activity('Copy Unmasked Data').ExecutionEndTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@activity('Copy Unmasked Data').ExecutionStartTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "filter_alias": { "value": "", "type": "String" },
+                            "filter_condition": {
+                              "value": "",
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n\"P_USE_COPY_DATAFLOW\": @{pipeline().parameters.P_USE_COPY_DATAFLOW}\n}\n",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "false",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "pipeline_success": {
+                              "value": "",
+                              "type": "Boolean"
+                            },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": { "value": "", "type": "String" },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": { "value": "", "type": "String" },
+                            "source_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_metadata": {
+                              "value": "",
+                              "type": "String"
+                            },
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": { "value": "", "type": "String" }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "type": "LinkedServiceReference"
+                        }
                       }
                     ],
                     "ifTrueActivities": [
@@ -608,6 +823,300 @@
                           },
                           "traceLevel": "Fine"
                         }
+                      },
+                      {
+                        "name": "Update Copy State1",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Call Copy Dataflow",
+                            "dependencyConditions": ["Succeeded"]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').Error.message",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": "",
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": "",
+                              "type": "DateTimeOffset"
+                            },
+                            "filter_alias": { "value": "", "type": "String" },
+                            "filter_condition": {
+                              "value": "",
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n\"P_USE_COPY_DATAFLOW\": @{pipeline().parameters.P_USE_COPY_DATAFLOW}\n}\n",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "false",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": { "value": "", "type": "String" },
+                            "pipeline_run_id": { "value": "", "type": "Guid" },
+                            "pipeline_success": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": { "value": "", "type": "String" },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": { "value": "", "type": "String" },
+                            "source_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_metadata": {
+                              "value": "",
+                              "type": "String"
+                            },
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": { "value": "", "type": "String" }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Update Copy State Failed",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Call Copy Dataflow",
+                            "dependencyConditions": ["Failed"]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').Error.message",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').ExecutionEndTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').ExecutionStartTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "filter_alias": { "value": null, "type": "String" },
+                            "filter_condition": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n\"P_USE_COPY_DATAFLOW\": @{pipeline().parameters.P_USE_COPY_DATAFLOW}\n}\n",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "false",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "pipeline_success": {
+                              "value": "false",
+                              "type": "Boolean"
+                            },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Fail After Updating Copy State",
+                        "type": "Fail",
+                        "dependsOn": [
+                          {
+                            "activity": "Update Copy State Failed",
+                            "dependencyConditions": ["Succeeded"]
+                          }
+                        ],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "message": "Failed to copy @{item().source_table}",
+                          "errorCode": "500"
+                        }
                       }
                     ]
                   }
@@ -661,6 +1170,138 @@
               "compute": { "coreCount": 8, "computeType": "General" },
               "traceLevel": "Fine"
             }
+          },
+          {
+            "name": "Check If We Should Reapply Mapping",
+            "type": "IfCondition",
+            "dependsOn": [],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@pipeline().parameters.P_REAPPLY_MAPPING",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Mark Table Mapping Incomplete",
+                  "description": "Mark all tables in this database and schema as unmapped so that we can re-apply the mapping to them",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "UPDATE\n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\nSET\n    mapping_complete = CAST(0 AS BIT),\n    masked_status = NULL\nWHERE\n    UPPER(source_dataset) = UPPER('@{variables('DATASET')}')\n    AND UPPER(source_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n    AND UPPER(source_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')",
+                          "type": "Expression"
+                        }
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Select Tables We Should Truncate",
+            "type": "Lookup",
+            "dependsOn": [
+              {
+                "activity": "Check If We Should Reapply Mapping",
+                "dependencyConditions": ["Succeeded"]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT\n    dm.sink_dataset,\n    dm.sink_database,\n    dm.sink_schema,\n    dm.sink_table\nFROM\n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\nWHERE\n    dm.source_dataset = '@{variables('DATASET')}'\n    AND dm.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n    AND dm.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    AND dm.sink_dataset = '@{variables('DATASET')}'\n    AND dm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND dm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n    AND LOWER('@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}') = 'true'\n",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@variables('METADATA_SCHEMA')",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')",
+                    "type": "Expression"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "name": "For Each Table To Truncate",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Select Tables We Should Truncate",
+                "dependencyConditions": ["Succeeded"]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Tables We Should Truncate').output.value",
+                "type": "Expression"
+              },
+              "activities": [
+                {
+                  "name": "Truncate Selected Table",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('azuresql_mask_sink_db')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": "TRUNCATE TABLE @{item().sink_database}.@{item().sink_schema}.\"@{item().sink_table}\""
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
+                  }
+                }
+              ]
+            }
           }
         ],
         "policy": { "elapsedTimeMetric": {} },
@@ -674,7 +1315,12 @@
           "P_SOURCE_DATABASE": { "type": "string", "defaultValue": "''" },
           "P_SINK_DATABASE": { "type": "string", "defaultValue": "''" },
           "P_SOURCE_SCHEMA": { "type": "string", "defaultValue": "''" },
-          "P_SINK_SCHEMA": { "type": "string", "defaultValue": "''" }
+          "P_SINK_SCHEMA": { "type": "string", "defaultValue": "''" },
+          "P_REAPPLY_MAPPING": { "type": "bool", "defaultValue": true },
+          "P_TRUNCATE_SINK_BEFORE_WRITE": {
+            "type": "bool",
+            "defaultValue": true
+          }
         },
         "variables": {
           "METADATA_SCHEMA": { "type": "String", "defaultValue": "dbo" },
@@ -698,6 +1344,10 @@
           "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
             "type": "String",
             "defaultValue": "%"
+          },
+          "METADATA_EVENT_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "insert_adf_masking_event"
           }
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
@@ -1068,7 +1718,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('MaskRestService')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -1619,7 +2269,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('MaskRestService')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
