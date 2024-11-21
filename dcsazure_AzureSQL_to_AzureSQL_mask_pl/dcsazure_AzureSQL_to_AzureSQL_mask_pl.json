@@ -782,7 +782,7 @@
                             },
                             "filter_condition": {
                               "value": {
-                                "value": "@item().filter_condition",
+                                "value": "@item().filter_value",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -947,7 +947,7 @@
                             },
                             "filter_condition": {
                               "value": {
-                                "value": "@item().filter_condition",
+                                "value": "@item().filter_value",
                                 "type": "Expression"
                               },
                               "type": "String"
