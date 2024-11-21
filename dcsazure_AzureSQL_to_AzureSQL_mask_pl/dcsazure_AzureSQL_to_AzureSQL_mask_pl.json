@@ -1989,7 +1989,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "TRUNCATE TABLE @{item().sink_database}.@{item().sink_schema}.@{item().sink_table}",
+                          "value": "TRUNCATE TABLE \"@{item().sink_database}\".\"@{item().sink_schema}\".\"@{item().sink_table}\"",
                           "type": "Expression"
                         }
                       }
