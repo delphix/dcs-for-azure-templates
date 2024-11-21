@@ -1948,7 +1948,8 @@
                     "type": "Expression"
                   }
                 }
-              }
+              },
+              "firstRowOnly": false
             }
           },
           {
@@ -1988,7 +1989,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "TRUNCATE TABLE @{item().sink_database}.@{item().sink_schema}.\"@{item().sink_table}\"",
+                          "value": "TRUNCATE TABLE @{item().sink_database}.@{item().sink_schema}.@{item().sink_table}",
                           "type": "Expression"
                         }
                       }
@@ -2043,10 +2044,10 @@
             "type": "bool",
             "defaultValue": true
           },
-          "P_SOURCE_DATABASE": { "type": "string", "defaultValue": "''" },
-          "P_SINK_DATABASE": { "type": "string", "defaultValue": "''" },
-          "P_SOURCE_SCHEMA": { "type": "string", "defaultValue": "''" },
-          "P_SINK_SCHEMA": { "type": "string", "defaultValue": "''" },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SINK_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
+          "P_SINK_SCHEMA": { "type": "string" },
           "P_REAPPLY_MAPPING": { "type": "bool", "defaultValue": true },
           "P_TRUNCATE_SINK_BEFORE_WRITE": {
             "type": "bool",
@@ -2083,7 +2084,7 @@
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2024-11-18T19:11:47Z"
+        "lastPublishTime": "2024-11-20T18:33:28Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
