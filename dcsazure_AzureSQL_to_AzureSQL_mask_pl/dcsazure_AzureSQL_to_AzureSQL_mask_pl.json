@@ -1260,40 +1260,129 @@
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
-                            "activity_run_id": { "value": "", "type": "Guid" },
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Copy Unmasked Data').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
                             "error_message": {
                               "value": null,
                               "type": "String"
                             },
                             "execution_end_time": {
-                              "value": "",
+                              "value": {
+                                "value": "@activity('Copy Unmasked Data').ExecutionEndTime",
+                                "type": "Expression"
+                              },
                               "type": "DateTimeOffset"
                             },
                             "execution_start_time": {
-                              "value": "",
+                              "value": {
+                                "value": "@activity('Copy Unmasked Data').ExecutionStartTime",
+                                "type": "Expression"
+                              },
                               "type": "DateTimeOffset"
                             },
-                            "input_parameters": {
-                              "value": "",
+                            "filter_alias": { "value": null, "type": "String" },
+                            "filter_condition": {
+                              "value": null,
                               "type": "String"
                             },
-                            "pipeline_name": { "value": "", "type": "String" },
-                            "pipeline_run_id": { "value": "", "type": "Guid" },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n\"P_USE_COPY_DATAFLOW\": @{pipeline().parameters.P_USE_COPY_DATAFLOW}\n}\n",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "false",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
                             "pipeline_success": {
                               "value": "true",
                               "type": "Boolean"
                             },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SINK_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
                             "source_database": {
-                              "value": "",
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
+                              },
                               "type": "String"
                             },
-                            "source_dataset": { "value": "", "type": "String" },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
                             "source_metadata": {
-                              "value": "",
+                              "value": null,
                               "type": "String"
                             },
-                            "source_schema": { "value": "", "type": "String" },
-                            "source_table": { "value": "", "type": "String" }
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
                           }
                         },
                         "linkedServiceName": {
@@ -1333,7 +1422,7 @@
                             },
                             "error_message": {
                               "value": {
-                                "value": "@activity('Copy Unmasked Data').ErrorMessage.value",
+                                "value": "@activity('Copy Unmasked Data').Error.message",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1352,9 +1441,9 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": { "value": "", "type": "String" },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
-                              "value": "",
+                              "value": null,
                               "type": "String"
                             },
                             "input_parameters": {
@@ -1383,7 +1472,7 @@
                               "type": "Guid"
                             },
                             "pipeline_success": {
-                              "value": "",
+                              "value": "false",
                               "type": "Boolean"
                             },
                             "sink_database": {
@@ -1400,7 +1489,10 @@
                               },
                               "type": "String"
                             },
-                            "sink_metadata": { "value": "", "type": "String" },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
                             "sink_schema": {
                               "value": {
                                 "value": "@pipeline().parameters.P_SINK_SCHEMA",
@@ -1408,7 +1500,13 @@
                               },
                               "type": "String"
                             },
-                            "sink_table": { "value": "", "type": "String" },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
                             "source_database": {
                               "value": {
                                 "value": "@pipeline().parameters.P_SOURCE_DATABASE",
@@ -1424,7 +1522,7 @@
                               "type": "String"
                             },
                             "source_metadata": {
-                              "value": "",
+                              "value": null,
                               "type": "String"
                             },
                             "source_schema": {
@@ -1434,7 +1532,13 @@
                               },
                               "type": "String"
                             },
-                            "source_table": { "value": "", "type": "String" }
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
                           }
                         },
                         "linkedServiceName": {
@@ -1545,23 +1649,26 @@
                               "type": "Guid"
                             },
                             "error_message": {
-                              "value": {
-                                "value": "@activity('Call Copy Dataflow').Error.message",
-                                "type": "Expression"
-                              },
+                              "value": null,
                               "type": "String"
                             },
                             "execution_end_time": {
-                              "value": "",
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').ExecutionEndTime",
+                                "type": "Expression"
+                              },
                               "type": "DateTimeOffset"
                             },
                             "execution_start_time": {
-                              "value": "",
+                              "value": {
+                                "value": "@activity('Call Copy Dataflow').ExecutionStartTime",
+                                "type": "Expression"
+                              },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": { "value": "", "type": "String" },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
-                              "value": "",
+                              "value": null,
                               "type": "String"
                             },
                             "input_parameters": {
@@ -1575,8 +1682,20 @@
                               "value": "false",
                               "type": "Boolean"
                             },
-                            "pipeline_name": { "value": "", "type": "String" },
-                            "pipeline_run_id": { "value": "", "type": "Guid" },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
                             "pipeline_success": {
                               "value": "true",
                               "type": "Boolean"
@@ -1595,7 +1714,10 @@
                               },
                               "type": "String"
                             },
-                            "sink_metadata": { "value": "", "type": "String" },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
                             "sink_schema": {
                               "value": {
                                 "value": "@pipeline().parameters.P_SINK_SCHEMA",
@@ -1603,7 +1725,13 @@
                               },
                               "type": "String"
                             },
-                            "sink_table": { "value": "", "type": "String" },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
                             "source_database": {
                               "value": {
                                 "value": "@pipeline().parameters.P_SOURCE_DATABASE",
@@ -1619,7 +1747,7 @@
                               "type": "String"
                             },
                             "source_metadata": {
-                              "value": "",
+                              "value": null,
                               "type": "String"
                             },
                             "source_schema": {
@@ -1629,7 +1757,13 @@
                               },
                               "type": "String"
                             },
-                            "source_table": { "value": "", "type": "String" }
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
                           }
                         },
                         "linkedServiceName": {
