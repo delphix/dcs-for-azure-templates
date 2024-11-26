@@ -1,0 +1,1226 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "factoryName": {
+      "type": "string",
+      "metadata": "Data Factory name"
+    },
+    "Metadata Datastore": {
+      "type": "string"
+    },
+    "AzureDataLakeStorage_Source": {
+      "type": "string"
+    },
+    "ProdDCSForAzureService": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+  },
+  "resources": [
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_parquet_discovery_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "activities": [
+          {
+            "name": "Get Folder List",
+            "type": "GetMetadata",
+            "dependsOn": [
+              {
+                "activity": "Check If We Should Rediscover Data",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "dataset": {
+                "referenceName": "dcsazure_ADLS_to_ADLS_parquet_container_and_directory_discovery_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_CONTAINER": {
+                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                    "type": "Expression"
+                  },
+                  "DS_DIRECTORY": {
+                    "value": "@pipeline().parameters.P_SOURCE_PATH",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "fieldList": [
+                "childItems"
+              ],
+              "storeSettings": {
+                "type": "AzureBlobFSReadSettings",
+                "recursive": true,
+                "enablePartitionDiscovery": false
+              },
+              "formatSettings": {
+                "type": "ParquetReadSettings"
+              }
+            }
+          },
+          {
+            "name": "For Each Folder",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Get Folder List",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Get Folder List').output.childItems",
+                "type": "Expression"
+              },
+              "activities": [
+                {
+                  "name": "Get Files List",
+                  "type": "GetMetadata",
+                  "dependsOn": [
+                    {
+                      "activity": "Delete _SUCCESS file",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataset": {
+                      "referenceName": "dcsazure_ADLS_to_ADLS_parquet_sub_directory_discovery_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_CONTAINER": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "type": "Expression"
+                        },
+                        "DS_SUB_DIRECTORY": {
+                          "value": "@concat(pipeline().parameters.P_SOURCE_PATH,'/',item().name)",
+                          "type": "Expression"
+                        }
+                      }
+                    },
+                    "fieldList": [
+                      "childItems",
+                      "itemType"
+                    ],
+                    "storeSettings": {
+                      "type": "AzureBlobFSReadSettings",
+                      "recursive": true,
+                      "enablePartitionDiscovery": false
+                    },
+                    "formatSettings": {
+                      "type": "ParquetReadSettings"
+                    }
+                  }
+                },
+                {
+                  "name": "Get File Structure of First File",
+                  "type": "GetMetadata",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Files List",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataset": {
+                      "referenceName": "dcsazure_ADLS_to_ADLS_parquet_file_schema_discovery_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_CONTAINER": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "type": "Expression"
+                        },
+                        "DS_PATH": {
+                          "value": "@concat(pipeline().parameters.P_SOURCE_PATH,'/',item().name)",
+                          "type": "Expression"
+                        },
+                        "DS_FILENAME": {
+                          "value": "@string(activity('Get Files List').output.childItems[0].name)",
+                          "type": "Expression"
+                        }
+                      }
+                    },
+                    "fieldList": [
+                      "structure"
+                    ],
+                    "storeSettings": {
+                      "type": "AzureBlobFSReadSettings",
+                      "recursive": true,
+                      "enablePartitionDiscovery": false
+                    },
+                    "formatSettings": {
+                      "type": "ParquetReadSettings"
+                    }
+                  }
+                },
+                {
+                  "name": "Persist Metadata To Database",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Get File Structure of First File",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('FILE_STRUCTURE_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "adf_file_structure": {
+                        "value": {
+                          "value": "@string(activity('Get File Structure of First File').output.structure)",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "database": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "schema": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_PATH",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "table": {
+                        "value": {
+                          "value": "@item().name",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "dataset": {
+                        "value": {
+                          "value": "@variables('DATASET')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Delete _SUCCESS file",
+                  "type": "Delete",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataset": {
+                      "referenceName": "dcsazure_ADLS_to_ADLS_parquet_sub_directory_discovery_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_CONTAINER": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "type": "Expression"
+                        },
+                        "DS_SUB_DIRECTORY": {
+                          "value": "@pipeline().parameters.P_SOURCE_PATH",
+                          "type": "Expression"
+                        }
+                      }
+                    },
+                    "enableLogging": false,
+                    "storeSettings": {
+                      "type": "AzureBlobFSReadSettings",
+                      "recursive": true,
+                      "wildcardFileName": "_SUCCESS",
+                      "enablePartitionDiscovery": false
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Select Discovered Folders",
+            "type": "Lookup",
+            "dependsOn": [
+              {
+                "activity": "For Each Folder",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "SELECT DISTINCT\n   identified_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   dataset = '@{variables('DATASET')}'\n   AND UPPER(specified_database) = UPPER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_PATH}')\n   AND (discovery_complete IS NULL OR discovery_complete = 0)",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_ADLS_to_ADLS_parquet_metadata_discovery_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@variables('METADATA_SCHEMA')",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@variables('METADATA_RULESET_TABLE')",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "For Each Discovered Folder",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Select Discovered Folders",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Discovered Folders').output.value",
+                "type": "Expression"
+              },
+              "activities": [
+                {
+                  "name": "Discover Sensitive Data",
+                  "type": "ExecuteDataFlow",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "dataflow": {
+                      "referenceName": "dcsazure_ADLS_to_ADLS_parquet_data_discovery_df",
+                      "type": "DataFlowReference",
+                      "parameters": {
+                        "runId": {
+                          "value": "'@{pipeline().RunId}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_CONTAINER": {
+                          "value": "'@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_PATH": {
+                          "value": "'@{pipeline().parameters.P_SOURCE_PATH}'",
+                          "type": "Expression"
+                        },
+                        "DF_NUM_ROWS_TO_PROFILE": "1000",
+                        "DF_METADATA_SCHEMA": {
+                          "value": "'@{variables('METADATA_SCHEMA')}'",
+                          "type": "Expression"
+                        },
+                        "DF_METADATA_RULESET_TABLE": {
+                          "value": "'@{variables('METADATA_RULESET_TABLE')}'",
+                          "type": "Expression"
+                        },
+                        "DF_SOURCE_FOLDER": {
+                          "value": "'@{item().identified_table}'",
+                          "type": "Expression"
+                        },
+                        "DF_DATASET": "'ADLS-PARQUET'"
+                      },
+                      "datasetParameters": {
+                        "ADLSDelta1MillRowDataSampling": {},
+                        "MetadataStoreRead": {},
+                        "WriteToMetadataStore": {}
+                      }
+                    },
+                    "staging": {},
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
+                    "traceLevel": "None",
+                    "cacheSinks": {
+                      "firstRowOnly": true
+                    }
+                  }
+                },
+                {
+                  "name": "Update Discovery State",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Discover Sensitive Data",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ActivityRunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "error_message": {
+                        "value": null,
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "{\n    \"DF_SOURCE_CONTAINER\": \"@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}\",\n    \"DF_SOURCE_PATH\": \"@{pipeline().parameters.P_SOURCE_PATH}\",\n    \"DF_SOURCE_TABLE\": \"@{item().identified_table}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')}\n}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@pipeline().Pipeline",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@pipeline().RunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "pipeline_success": {
+                        "value": "true",
+                        "type": "Boolean"
+                      },
+                      "source_database": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_dataset": {
+                        "value": {
+                          "value": "@variables('DATASET')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_metadata": {
+                        "value": null,
+                        "type": "String"
+                      },
+                      "source_schema": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_PATH",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_table": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Update Discovery State Failed",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Discover Sensitive Data",
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ActivityRunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').Error.message",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "{\n    \"DF_SOURCE_CONTAINER\": \"@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}\",\n    \"DF_SOURCE_PATH\": \"@{pipeline().parameters.P_SOURCE_PATH}\",\n    \"DF_SOURCE_TABLE\": \"@{item().identified_table}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')}\n}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@pipeline().Pipeline",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@pipeline().RunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "pipeline_success": {
+                        "value": "false",
+                        "type": "Boolean"
+                      },
+                      "source_database": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_dataset": {
+                        "value": {
+                          "value": "@variables('DATASET')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_metadata": {
+                        "value": null,
+                        "type": "String"
+                      },
+                      "source_schema": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_PATH",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_table": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Fail After Updating Discovery State",
+                  "type": "Fail",
+                  "dependsOn": [
+                    {
+                      "activity": "Update Discovery State Failed",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "Failed to discover @{item().identified_table}",
+                      "type": "Expression"
+                    },
+                    "errorCode": "500"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Check If We Should Rediscover Data",
+            "type": "IfCondition",
+            "dependsOn": [],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@pipeline().parameters.P_REDISCOVER",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Mark Tables Undiscovered",
+                  "description": "Mark all tables in this database and schema as undiscovered so that we can re-discover sensitive data in them",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "UPDATE\n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} \nSET discovery_complete = CAST(0 AS BIT) \nWHERE\n    dataset='@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_STORAGE_CONTAINER_TO_PROFILE}'\n    AND specified_schema LIKE '@{pipeline().parameters.P_SOURCE_PATH}%'",
+                          "type": "Expression"
+                        }
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_STORAGE_CONTAINER_TO_PROFILE": {
+            "type": "string"
+          },
+          "P_SOURCE_PATH": {
+            "type": "string"
+          },
+          "P_REDISCOVER": {
+            "type": "bool",
+            "defaultValue": true
+          }
+        },
+        "variables": {
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
+          "METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
+          },
+          "DATASET": {
+            "type": "String",
+            "defaultValue": "ADLS-PARQUET"
+          },
+          "METADATA_EVENT_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "insert_adf_discovery_event"
+          },
+          "NUMBER_OF_ROWS_TO_PROFILE": {
+            "type": "String",
+            "defaultValue": "1000"
+          },
+          "FILE_STRUCTURE_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "get_columns_from_parquet_file_structure_sp"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_parquet"
+        },
+        "annotations": [],
+        "lastPublishTime": "2024-12-05T00:40:57Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_parquet_container_and_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_parquet_metadata_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_parquet_sub_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_parquet_file_schema_discovery_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_parquet_data_discovery_df')]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_parquet_container_and_directory_discovery_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_CONTAINER": {
+            "type": "string"
+          },
+          "DS_DIRECTORY": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_parquet"
+        },
+        "annotations": [],
+        "type": "Parquet",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "folderPath": {
+              "value": "@dataset().DS_DIRECTORY",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "compressionCodec": "snappy"
+        },
+        "schema": []
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_parquet_metadata_discovery_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('Metadata Datastore')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_METADATA_SCHEMA": {
+            "type": "string"
+          },
+          "DS_METADATA_TABLE": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_parquet"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [
+          {
+            "name": "source_database",
+            "type": "varchar"
+          },
+          {
+            "name": "source_schema",
+            "type": "varchar"
+          },
+          {
+            "name": "source_table",
+            "type": "varchar"
+          },
+          {
+            "name": "source_column",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_database",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_schema",
+            "type": "varchar"
+          },
+          {
+            "name": "destination_table",
+            "type": "varchar"
+          }
+        ],
+        "typeProperties": {
+          "schema": {
+            "value": "@dataset().DS_METADATA_SCHEMA",
+            "type": "Expression"
+          },
+          "table": {
+            "value": "@dataset().DS_METADATA_TABLE",
+            "type": "Expression"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_parquet_sub_directory_discovery_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_CONTAINER": {
+            "type": "string"
+          },
+          "DS_SUB_DIRECTORY": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_parquet"
+        },
+        "annotations": [],
+        "type": "Parquet",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "folderPath": {
+              "value": "@dataset().DS_SUB_DIRECTORY",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "compressionCodec": "snappy"
+        },
+        "schema": []
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_parquet_file_schema_discovery_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_CONTAINER": {
+            "type": "string"
+          },
+          "DS_PATH": {
+            "type": "string"
+          },
+          "DS_FILENAME": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_parquet"
+        },
+        "annotations": [],
+        "type": "Parquet",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "fileName": {
+              "value": "@dataset().DS_FILENAME",
+              "type": "Expression"
+            },
+            "folderPath": {
+              "value": "@dataset().DS_PATH",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "compressionCodec": "snappy"
+        },
+        "schema": []
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_parquet_data_discovery_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_parquet"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "ADLSDelta1MillRowDataSampling",
+              "description": "Import the first 1 million rows of unmasked data from the desired source dataset."
+            },
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "MetadataStoreRead"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Metadata Datastore')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "WriteToMetadataStore"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "CallDCSForAzureProfiling",
+              "linkedService": {
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "type": "LinkedServiceReference"
+              }
+            },
+            {
+              "name": "CreateRandomIdColumn",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID column, which is generated via the `random` expression. The current timestamp in milliseconds is used as the seed for the number generation."
+            },
+            {
+              "name": "SortByRandomId",
+              "description": "Sort the sample rows based on the randomly generated IDs."
+            },
+            {
+              "name": "CreateFinalSelectionId",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID column that increments by 1 and starts at 1. It is incremented in order of the DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID added previously."
+            },
+            {
+              "name": "GetRandomRows",
+              "description": "Filter $DF_ROWS rows using the DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID."
+            },
+            {
+              "name": "CreateItemsList"
+            },
+            {
+              "name": "ParseAPIResponse",
+              "description": "Parsing the external call body output"
+            },
+            {
+              "name": "AssertNoFailures"
+            },
+            {
+              "name": "FlattenDetails"
+            },
+            {
+              "name": "FilterRowsToUpdate"
+            },
+            {
+              "name": "JoinDetailsAndMetadata"
+            },
+            {
+              "name": "ChecksBeforeSave"
+            },
+            {
+              "name": "UpdateProfiledColumns"
+            },
+            {
+              "name": "FilterOnlyNewlyProfiledRows"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_CONTAINER as string (''),",
+            "     DF_SOURCE_PATH as string (''),",
+            "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
+            "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
+            "     DF_SOURCE_FOLDER as string (''),",
+            "     DF_DATASET as string ('ADLS-PARQUET')",
+            "}",
+            "source(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     limit: 1000000,",
+            "     ignoreNoFilesFound: false,",
+            "     format: 'parquet',",
+            "     fileSystem: ($DF_SOURCE_CONTAINER),",
+            "     folderPath: (concat($DF_SOURCE_PATH,'/',$DF_SOURCE_FOLDER)),",
+            "     partitionBy('roundRobin', 32)) ~> ADLSDelta1MillRowDataSampling",
+            "source(output(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          row_count as long,",
+            "          metadata as string,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          algorithm_metadata as string",
+            "     ),",
+            "     allowSchemaDrift: false,",
+            "     validateSchema: false,",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
+            "CreateItemsList call(mapColumn(",
+            "          each(match(true()))",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false,",
+            "     output(",
+            "          headers as [string,string],",
+            "          body as string,",
+            "          status as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     format: 'rest',",
+            "     store: 'restservice',",
+            "     timeout: 30,",
+            "     requestInterval: 0,",
+            "     headers = ['Run-Id' -> $runId],",
+            "     httpMethod: 'POST',",
+            "     entity: '/v1/discovery/profileByColumn',",
+            "     headerColumnName: 'headers',",
+            "     bodyColumnName: 'body',",
+            "     statusColumnName: 'status',",
+            "     addResponseCode: true,",
+            "     requestFormat: ['type' -> 'json']) ~> CallDCSForAzureProfiling",
+            "ADLSDelta1MillRowDataSampling derive(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID = random(millisecond(currentTimestamp()))) ~> CreateRandomIdColumn",
+            "CreateRandomIdColumn sort(asc(DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID, true)) ~> SortByRandomId",
+            "SortByRandomId keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID as long),",
+            "     startAt: 1L,",
+            "     stepValue: 1L) ~> CreateFinalSelectionId",
+            "CreateFinalSelectionId filter(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID < ($DF_NUM_ROWS_TO_PROFILE +1)) ~> GetRandomRows",
+            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), $$ = collect($$))) ~> CreateItemsList",
+            "CallDCSForAzureProfiling parse(body = body ? (timestamp as date,",
+            "          status as string,",
+            "          message as string,",
+            "          trace_id as string,",
+            "          items as (details as (columnName as string, domain as string, algorithm as string, confidence as float, rowsConsidered as integer)[])),",
+            "     format: 'json',",
+            "     documentForm: 'singleDocument') ~> ParseAPIResponse",
+            "ParseAPIResponse assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
+            "     abort: true) ~> AssertNoFailures",
+            "AssertNoFailures foldDown(unroll(body.items.details),",
+            "     mapColumn(",
+            "          columnName = body.items.details.columnName,",
+            "          domain = body.items.details.domain,",
+            "          algorithm = body.items.details.algorithm,",
+            "          confidence = body.items.details.confidence,",
+            "          rowsConsidered = body.items.details.rowsConsidered",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false) ~> FlattenDetails",
+            "MetadataStoreRead filter(equalsIgnoreCase(dataset, $DF_DATASET)",
+            "&& equalsIgnoreCase(specified_database, $DF_SOURCE_CONTAINER)",
+            "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_PATH)",
+            "&& equalsIgnoreCase(identified_table, $DF_SOURCE_FOLDER)) ~> FilterRowsToUpdate",
+            "FlattenDetails, FilterRowsToUpdate join(columnName <=> identified_column,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'left')~> JoinDetailsAndMetadata",
+            "UpdateProfiledColumns alterRow(updateIf(true())) ~> ChecksBeforeSave",
+            "FilterOnlyNewlyProfiledRows derive(last_profiled_updated_timestamp = currentTimestamp()) ~> UpdateProfiledColumns",
+            "JoinDetailsAndMetadata filter(!equalsIgnoreCase(domain, profiled_domain)",
+            "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
+            "|| rowsConsidered != rows_profiled",
+            "|| toDecimal(confidence) != toDecimal(confidence_score)) ~> FilterOnlyNewlyProfiledRows",
+            "ChecksBeforeSave sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     input(",
+            "          dataset as string,",
+            "          specified_database as string,",
+            "          specified_schema as string,",
+            "          identified_table as string,",
+            "          identified_column as string,",
+            "          identified_column_type as string,",
+            "          identified_column_max_length as integer,",
+            "          ordinal_position as integer,",
+            "          row_count as long,",
+            "          metadata as string,",
+            "          profiled_domain as string,",
+            "          profiled_algorithm as string,",
+            "          confidence_score as decimal(6,5),",
+            "          rows_profiled as long,",
+            "          assigned_algorithm as string,",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          algorithm_metadata as string",
+            "     ),",
+            "     format: 'table',",
+            "     store: 'sqlserver',",
+            "     schemaName: ($DF_METADATA_SCHEMA),",
+            "     tableName: ($DF_METADATA_RULESET_TABLE),",
+            "     insertable: false,",
+            "     updateable: true,",
+            "     deletable: false,",
+            "     upsertable: false,",
+            "     keys:(array(\"dataset\", \"specified_database\", \"specified_schema\", \"identified_table\", \"identified_column\")),",
+            "     skipKeyWrites:true,",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     errorHandlingOption: 'stopOnFirstError',",
+            "     mapColumn(",
+            "          dataset,",
+            "          specified_database,",
+            "          specified_schema,",
+            "          identified_table,",
+            "          identified_column = columnName,",
+            "          identified_column_type,",
+            "          row_count,",
+            "          profiled_domain = domain,",
+            "          profiled_algorithm = algorithm,",
+            "          confidence_score = confidence,",
+            "          rows_profiled = rowsConsidered,",
+            "          last_profiled_updated_timestamp",
+            "     )) ~> WriteToMetadataStore"
+          ]
+        }
+      },
+      "dependsOn": []
+    }
+  ]
+}

@@ -1,36 +1,37 @@
-# dcsazure_adls_to_adls_mask_pl
-## Delphix Compliance Services (DCS) for Azure - ADLS to ADLS Masking Pipeline
+# dcsazure_ADLS_to_ADLS_parquet_mask_pl
+## Delphix Compliance Services (DCS) for Azure - ADLS to ADLS Parquet Masking Pipeline
 
-This pipeline will perform masking of data from your Azure Data Lake (ADLS) Data from one location to another.
+This pipeline will perform masking of your parquet data from your Azure Data Lake (ADLS) Data from one location to
+another.
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.10.24.0`+).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.12.06.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage service associated with your ADLS source data.
 1. Configure the Azure Data Lake Storage service associated with your ADLS sink data.
 
 
 ### Importing
-There are several linked services that will need to be selected in order to perform the masking of your ADLS
-instance.
+There are several linked services that will need to be selected in order to perform the masking of your parquet data
+in your ADLS instance.
 
 These linked services types are needed for the following steps:
 
 `Azure Data Lake Storage` (source) - Linked service associated with ADLS source data. This will be used for the
 following steps:
-* dcsazure_adls_to_adls_delimited_filter_test_utility_df/Source (dataFlow)
-* dcsazure_adls_container_and_directory_mask_ds (DelimitedText dataset)
-* dcsazure_adls_to_adls_delimited_unfiltered_mask_df/Source (dataFlow)
-* dcsazure_adls_to_adls_delimited_filtered_mask_df/Source (dataFlow)
-* dcsazure_adls_to_adls_delimited_copy_df/Source (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_filter_test_utility_df/SourceData (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_container_and_directory_mask_ds (Parquet dataset)
+* dcsazure_ADLS_to_ADLS_parquet_unfiltered_mask_df/ParquetSource (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_filtered_mask_df/ParquetSource (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_copy_df/SourceData (dataFlow)
 
 `Azure Data Lake Storage` (sink) - Linked service associated with ADLS sink data. This will be used for the
 following steps:
-* dcsazure_adls_to_adls_delimited_filter_test_utility_df/Sink (dataFlow)
-* dcsazure_adls_to_adls_delimited_unfiltered_mask_df/Sink (dataFlow)
-* dcsazure_adls_to_adls_delimited_filtered_mask_df/Sink (dataFlow)
-* dcsazure_adls_to_adls_delimited_copy_df/Sink (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_filter_test_utility_df/SinkData (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_unfiltered_mask_df/ParquetSink (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_filtered_mask_df/ParquetSink (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_copy_df/SinkData (dataFlow)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
@@ -38,16 +39,16 @@ steps:
 * If Copy Via Dataflow (If Condition activity)
 * Check If We Should Reapply Mapping (If Condition activity)
 * Configure Masked Status (Script activity)
-* dcsazure_adls_to_adls_metadata_mask_ds (Azure SQL Database dataset)
-* dcsazure_adls_to_adls_unfiltered_mask_params_df/Ruleset (dataFlow)
-* dcsazure_adls_to_adls_unfiltered_mask_params_df/TypeMapping (dataFlow)
-* dcsazure_adls_to_adls_filtered_mask_params_df/Ruleset (dataFlow)
-* dcsazure_adls_to_adls_filtered_mask_params_df/TypeMapping (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_metadata_mask_ds (Azure SQL Database dataset)
+* dcsazure_ADLS_to_ADLS_parquet_unfiltered_mask_params_df/Ruleset (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_unfiltered_mask_params_df/TypeMapping (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_filtered_mask_params_df/Ruleset (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_filtered_mask_params_df/TypeMapping (dataFlow)
 
 `REST` (DCS for Azure) - Linked service associated with calling DCS for Azure. This will be used for the following
 steps:
-* dcsazure_adls_to_adls_delimited_unfiltered_mask_df (dataFlow)
-* dcsazure_adls_to_adls_delimited_filtered_mask_df (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_unfiltered_mask_df (dataFlow)
+* dcsazure_ADLS_to_ADLS_parquet_filtered_mask_df (dataFlow)
 
 ### How It Works
 * Check If We Should Reapply Mapping
@@ -58,15 +59,17 @@ steps:
     a list of directories that we should purge 
     * For Each Directory To Purge:
       * Check For The Directory
-      * If the directory exists, delete everything in that directory
+      * If the directory exists, delete all parquet files and the `_SUCCESS` file in that directory
 * Select Tables Without Required Masking. This is done by querying the metadata store.
   * Filter If Copy Unmask Enabled. This is done by applying a filter based on the value of `P_COPY_UNMASKED_TABLES`
     * For Each Table With No Masking. Provided we have any rows left after applying the filter
-      * If Copy Via Dataflow - based on the value of `P_COPY_USE_DATAFLOW`
-        * If the data flow is to be used for copy then call `dcsazure_adls_to_adls_copy_df`
-          * Update the mapped status based on the success of this dataflow, and fail accordingly
-        * If the data flow is not to be used for copy, then use a copy activity
-          * Update the mapped status based on the success of this dataflow, and fail accordingly
+      * Get Source Metadata No Masking. This is done by querying the metadata store that contains metadata for the
+        source
+        * If Copy Via Dataflow - based on the value of `P_COPY_USE_DATAFLOW`
+          * If the data flow is to be used for copy then call `dcsazure_ADLS_to_ADLS_parquet_copy_df`
+            * Update the mapped status based on the success of this dataflow, and fail accordingly
+          * If the data flow is not to be used for copy, then use a copy activity
+            * Update the mapped status based on the success of this dataflow, and fail accordingly
 * Select Tables That Require Masking. This is done by querying the metadata store. This will provide a list of tables
   that need masking, and if they need to be masked leveraging conditional algorithms, the set of required filters.
   * Configure Masked Status. Set the masked status based on the defined filters that need to be applied for the table to
@@ -74,25 +77,23 @@ steps:
   * For Each Table To Mask
     * Check if the table must be masked with a filter condition
       * If no filter needs to be applied:
-        * Call the `dcsazure_adls_to_adls_unfiltered_mask_params_df` dataflow to generate masking parameters
-        * Call the `dcsazure_adls_to_adls_unfiltered_mask_df` dataflow, passing in parameters as generated by the
-          unfiltered masking parameters dataflow
+        * Call the `dcsazure_ADLS_to_ADLS_parquet_unfiltered_mask_params_df` dataflow to generate masking parameters
+        * Call the `dcsazure_ADLS_to_ADLS_parquet_unfiltered_mask_df` dataflow, passing in parameters as generated by
+          the unfiltered masking parameters dataflow
         * Update the mapped status based on the success of this dataflow, and fail accordingly
       * If a filter needs to be applied:
-        * Call the `dcsazure_adls_to_adls_filtered_mask_params_df` dataflow to generate masking parameters using the
-          filter alias
-        * Call the `dcsazure_adls_to_adls_filterd_mask_df` dataflow, passing in parameters as generated by the filtered
-          masking parameters dataflow and the filter as determined by the output of For Each Table To Mask
+        * Call the `dcsazure_ADLS_to_ADLS_parquet_filtered_mask_params_df` dataflow to generate masking parameters using
+          the filter alias
+        * Call the `dcsazure_ADLS_to_ADLS_parquet_filtered_mask_df` dataflow, passing in parameters as generated by the
+          filtered masking parameters dataflow and the filter as determined by the output of For Each Table To Mask
         * Update the mapped status based on the success of this dataflow, and fail accordingly
 * Note that there is a deactivated activity `Test Filter Conditions` that exists in order to support importing the
   filter test utility dataflow, this is making it easier to test writing filter conditions leveraging a dataflow debug
   session
-* 
+
 ### Notes
-As ADLS does not provide us the number of rows in the files, and as delimited files don't have a fixed width to columns,
-we make a request run into request size limits or have a suboptimal number of batches.
-* If you are running into request size limits, decrease the number of rows in a batch by modifying the `ROWS_PER_BATCH`
-  variable.
+* If you are running into request size limits, decrease the number of rows in a batch by modifying the
+  `TARGET_BATCH_SIZE` variable.
 * If you are not hitting request size limits, but are finding that your masking pipeline is taking a long time, you may
   wish to increase the number of rows per batch.
 
@@ -106,14 +107,14 @@ have customized your metadata store, then these variables may need editing.
 * `METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset (default
   `discovered_ruleset`).
 * `METADATA_SOURCE_TO_SINK_MAPPING_TABLE` - This is the table used for determining where data that is run through the
-  pipeline starts and ends (default `adf_data_mapping`)
+  pipeline starts and ends (default `adf_data_mapping`).
 * `METADATA_ADF_TYPE_MAPPING_TABLE` - This is the table used for determining how Azure Data Factory should interpret
-  data that flows through the pipeline (default `adf_type_mapping`)
-* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`)
-* `DATASET` - This is the way this data set is referred to in the metadata store (default `ADLS`)
+  data that flows through the pipeline (default `adf_type_mapping`).
+* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`).
+* `DATASET` - This is the way this data set is referred to in the metadata store (default `ADLS-PARQUET`).
 * `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
   when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
-  ADF syntax for referencing the key column (default `%`)
+  ADF syntax for referencing the key column (default `%`).
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
   metadata data store and sets the masked and mapping states on the items processed during execution
   (default `insert_adf_masking_event`).
@@ -133,12 +134,10 @@ have customized your metadata store, then these variables may need editing.
 * `P_TRUNCATE_SINK_BEFORE_WRITE` - Bool - This controls whether we should purge the directories in the sink locations
   that have not already been completed by this pipeline, note that the set of locations to purge does _not_ depend on
   the value of `P_COPY_UNMASKED_TABLES` (default `true`)
-* `P_SOURCE_CONTAINER` - String - This is the source storage container in ADLS that contains the unmasked data
+* `P_SOURCE_CONTAINER` - String - This is the source storage container in ADLS that contains the unmasked parquet data
 * `P_SINK_CONTAINER` - String - This is the sink storage container in ADLS that will serve as a destination for masked
   data
 * `P_SOURCE_DIRECTORY` - String - This is the source schema in ADLS and was discovered during the profiling pipeline
-  run - it will have a format that defines the prefix of a file name in ADLS (with its full location) and that contains
-  the unmasked data
+  run - it will have a format that defines the storage path in ADLS and that contains the unmasked parquet data
 * `P_SINK_DIRECTORY` - String - This is the sink schema in ADLS that will have a structure similar to the source schema
-  name, except that anything after the last `/` is ignored and that will serve as a destination for masked data (file
-  names will be preserved)
+  name and that will serve as a destination for masked data (file names will be preserved during masking)
