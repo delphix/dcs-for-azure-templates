@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.16
+* Add casting support to masking pipelines
+* TODO
+
 # 0.0.15
 * Add support for ADLS to ADLS Parquet discovery and masking pipelines
 * Update existing ADLS to ADLS discovery and masking pipelines to differentiate between new pipeline and existing
