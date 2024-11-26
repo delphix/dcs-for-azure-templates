@@ -8,12 +8,22 @@ services:
       sh -c "
              apt-get update &&
              apt-get install -y zip &&
-             zip dcsazure_adls_to_adls_prof_pl.zip dcsazure_adls_to_adls_prof_pl/* &&
+             mkdir -p releases &&
+             cp VERSION.md dcsazure_adls_to_adls_discovery_pl/VERSION.md &&
+             zip dcsazure_adls_to_adls_discovery_pl.zip dcsazure_adls_to_adls_discovery_pl/* &&
+             cp VERSION.md dcsazure_adls_to_adls_mask_pl/VERSION.md &&
              zip dcsazure_adls_to_adls_mask_pl.zip dcsazure_adls_to_adls_mask_pl/* &&
-             zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl/* &&
+             cp VERSION.md dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl/VERSION.md &&
+             zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl/* &&
+             cp VERSION.md dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl/VERSION.md &&
              zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl/* &&
-             zip dcsazure_Snowflake_to_Snowflake_prof_pl.zip dcsazure_Snowflake_to_Snowflake_prof_pl/* &&
+             cp VERSION.md dcsazure_Snowflake_to_Snowflake_discovery_pl/VERSION.md &&
+             zip dcsazure_Snowflake_to_Snowflake_discovery_pl.zip dcsazure_Snowflake_to_Snowflake_discovery_pl/* &&
+             cp VERSION.md dcsazure_Snowflake_to_Snowflake_mask_pl/VERSION.md &&
              zip dcsazure_Snowflake_to_Snowflake_mask_pl.zip dcsazure_Snowflake_to_Snowflake_mask_pl/* &&
-             zip dcsazure_Databricks_to_Databricks_prof_pl.zip dcsazure_Databricks_to_Databricks_prof_pl/* &&
+             cp VERSION.md dcsazure_Databricks_to_Databricks_discovery_pl/VERSION.md &&
+             zip dcsazure_Databricks_to_Databricks_discovery_pl.zip dcsazure_Databricks_to_Databricks_discovery_pl/* &&
+             cp VERSION.md dcsazure_Databricks_to_Databricks_mask_pl/VERSION.md &&
              zip dcsazure_Databricks_to_Databricks_mask_pl.zip dcsazure_Databricks_to_Databricks_mask_pl/* &&
+             rm *_pl/VERSION.md &&
              mv *.zip releases/."

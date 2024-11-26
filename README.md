@@ -5,13 +5,12 @@ A collection of templates that can be used to leverage Delphix Compliance Servic
 To use Delphix Compliance Services for Azure, and specifically to leverage these pipelines you will need to have the
 following linked services in your data factory:
 * REST service for talking to DCS for Azure
-* Azure SQL Database for storing metadata about the data you wish to profile and mask
+* Azure SQL Database for storing metadata about the data you have discovered and rules for masking
 
 ### To Import Latest Version Templates
 
-Run `docker-compose -f docker-compose.yaml up && stty sane`, this will create the latest version of all templates
-and put them in the `releases` directory. The `stty sane` is to fix the terminal as docker-compose doesn't always
-clean up after itself correctly. From there, you can import the template into your data factory using the Data
+Run `docker-compose -f docker-compose.yaml up`, this will create the latest version of all templates
+and put them in the `releases` directory. From there, you can import the template into your data factory using the Data
 Factory Studio:
 * From the `Author` tab, click the `+` next to the search bar for the Factory Resources
 * Select `Pipeline`, then `Import from pipeline template`
@@ -42,12 +41,12 @@ choose to leverage the default `dbo` schema).
 The metadata store consists of the following tables that all must be in the same schema:
 * `discovered_ruleset` - This table is used to define a ruleset. The ruleset uniquely identifies columns and the
 algorithms that should be applied to those columns. This table is populated in one of two ways:
-    1. Automatically, via the profiling pipeline. The data in this table is populated in two stages.
+    1. Automatically, via the discovery pipeline. The data in this table is populated in two stages.
        1. Probe the information schema or other metadata about the specified database, schema, catalog, etc. Populate
        the `discovered_ruleset` table with as much of the following information as possible:
           * `dataset` (static) - determines which type of data this is, it will be something like `SNOWFLAKE`, but
              will be representative of the datasource; this value and will be statically populated in the appropriate
-             profiling pipeline, and will be checked in masking pipelines to make sure that rules are applied only when
+             discovery pipeline, and will be checked in masking pipelines to make sure that rules are applied only when
              they are referring to the appropriate dataset
           * `specified_database` (parameter) - the top-level identifier for the dataset, in the case of things
              like AzureSQL and Snowflake this will be the `database`, for things like Databricks it will mean the
@@ -84,10 +83,10 @@ algorithms that should be applied to those columns. This table is populated in o
                 Setting this value incorrectly will cause non-conformant data errors when the data violates the
                 specified pattern. The important thing here is that the JSON value in the `metadata` column contains a
                 `date_format` key at the root, and that the value of that key is the string that represents the format.
-       2. Collect data from the specified table and column combination and perform data profiling to determine if the
-          data is likely to be sensitive. This is done by calling the `profiling` endpoint in DCS for Azure services,
-          collecting the results of profiling, and persisting them to the `discovered_ruleset` metadata table,
-          populating for key `(dataset, specified_database, specified_schema, identified_table, identified_column)`, the
+       2. Collect data from the specified table and column combination and perform data discovery to determine if the
+          data is likely to be sensitive. This is done by calling the `profile` endpoint in the discovery component of
+          DCS for Azure services, collecting the results of profiling, and persisting them to the `discovered_ruleset`
+          metadata table, populating for key `(dataset, specified_database, specified_schema, identified_table, identified_column)`, the
           following values:
           * `row_count` (determined) - the number of rows in the table, if this was not populated by the previous phase,
              it is populated in this phase using a `SELECT COUNT(1)` type operation
@@ -99,12 +98,19 @@ algorithms that should be applied to those columns. This table is populated in o
              a value from `[0.00000, 1.0000]` that represents how closely the profiled data matches the sensitive data
              classifiers for the profiled domain and algorithm pair
           * `rows_profiled` - the number of rows included in the profiling request
+          * `discovery_complete` (determined) - bit representing whether the data in this column has had data discovery
+            performed on it
+          * `latest_event` (determined) - unique identified that is used to refer to events in event logging table which
+            is useful when attempting to decipher why discovery may have failed
     2. Manually, where users enter values to create rows for fields in each of the tables to define which rules (masking
-algorithms) should be applied when masking data. This is not preferred as it is error-prone.
+       algorithms) should be applied when masking data. This is not preferred as it is error-prone.
 * `adf_data_mapping` - This table is used to define source to destination mappings for the masking pipeline. The table
    maps a source `dataset, database, schema, table` to a corresponding destination `dataset, database, schema, table`.
    The rules in the ruleset (defined in `discovered_ruleset`) will be applied when performing masking and will copy data
    (either masked or unmasked, depending on how the ruleset is configured) from the source to the sink.
+  * Whether this mapping has been successfully completed is tracked in `mapping_complete` and `masked_status`, and these
+    values are automatically updated based on the results of the pipeline, and success and failure can be tracked by
+    leveraging the event logging table and `latest_event`
 * `adf_type_mapping` - This table is used to track how data should be treated as it flows through masking pipeline in
    Azure Data Factory, where applicable. The values in this table are inserted in the migration scripts.
 
@@ -137,7 +143,7 @@ Consider a key column with values `KEY_1`, `KEY_2`, `KEY_3`, `KEY_4`, `KEY_5`, a
 key aliases that help us identify `KEY_1`, `KEY_2`, `KEY_3`, and set a default behavior for everything else as well.
 
 We can construct the value of `assigned_algorithm` using a structure like the following:
-```
+```json
 [
     {
         "alias": "K1",
@@ -243,10 +249,60 @@ Note that this requires that the `assigned_algorithm` for the `row_type` column 
 and their aliases. Further note that this means you should not specify `date_format` at the top-level of the `metadata`
 when there is a conditional date format.
 
+## Pipeline Failures
+
+To identify the cause of a pipeline failure, you can use the "Monitor" page and consider the failed pipeline run,
+however that can be difficult to follow. To make this easier, select activities (discovery and masking dataflows) and
+their success are tracked in the metadata datastore.
+
+To identify if a ruleset was derived and a table had discovery performed on it, a query can be made against the
+`discovered_ruleset` table, joining the `adf_events_log` table on the event ID, for example:
+
+```sql
+SELECT
+    rs.*,
+    lg.pipeline_run_id,
+    lg.pipeline_success,
+    lg.error_message
+FROM discovered_ruleset rs
+JOIN adf_events_log lg
+ON (rs.latest_event = lg.event_id);
+```
+
+To identify if a mapping was successful, a query can be made against the `adf_data_mapping` table, joining the
+`adf_events_log` table on the event ID, for example:
+
+```sql
+SELECT
+    dm.*,
+    lg.pipeline_run_id,
+    lg.pipeline_success,
+    lg.error_message
+FROM adf_data_mapping dm
+JOIN adf_events_log lg
+ON (dm.latest_event = lg.event_id);
+```
+
+In the event of conditional masking, the `adf_data_mapping` table contains a column `masked_status`, that will report
+whether a particular alias has been successfully mapped. If a pipeline fails, there may be more than one event for a
+particular table, in which case, a query using the `pipeline_run_id` can help identify errors, for example:
+
+```sql
+SELECT
+    *
+FROM adf_events_log
+WHERE
+    pipeline_success = CAST(0 AS BIT)
+    AND pipeline_run_id = '<pipeline_run_id>';
+```
+
+Consider adding additional clauses to the `WHERE` condition, such as `filter_alias IS NOT NULL` or
+`source_table = '<source_table>'`
+
 ## Additional Resources
 
 * Dataflows documentation
-  * [Profiling dataflow](./documentation/dataflows/prof_df.md)
+  * [Data Discovery dataflow](./documentation/dataflows/data_discovery_df)
   * [Filtered Masking dataflow](./documentation/dataflows/filtered_mask_df)
   * [Filtered Masking Parameters dataflow](./documentation/dataflows/filtered_mask_params_df)
   * [Unfiltered Masking dataflow](./documentation/dataflows/unfiltered_mask_df)
@@ -254,13 +310,13 @@ when there is a conditional date format.
   * [Copy dataflow](./documentation/dataflows/copy_df.md)
 * Pipeline documentation - Documentation for each pipeline is included in the released version of the template
   * [dcsazure_Databricks_to_Databricks_mask_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_mask_pl.md)
-  * [dcsazure_Databricks_to_Databricks_prof_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_prof_pl.md)
+  * [dcsazure_Databricks_to_Databricks_discovery_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_discovery_pl.md)
   * [dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl](./documentation/pipelines/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl.md)
-  * [dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl](./documentation/pipelines/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl.md)
+  * [dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl](./documentation/pipelines/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl.md)
   * [dcsazure_Snowflake_to_Snowflake_mask_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_mask_pl.md)
-  * [dcsazure_Snowflake_to_Snowflake_prof_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_prof_pl.md)
+  * [dcsazure_Snowflake_to_Snowflake_discovery_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_discovery_pl.md)
   * [dcsazure_adls_to_adls_mask_pl](./documentation/pipelines/dcsazure_adls_to_adls_mask_pl.md)
-  * [dcsazure_adls_to_adls_prof_pl](./documentation/pipelines/dcsazure_adls_to_adls_prof_pl.md)
+  * [dcsazure_adls_to_adls_discovery_pl](./documentation/pipelines/dcsazure_adls_to_adls_discovery_pl.md)
 
 
 ## Contribution
@@ -296,10 +352,11 @@ will have to be made to the `docker-compose.yaml`. For this example, you'd have 
 `zip sample_template_pl.zip sample_template_pl/* &&` somewhere between `apt-get install -y zip &&`
 and `mv *.zip releases/."`.
 
-If Metadata store scripts are needed to support your new templates or new features, please update the `metadata_store_scripts`
-directory to include those changes. New statements should play nicely with previous statements - isolate the changes in
-a particular versioned script, and follow the version naming convention, as well as adding them to the end of
-`bootstrap.sql` (please also edit the comment at the top of `bootstrap.sql` to indicate which version scripts have been
-added). Versioned scripts follow the naming convention `V<version_number>__<comment>.sql`, where `<version_number>` is
-`YYYY.MM.DD.#` and represents the date when this script is added (with the final digit being used to allow multiple
-versions to be tagged with the same date).
+If Metadata store scripts are needed to support your new templates or new features, please update the
+`metadata_store_scripts` directory to include those changes, and update the `README.md` for all impacted templates to
+incidate the need for the new DB version. New statements should play nicely with previous statements - isolate the
+changes in a particular versioned script, and follow the version naming convention. Versioned scripts follow the naming
+convention `V<version_number>__<comment>.sql`, where `<version_number>` is `YYYY.MM.DD.#` and represents the date when
+this script is added (with the final digit being used to allow multiple versions to be tagged with the same date).
+You can leverage the [./scripts/migrations.sh](./scripts/migrations.sh) to automatically add the new versioned migration
+to the [./metadata_store_scripts/bootstrap.sql](./metadata_store_scripts/bootstrap.sql) file.
