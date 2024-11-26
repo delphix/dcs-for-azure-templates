@@ -24,7 +24,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_mask_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_mask_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -60,7 +60,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
+                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -118,7 +118,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
+                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -167,7 +167,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_adls_to_adls_unfiltered_mask_params_df",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_params_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -204,8 +204,7 @@
                               "Ruleset": {},
                               "TypeMapping": {},
                               "MaskingParameterOutput": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -240,7 +239,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_adls_to_adls_delimited_unfiltered_mask_df",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -323,8 +322,7 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -699,7 +697,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_adls_to_adls_filtered_mask_params_df",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_filtered_mask_params_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -744,8 +742,7 @@
                               "Ruleset": {},
                               "TypeMapping": {},
                               "MaskingParameterOutput": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -780,7 +777,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_adls_to_adls_delimited_filtered_mask_df",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_filtered_mask_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -867,8 +864,7 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -1272,7 +1268,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
+                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -1404,7 +1400,7 @@
                         },
                         "inputs": [
                           {
-                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -1420,7 +1416,7 @@
                         ],
                         "outputs": [
                           {
-                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -1796,7 +1792,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_adls_to_adls_delimited_copy_df",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_copy_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -2228,7 +2224,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
+                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -2263,7 +2259,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataflow": {
-                "referenceName": "dcsazure_adls_to_adls_delimited_filter_test_utility_df",
+                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_filter_test_utility_df",
                 "type": "DataFlowReference",
                 "parameters": {
                   "runId": "''",
@@ -2366,7 +2362,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
+                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -2414,7 +2410,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
+                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
@@ -2432,6 +2428,7 @@
                     ],
                     "storeSettings": {
                       "type": "AzureBlobFSReadSettings",
+                      "recursive": true,
                       "enablePartitionDiscovery": false
                     },
                     "formatSettings": {
@@ -2471,7 +2468,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataset": {
-                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -2595,7 +2592,7 @@
           },
           "DATASET": {
             "type": "String",
-            "defaultValue": "ADLS"
+            "defaultValue": "ADLS-DELIMITED"
           },
           "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
             "type": "String",
@@ -2607,24 +2604,24 @@
           }
         },
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2024-09-25T01:21:56Z"
+        "lastPublishTime": "2024-12-05T00:28:53Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_mask_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_filter_test_utility_df')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_mask_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_unfiltered_mask_params_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_unfiltered_mask_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_filtered_mask_params_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_filtered_mask_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_copy_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_filter_test_utility_df')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_copy_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_metadata_mask_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2641,7 +2638,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -2733,12 +2730,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_filter_test_utility_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_filter_test_utility_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -2827,7 +2824,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory_mask_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2844,7 +2841,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
         "type": "DelimitedText",
@@ -2874,12 +2871,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_unfiltered_mask_params_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -2975,6 +2972,7 @@
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
+            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
@@ -3017,7 +3015,7 @@
             "     schemaName: ($DF_METADATA_SCHEMA),",
             "     tableName: ($DF_METADATA_ADF_TYPE_MAPPING_TABLE),",
             "     isolationLevel: 'READ_UNCOMMITTED') ~> TypeMapping",
-            "Ruleset filter(equalsIgnoreCase(dataset, 'ADLS') ",
+            "Ruleset filter(equalsIgnoreCase(dataset, $DF_DATASET) ",
             "&& equalsIgnoreCase(specified_database, $DF_SOURCE_CONTAINER) ",
             "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_SCHEMA) ",
             "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)",
@@ -3040,7 +3038,7 @@
             "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count))+1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
-            "TypeMapping filter(equalsIgnoreCase(dataset, 'ADLS')) ~> FilterAdlsType",
+            "TypeMapping filter(equalsIgnoreCase(dataset, $DF_DATASET)) ~> FilterAdlsType",
             "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseMetadata",
@@ -3083,12 +3081,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_unfiltered_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -3188,6 +3186,7 @@
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
+            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SINK_CONTAINER as string (''),",
             "     DF_SOURCE_DIRECTORY as string (''),",
@@ -3308,13 +3307,13 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_filtered_mask_params_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Generate masking parameters when conditional algorithms are defined",
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -3458,12 +3457,12 @@
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
+            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
-            "     DF_FILTER_KEY as string (''),",
-            "     DF_DATASET as string ('ADLS')",
+            "     DF_FILTER_KEY as string ('')",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -3675,13 +3674,13 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_filtered_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Perform masking on a subset of the data that matches the specified filter",
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -3907,12 +3906,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_copy_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_copy_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_adls_to_adls"
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
