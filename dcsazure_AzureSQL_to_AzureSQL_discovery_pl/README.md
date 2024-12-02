@@ -40,30 +40,6 @@ steps:
 * For Each Discovered Table
   * Call the `dcsazure_AzureSQL_to_AzureSQL_prof_df` data flow
 
-```mermaid
-sequenceDiagram
-    participant AzureSQL as Azure SQL Database
-    participant SchemaDiscovery as Schema Discovery
-    participant MetadataStore as Metadata Store
-    participant DataFlow as dcsazure_AzureSQL_to_AzureSQL_prof_df
-
-
-    SchemaDiscovery->>AzureSQL: Query metadata (information_schema)
-    AzureSQL-->>SchemaDiscovery: Return metadata (tables and columns)
-
-    SchemaDiscovery->>MetadataStore: Persist metadata
-    MetadataStore-->>SchemaDiscovery: Confirmation
-
-    SchemaDiscovery->>MetadataStore: Collect discovered tables
-    MetadataStore-->>SchemaDiscovery: Return list of tables
-
-    SchemaDiscovery->>SchemaDiscovery: For Each Discovered Table
-    loop For each table
-        SchemaDiscovery->>DataFlow: Call data flow (dcsazure_AzureSQL_to_AzureSQL_prof_df)
-        DataFlow-->>MetadataStore: Store profiling results
-    end
-```
-
 ### Variables
 
 If you have configured your database using the metadata store scripts, these variables will not need editing. If you
