@@ -1,3 +1,4 @@
 .idea
 dcs-for-azure-templates.iml
 releases/*.zip
+.DS_Store

@@ -1,1 +1,0 @@
-../../dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_prof_pl/README.md

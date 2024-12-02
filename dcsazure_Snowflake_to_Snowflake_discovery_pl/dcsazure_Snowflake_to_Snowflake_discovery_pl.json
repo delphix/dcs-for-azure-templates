@@ -9,10 +9,10 @@
     "BlobStoreStagingArea": {
       "type": "string"
     },
-    "Snowflake_Source_New": {
+    "Metadata Datastore": {
       "type": "string"
     },
-    "Metadata Datastore": {
+    "Snowflake_Source_New": {
       "type": "string"
     },
     "ProdDCSForAzureService": {
@@ -24,7 +24,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_prof_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -32,7 +32,14 @@
           {
             "name": "Schema Discovery From Snowflake",
             "type": "Copy",
-            "dependsOn": [],
+            "dependsOn": [
+              {
+                "activity": "Check If We Should Rediscover Data",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
             "policy": {
               "timeout": "0.12:00:00",
               "retry": 0,
@@ -45,7 +52,7 @@
               "source": {
                 "type": "SnowflakeV2Source",
                 "query": {
-                  "value": "SELECT \n    'SNOWFLAKE' AS dataset,\n    T.TABLE_CATALOG AS specified_database,\n    C.TABLE_SCHEMA AS specified_schema,\n    C.TABLE_NAME AS identified_table,\n    C.COLUMN_NAME AS identified_column,\n    C.DATA_TYPE AS identified_column_type,\n    IFNULL(C.CHARACTER_MAXIMUM_LENGTH,-1) AS identified_column_max_length,\n    C.ORDINAL_POSITION AS ordinal_position,\n    T.ROW_COUNT AS row_count\nFROM\n    @{pipeline().parameters.P_SOURCE_DATABASE}.INFORMATION_SCHEMA.COLUMNS C,\n    @{pipeline().parameters.P_SOURCE_DATABASE}.INFORMATION_SCHEMA.TABLES T\nWHERE\n    UPPER(T.TABLE_CATALOG) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n    AND UPPER(C.TABLE_SCHEMA) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n    AND C.TABLE_NAME = T.TABLE_NAME\n    AND C.TABLE_SCHEMA = T.TABLE_SCHEMA\n    AND T.TABLE_TYPE = 'BASE TABLE'\nORDER BY C.TABLE_NAME, C.ORDINAL_POSITION",
+                  "value": "SELECT \n    '@{variables('DATASET')}' AS dataset,\n    T.TABLE_CATALOG AS specified_database,\n    C.TABLE_SCHEMA AS specified_schema,\n    C.TABLE_NAME AS identified_table,\n    C.COLUMN_NAME AS identified_column,\n    C.DATA_TYPE AS identified_column_type,\n    IFNULL(C.CHARACTER_MAXIMUM_LENGTH,-1) AS identified_column_max_length,\n    C.ORDINAL_POSITION AS ordinal_position,\n    T.ROW_COUNT AS row_count\nFROM\n    @{pipeline().parameters.P_SOURCE_DATABASE}.INFORMATION_SCHEMA.COLUMNS C,\n    @{pipeline().parameters.P_SOURCE_DATABASE}.INFORMATION_SCHEMA.TABLES T\nWHERE\n    UPPER(T.TABLE_CATALOG) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n    AND UPPER(C.TABLE_SCHEMA) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n    AND C.TABLE_NAME = T.TABLE_NAME\n    AND C.TABLE_SCHEMA = T.TABLE_SCHEMA\n    AND T.TABLE_TYPE = 'BASE TABLE'\nORDER BY C.TABLE_NAME, C.ORDINAL_POSITION",
                   "type": "Expression"
                 },
                 "exportSettings": {
@@ -177,17 +184,29 @@
             },
             "inputs": [
               {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_prof_source_ds",
+                "referenceName": "dcsazure_Snowflake_to_Snowflake_discovery_source_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SCHEMA": "INFORMATION_SCHEMA",
-                  "DS_TABLE": "TABLES"
+                  "DS_TABLE": "TABLES",
+                  "DS_DATABASE": {
+                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                    "type": "Expression"
+                  },
+                  "DS_WAREHOUSE": {
+                    "value": "@variables('SNOWFLAKE_WAREHOUSE')",
+                    "type": "Expression"
+                  },
+                  "DS_ROLE": {
+                    "value": "@variables('SNOWFLAKE_ROLE')",
+                    "type": "Expression"
+                  }
                 }
               }
             ],
             "outputs": [
               {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_prof_metadata_ds",
+                "referenceName": "dcsazure_Snowflake_to_Snowflake_discovery_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -225,14 +244,14 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT identified_table FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nORDER BY identified_table",
+                  "value": "SELECT DISTINCT identified_table FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   dataset = '@{variables('DATASET')}'\n   AND UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n   AND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Snowflake_to_Snowflake_prof_metadata_ds",
+                "referenceName": "dcsazure_Snowflake_to_Snowflake_discovery_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -267,7 +286,7 @@
               },
               "activities": [
                 {
-                  "name": "Profile",
+                  "name": "Discover Sensitive Data",
                   "type": "ExecuteDataFlow",
                   "dependsOn": [],
                   "policy": {
@@ -280,7 +299,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_Snowflake_to_Snowflake_prof_df",
+                      "referenceName": "dcsazure_Snowflake_to_Snowflake_data_discovery_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -299,7 +318,10 @@
                           "value": "'@{item().identified_table}'",
                           "type": "Expression"
                         },
-                        "DF_NUM_ROWS_TO_PROFILE": "1000",
+                        "DF_NUM_ROWS_TO_PROFILE": {
+                          "value": "@variables('NUMBER_OF_ROWS_TO_PROFILE')",
+                          "type": "Expression"
+                        },
                         "DF_METADATA_SCHEMA": {
                           "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
@@ -313,6 +335,24 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
+                      },
+                      "linkedServiceParameters": {
+                        "Source1MillRowDataSampling": {
+                          "linkedService": {
+                            "LS_DATABASE": {
+                              "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                              "type": "Expression"
+                            },
+                            "LS_WAREHOUSE": {
+                              "value": "@variables('SNOWFLAKE_WAREHOUSE')",
+                              "type": "Expression"
+                            },
+                            "LS_ROLE": {
+                              "value": "@variables('SNOWFLAKE_ROLE')",
+                              "type": "Expression"
+                            }
+                          }
+                        }
                       }
                     },
                     "staging": {},
@@ -324,6 +364,301 @@
                     "cacheSinks": {
                       "firstRowOnly": true
                     }
+                  }
+                },
+                {
+                  "name": "Update Discovery State",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Discover Sensitive Data",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ActivityRunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "error_message": {
+                        "value": null,
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "{\n    \"DF_SOURCE_DATABASE\": \"@{item().specified_database}\",\n    \"DF_SOURCE_SCHEMA\": \"@{item().specified_schema}\",\n    \"DF_SOURCE_TABLE\": \"@{item().identified_table}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')}\n}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@pipeline().Pipeline",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@pipeline().RunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "pipeline_success": {
+                        "value": "true",
+                        "type": "Boolean"
+                      },
+                      "source_database": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_dataset": {
+                        "value": {
+                          "value": "@variables('DATASET')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_metadata": {
+                        "value": null,
+                        "type": "String"
+                      },
+                      "source_schema": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_table": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Update Discovery State Failed",
+                  "type": "SqlServerStoredProcedure",
+                  "dependsOn": [
+                    {
+                      "activity": "Discover Sensitive Data",
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "storedProcedureName": {
+                      "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                      "type": "Expression"
+                    },
+                    "storedProcedureParameters": {
+                      "activity_run_id": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ActivityRunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "error_message": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').Error.message",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "execution_end_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "execution_start_time": {
+                        "value": {
+                          "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
+                          "type": "Expression"
+                        },
+                        "type": "DateTime"
+                      },
+                      "input_parameters": {
+                        "value": {
+                          "value": "{\n    \"DF_SOURCE_DATABASE\": \"@{item().specified_database}\",\n    \"DF_SOURCE_SCHEMA\": \"@{item().specified_schema}\",\n    \"DF_SOURCE_TABLE\": \"@{item().identified_table}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')}\n}",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_name": {
+                        "value": {
+                          "value": "@pipeline().Pipeline",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "pipeline_run_id": {
+                        "value": {
+                          "value": "@pipeline().RunId",
+                          "type": "Expression"
+                        },
+                        "type": "Guid"
+                      },
+                      "pipeline_success": {
+                        "value": "false",
+                        "type": "Boolean"
+                      },
+                      "source_database": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_dataset": {
+                        "value": {
+                          "value": "@variables('DATASET')",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_metadata": {
+                        "value": null,
+                        "type": "String"
+                      },
+                      "source_schema": {
+                        "value": {
+                          "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      },
+                      "source_table": {
+                        "value": {
+                          "value": "@item().identified_table",
+                          "type": "Expression"
+                        },
+                        "type": "String"
+                      }
+                    }
+                  },
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  }
+                },
+                {
+                  "name": "Fail After Updating Discovery State",
+                  "type": "Fail",
+                  "dependsOn": [
+                    {
+                      "activity": "Update Discovery State Failed",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "Failed to discover @{item().identified_table}",
+                      "type": "Expression"
+                    },
+                    "errorCode": "500"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Check If We Should Rediscover Data",
+            "type": "IfCondition",
+            "dependsOn": [],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@pipeline().parameters.P_REDISCOVER",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Mark Tables Undiscovered",
+                  "description": "Mark all tables in this database and schema as undiscovered so that we can re-discover sensitive data in them",
+                  "type": "Script",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  },
+                  "typeProperties": {
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "UPDATE @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nSET discovery_complete = CAST(0 AS BIT)\nWHERE\n    dataset = '@{variables('DATASET')}'\n    AND UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n    AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')",
+                          "type": "Expression"
+                        }
+                      }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
                   }
                 }
               ]
@@ -339,6 +674,10 @@
           },
           "P_SOURCE_SCHEMA": {
             "type": "string"
+          },
+          "P_REDISCOVER": {
+            "type": "bool",
+            "defaultValue": true
           }
         },
         "variables": {
@@ -353,34 +692,77 @@
           "METADATA_RULESET_TABLE": {
             "type": "String",
             "defaultValue": "discovered_ruleset"
+          },
+          "DATASET": {
+            "type": "String",
+            "defaultValue": "SNOWFLAKE"
+          },
+          "METADATA_EVENT_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "insert_adf_discovery_event"
+          },
+          "NUMBER_OF_ROWS_TO_PROFILE": {
+            "type": "Integer",
+            "defaultValue": 1000
+          },
+          "SNOWFLAKE_WAREHOUSE": {
+            "type": "String",
+            "defaultValue": "DEFAULT"
+          },
+          "SNOWFLAKE_ROLE": {
+            "type": "String",
+            "defaultValue": "SYSADMIN"
           }
         },
         "folder": {
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2024-06-04T17:40:57Z"
+        "lastPublishTime": "2024-10-17T20:59:15Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_prof_source_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_prof_metadata_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_prof_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_discovery_source_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_discovery_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Snowflake_to_Snowflake_data_discovery_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_prof_source_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_discovery_source_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('Snowflake_Source_New')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": {
+              "value": "@dataset().DS_DATABASE",
+              "type": "Expression"
+            },
+            "LS_WAREHOUSE": {
+              "value": "@dataset().DS_WAREHOUSE",
+              "type": "Expression"
+            },
+            "LS_ROLE": {
+              "value": "@dataset().DS_ROLE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
             "type": "string"
           },
           "DS_TABLE": {
+            "type": "string"
+          },
+          "DS_DATABASE": {
+            "type": "string"
+          },
+          "DS_WAREHOUSE": {
+            "type": "string"
+          },
+          "DS_ROLE": {
             "type": "string"
           }
         },
@@ -404,7 +786,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_prof_metadata_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_discovery_metadata_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -469,7 +851,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_prof_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_data_discovery_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -509,7 +891,6 @@
           "transformations": [
             {
               "name": "CallDCSForAzureProfiling",
-              "description": "Call DCS for Azure services, using /v1/discovery/profileByColumn, where the data from the CreateItemsList is included in the request body and the format of the response is specified",
               "linkedService": {
                 "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
@@ -582,8 +963,8 @@
             "     validateSchema: false,",
             "     limit: 1000000,",
             "     format: 'table',",
-            "     tableName: (upper($DF_SOURCE_TABLE)),",
-            "     schemaName: (upper($DF_SOURCE_SCHEMA)),",
+            "     tableName: ($DF_SOURCE_TABLE),",
+            "     schemaName: ($DF_SOURCE_SCHEMA),",
             "     store: 'snowflake',",
             "     store: 'snowflakeV2',",
             "     partitionBy('roundRobin', 32)) ~> Source1MillRowDataSampling",

@@ -1,41 +1,47 @@
-# dcsazure_adls_to_adls_prof_pl
-## Delphix Compliance Services (DCS) for Azure - ADLS to ADLS Profiling Pipeline
+# dcsazure_adls_to_adls_discovery_pl
+## Delphix Compliance Services (DCS) for Azure - ADLS to ADLS Discovery Pipeline
 
 This pipeline will perform automated sensitive data discovery on your Azure Data Lake Storage (ADLS) Data.
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.05.02.0`).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.10.24.0`).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage (Gen 2) service associated with your ADLS source data.
 
 ### Importing
-There are several linked services that will need to be selected in order to perform the profiling of your delimited text
-ADLS data.
+There are several linked services that will need to be selected in order to perform the profiling and data discovery
+of your delimited text ADLS data.
 
 These linked services types are needed for the following steps:
 
 `Azure Data Lake Storage` (source) - Linked service associated with ADLS source data. This will be used for the
 following steps:
-* For dcsazure_adls_container_and_directory (DelimitedText dataset)
-* dcsazure_adls_sub_directory (DelimitedText dataset)
-* dcsazure_adls_to_adls_delimited_prof_df/SourceData1MillRowDataSampling (dataFlow)
-* dcsazure_adls_delimited_header (DelimitedText dataset)
+* dcsazure_adls_container_and_directory_discovery_ds (DelimitedText dataset)
+* dcsazure_adls_sub_directory_discovery_ds (DelimitedText dataset)
+* dcsazure_adls_to_adls_delimited_data_discovery_df/SourceData1MillRowDataSampling (dataFlow)
+* dcsazure_adls_delimited_header_file_schema_discovery_ds (DelimitedText dataset)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
-* For Determine All Heterogeneous Schema (Script activity)
-* dcsazure_adls_to_adls_delta_metadata_prof_ds (Azure SQL Database dataset)
+* Determine All Heterogeneous Schemas (Script activity)
+* Update Discovery State (Stored procedure activity)
+* Update Discovery State Failed (Stored procedure activity)
+* Check If We Should Rediscover Data (If Condition activity)
+* dcsazure_adls_to_adls_metadata_discovery_ds (Azure SQL Database dataset)
 * If Match (If Condition activity)
-* dcsazure_adls_to_adls_delimited_prof_df/MetadataStoreRead (dataFlow)
-* dcsazure_adls_to_adls_delimited_prof_df/WriteToMetadataStore (dataFlow)
+* dcsazure_adls_to_adls_delimited_data_discovery_df/MetadataStoreRead (dataFlow)
+* dcsazure_adls_to_adls_delimited_data_discovery_df/WriteToMetadataStore (dataFlow)
 
 `REST` (DCS for Azure) - Linked service associated with calling DCS for Azure. This will be used for the following
 steps:
-* For dcsazure_adls_to_adls_delimited_prof_df (dataFlow)
+* dcsazure_adls_to_adls_delimited_data_discovery_df (dataFlow)
 
 ### How It Works
-The profiling pipeline has a few stages:
+The discovery pipeline has a few stages:
+* Check If We Should Rediscover Data
+  * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables
+    have not had their sensitive data discovered
 * Identify Nested Schemas
   * Using a `Get Metadata` activity, collect the items under the specified `P_DIRECTORY` directory
   * For each item in that list, identify if the schema of the files in that child directory is expected to be
@@ -43,17 +49,18 @@ The profiling pipeline has a few stages:
     an array-type variable, similarly for heterogeneous schemas.
 * Schema Discovery Using Azure Data Factory Metadata Discovery
   * For each of the directories with heterogeneous schema, identify the schema for each file with one of the suffixes to
-    scan, determine the structure of the file by calling the child `dcsazure_adls_to_adls_prof_file_pl` pipeline with
-    the appropriate parameters.
+    scan, determine the structure of the file by calling the child `dcsazure_adls_to_adls_file_schema_discovery_pl`
+    pipeline with the appropriate parameters.
   * For each of the directories with a homogeneous schema, and for each of the prefixes/suffix combinations specified in
     the `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` variable, determine the structure of the file by calling the child
-    `dcsazure_adls_to_adls_prof_file_pl` pipeline with the appropriate parameters.
+    `dcsazure_adls_to_adls_file_schema_discovery_pl` pipeline with the appropriate parameters.
 * Select Discovered Tables - In this case, we consider the table to be items with the same schema.
   * After the previous step, we query the database for all tables (file suffixes within each distinct path of the
-    storage container) and perform profiling of the data in those files.
+    storage container) and perform profiling for sensitive data discovery in those files that have not yet been
+    discovered.
 * ForEach Discovered Table
   * Each table that we've discovered needs to be profiled, the process for that is as follows:
-    * Run the profile dataflow with the appropriate parameters.
+    * Run the data discovery dataflow with the appropriate parameters.
 
 ### Variables
 
@@ -67,13 +74,32 @@ have customized your metadata store, then these variables may need editing.
 * `COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME` - This is the stored procedure on the AzureSQL database that can
   accept, in part, the file structure from the `Get Metadata` ADF pipeline Activity.
 * `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
-  accumulator for the list of directories with heterogeneous schemas.
+  accumulator for the list of directories with heterogeneous schemas (default `[]` - do not modify).
 * `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
-  accumulator for the list of directories with homogeneous schemas.
+  accumulator for the list of directories with homogeneous schemas (default `[]` - do not modify).
+* `DATASET` - This is used to identify data that belongs to this pipeline in the metadata store (default `ADLS`).
+* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the 
+  metadata data store and sets the discovery state on the items discovered during execution
+  (default `insert_adf_discovery_event`).
+* `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value
+  could cause requests to fail (default `1000`).
+* `FILE_UPLOAD_DATE_TIME` - This is used to limit the number of files that are retrieved when the pipeline runs, it is
+  helpful to adjust this value if you have a folder containing an especially large number of files. This will cause
+  some directories to not return any files in the discovery, while other directories will return a reduced list of files
+  that need discovery. The value here is a timestamp that corresponds to the last modified time of a file in ADLS,
+  meaning that any files with a last modified time before this datetime will be excluded from discovery
+  (default `1900-01-01T00:00:00Z`).
+* `UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS` - This is used to limit the number of files that are retrieved when the pipeline
+  runs, it is helpful to adjust this value if you have a folder containing an especially large number of files. The
+  value here is an integer that corresponds to the time (in hours) that corresponds to the last modified time of a file
+  in ADLS, meaning that any files with a last modified time after
+  `FILE_UPLOAD_DATE_TIME + UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS hours` will be excluded from discovery. When
+  this value is less than 0, this last modified time is instead limited to "now", which is determined during the
+  pipeline execution (default `-1`).
 
 ### Parameters
 
-* `P_STORAGE_CONTAINER_TO_PROFILE` - This is the storage container whose contents need profiling
+* `P_STORAGE_CONTAINER_TO_SCAN` - This is the storage container whose contents need review
 * `P_DIRECTORY` - This is the directory within the storage container that contains additional folders that will be
   scanned
 * `P_SUFFIXES_TO_SCAN` - This list can be used to limit which kinds of files are scanned for data, note that these
@@ -86,6 +112,8 @@ have customized your metadata store, then these variables may need editing.
 * `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` - This is the list of file prefixes that can be used to disambiguate directories
   with heterogeneous schemas, see the details in the notes below (default
   `{"DCS_EXAMPLE_PREFIX":{"suffixes":["csv","txt","NO_EXT"]}}`)
+* `P_REDISCOVER` - This is a Bool that specifies if we should re-execute the data discovery dataflow for previously
+  discovered files that have not had their schema modified (default `true`)
 
 
 #### Notes
