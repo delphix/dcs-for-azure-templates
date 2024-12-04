@@ -13,10 +13,6 @@ services:
              zip dcsazure_adls_to_adls_discovery_pl.zip dcsazure_adls_to_adls_discovery_pl/* &&
              cp VERSION.md dcsazure_adls_to_adls_mask_pl/VERSION.md &&
              zip dcsazure_adls_to_adls_mask_pl.zip dcsazure_adls_to_adls_mask_pl/* &&
-             cp VERSION.md dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl/VERSION.md &&
-             zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl/* &&
-             cp VERSION.md dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl/VERSION.md &&
-             zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl.zip dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl/* &&
              cp VERSION.md dcsazure_Snowflake_to_Snowflake_discovery_pl/VERSION.md &&
              zip dcsazure_Snowflake_to_Snowflake_discovery_pl.zip dcsazure_Snowflake_to_Snowflake_discovery_pl/* &&
              cp VERSION.md dcsazure_Snowflake_to_Snowflake_mask_pl/VERSION.md &&
