@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.13
+* Remove support for Snowflake (Legacy) connectors
+
 # 0.0.12
 * Add support for checkpointing and error handling to all pipelines
 * Rename `profiling` components to `discovery` to be consistent with industry-standard terminology
