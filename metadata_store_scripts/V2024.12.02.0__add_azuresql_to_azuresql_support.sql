@@ -1,5 +1,3 @@
-DELETE FROM adf_type_mapping WHERE dataset = 'AZURESQL';
-
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    VALUES
 ('AZURESQL', 'tinyint', 'integer'),

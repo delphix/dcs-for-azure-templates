@@ -1,35 +1,36 @@
-# dcsazure_AzureSQL_to_AzureSQL_prof_pl
-## Delphix Compliance Services (DCS) for Azure - AzureSQL to AzureSQL Profiling Pipeline
+# dcsazure_AzureSQL_to_AzureSQL_discovery_pl
+## Delphix Compliance Services (DCS) for Azure - AzureSQL to AzureSQL Discovery Pipeline
 
 This pipeline will perform automated sensitive data discovery on your AzureSQL Instance.
 
 ### Prerequisites
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.01.01.0`+).
-2. Configure the DCS for Azure REST service.
-3. Configure the AzureSQL linked service.
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.10.24.0`+).
+1. Configure the DCS for Azure REST service.
+1. Configure the AzureSQL linked service.
 
 ### Importing
-There are several linked services that will need to be selected in order to perform the profiling of your AzureSQL
-instance.
+There are several linked services that will need to be selected in order to perform the profiling and data discovery of your AzureSQL instance.
 
 These linked services types are needed for the following steps:
 
 
 `AzureSQL` (source) - Linked service associated with unmasked AzureSQL data. This will be used for the following
 steps:
-* Schema Discovery From AzureSQL (Copy data activity)
-* dcsazure_AzureSQL_to_AzureSQL_source_ds (AzureSQL dataset)
-* dcsazure_AzureSQL_to_AzureSQL_prof_df/AzureSQLSource1MillRowDataSampling (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds (AzureSQL Database dataset)
+* dcsazure_AzureSQL_to_AzureSQL_discovery_df/Source1MillRowDataSampling (dataFlow)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
-* dcsazure_AzureSQL_to_AzureSQL_metadata_prof_ds (Azure SQL Database dataset),
-* dcsazure_AzureSQL_to_AzureSQL_prof_df/MetadataStoreRead (dataFlow),
-* dcsazure_AzureSQL_to_AzureSQL_prof_df/WriteToMetadataStore (dataFlow)
+* Update Discovery State (Stored procedure activity)
+* Update Discovery State Failed (Stored procedure activity)
+* Check If We Should Rediscover Data (If Condition activity)
+* dcsazure_AzureSQL_to_AzureSQL_discovery_metadata_ds (Azure SQL Database dataset),
+* dcsazure_AzureSQL_to_AzureSQL_discovery_df/MetadataStoreRead (dataFlow),
+* dcsazure_AzureSQL_to_AzureSQL_discovery_df/WriteToMetadataStore (dataFlow)
 
 `REST` (DCS for Azure) - Linked service associated with calling DCS for Azure. This will be used for the following
   steps:
-* dcsazure_AzureSQL_to_AzureSQL_prof_df (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_discovery_df (dataFlow)
 
 ### How It Works
 
@@ -38,7 +39,7 @@ steps:
 * Select Discovered Tables
   * After persisting the metadata to the metadata store, collect the list of discovered tables
 * For Each Discovered Table
-  * Call the `dcsazure_AzureSQL_to_AzureSQL_prof_df` data flow
+  * Call the `dcsazure_AzureSQL_to_AzureSQL_discovery_df` data flow
 
 ### Variables
 

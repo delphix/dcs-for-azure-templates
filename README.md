@@ -317,7 +317,8 @@ Consider adding additional clauses to the `WHERE` condition, such as `filter_ali
   * [dcsazure_Snowflake_to_Snowflake_discovery_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_discovery_pl.md)
   * [dcsazure_adls_to_adls_mask_pl](./documentation/pipelines/dcsazure_adls_to_adls_mask_pl.md)
   * [dcsazure_adls_to_adls_discovery_pl](./documentation/pipelines/dcsazure_adls_to_adls_discovery_pl.md)
-  * [dcsazure_AzureSQL_to_AzureSQL_prof_pl](./dcsazure_AzureSQL_to_AzureSQL_prof_pl/README.md)
+  * [dcsazure_AzureSQL_to_AzureSQL_discovery_pl](./dcsazure_AzureSQL_to_AzureSQL_discovery_pl/README.md)
+  * [dcsazure_AzureSQL_to_AzureSQL_mask_pl](./dcsazure_AzureSQL_to_AzureSQL_mask_pl/README.md)
 
 
 ## Contribution

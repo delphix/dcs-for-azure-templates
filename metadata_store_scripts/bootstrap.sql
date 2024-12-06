@@ -4,6 +4,7 @@
 -- * V2024.05.02.0__update_adls_to_adls_support
 -- * V2024.08.25.0__add_conditional_masking_support
 -- * V2024.10.24.0__add_checkpointing_and_logging
+-- * V2024.12.02.0__add_azuresql_to_azuresql_support
 -- The contents of each of those files follows
 
 
@@ -273,6 +274,7 @@ BEGIN
 END;
 -- source: V2024.08.25.0__add_conditional_masking_support
 ALTER TABLE discovered_ruleset ALTER COLUMN assigned_algorithm VARCHAR(MAX);
+
 -- source: V2024.10.24.0__add_checkpointing_and_logging
 ALTER TABLE discovered_ruleset ADD
     discovery_complete BIT,
@@ -545,9 +547,8 @@ BEGIN
         END
 -- End stored procedure definition
 END;
--- source: V2024.10.16.0__add_azuresql_to_azuresql_support
-DELETE FROM adf_type_mapping WHERE dataset = 'AZURESQL';
 
+-- source: V2024.12.02.0__add_azuresql_to_azuresql_support
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    VALUES
 ('AZURESQL', 'tinyint', 'integer'),
