@@ -1,14 +1,13 @@
 # dcsazure_AzureSQL_to_AzureSQL_mask_pl
 ## Delphix Compliance Services (DCS) for Azure - AzureSQL to AzureSQL Masking Pipeline
 
-This pipeline masks data from your source AzureSQL DB and stores the masked data in another AzureSQL DB.
+This pipeline will perform masking of your AzureSQL Instance.
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.08.25.0`+).
-2. Configure the DCS for Azure REST service.
-3. Configure the Azure SQL DB service associated with your AzureSQL source data.
-4. Configure the Azure SQL DB service associated with your AzureSQL sink data (if required).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.12.02.0`+).
+1. Configure the DCS for Azure REST service.
+1. Configure the AzureSQL linked service.
 
 
 ### Importing
@@ -18,58 +17,73 @@ These linked services types are needed for the following steps:
 
 `Azure SQL` (source) - Linked service associated with AzureSQL source data. This will be used for the
 following steps:
-* dcsazure_AzureSQL_to_AzureSQL_mask_df/Source (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_filter_test_utility_df/Source (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_df/Source (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_filtered_mask_df/Source (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_mask_source_ds (Azure SQL Database dataset)
 * dcsazure_AzureSQL_to_AzureSQL_copy_df/SourceData (dataFlow)
 
 `Azure SQL` (sink) - Linked service associated with AzureSQL sink data. This will be used for the
 following steps:
-* dcsazure_AzureSQL_to_AzureSQL_mask_df/Sink (dataFlow)
+* Truncate Selected Table (Script activity)
+* dcsazure_AzureSQL_to_AzureSQL_filter_test_utility_df/Sink (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_df/Sink (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_filtered_mask_df/Sink (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds (Azure SQL Database dataset)
 * dcsazure_AzureSQL_to_AzureSQL_copy_df/SinkData (dataFlow)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
-* dcsazure_AzureSQL_to_AzureSQL_metadata_mask_ds (Azure SQL Database dataset)
-* dcsazure_AzureSQL_to_AzureSQL_mask_params_df/Ruleset (dataFlow)
-* dcsazure_AzureSQL_to_AzureSQL_mask_params_df/TypeMapping (dataFlow)
+* Check For Conditional Masking (If Condition activity)
+* If Use Copy Dataflow (If Condition activity)
+* Check If We Should Reapply Mapping (If Condition activity)
+* Configure Masked Status (Script activity)
+* dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds (Azure SQL Database dataset)
+* dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_params_df/Ruleset (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_params_df/TypeMapping (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_filtered_params_df/Ruleset (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_filtered_params_df/TypeMapping (dataFlow)
 
 `REST` (DCS for Azure) - Linked service associated with calling DCS for Azure. This will be used for the following
 steps:
-* dcsazure_AzureSQL_to_AzureSQL_mask_df (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_df (dataFlow)
+* dcsazure_AzureSQL_to_AzureSQL_filtered_mask_df (dataFlow)
 
 ### How It Works
+* Check If We Should Reapply Mapping
+  * If we should, Mark Table Mapping Incomplete. This is done by updating the metadata store to indicate that tables
+      have not had their mapping applied
+* Select Tables We Should Truncate
+  * Select sink tables with an incomplete mapping and based on the value of `P_TRUNCATE_SINK_BEFORE_WRITE`, create a
+    list of tables that we should truncate
+    * For Each Table To Truncate, execute a query to truncate the sink table
+* Select Tables That Require Masking
+  * Configure Masked Status
+  * For Each Table To Mask
+* Select Tables Without Required Masking
+  * Filter If Copy Unmasked Enabled
+  * For Each Table With No Masking
 * Select Tables Without Required Masking. This is done by querying the metadata store.
   * Filter If Copy Unmask Enabled. This is done by applying a filter based on the value of `P_COPY_UNMASKED_TABLES`
     * For Each Table With No Masking. Provided we have any rows left after applying the filter
       * Get Sink Table Details No Masking. Query AzureSQL for sink table details
       * Get Sink Table Metadata No Masking. Query Metadata store to construct metadata information for sink table
-      * If Copy Write Supported. Evaluate whether we can copy data to the sink table
-        * If true, the writer version is supported, copy data by calling
-          `dcsazure_AzureSQL_to_AzureSQL_copy_df`
-        * If false, the writer version is unsupported, fail the pipeline
-* Select Tables That Require Masking. This is done by querying the metadata store. This will provided a list of tables
-  that need masking, and if they need to be masked leveraging conditional algorithms, the set of required filters.
+      * If Copy Via Dataflow - based on the value of `P_COPY_USE_DATAFLOW`
+        * If the data flow is to be used for copy, then call `dcsazure_AzureSQL_to_AzureSQL_copy_df`
+        * If the data flow is not to be used for copy, then use a copy activity
+        * Update the mapped status based on the success of this dataflow, and fail accordingly
+* Select Tables That Require Masking. This is done by querying the metadata store. This will provided a list of tables that need masking, and if they need to be masked leveraging conditional algorithms, the set of required filters.
   * For Each Table To Mask
-    * For each table that requires masking:
-      * Get the source table's metadata
-      * Get the sink table's details
-        * If the table can be written to (i.e. the Data Factory backend supports this table writer version)
-          * Get the metadata needed for the sink table
-          * If no filter needs to be applied:
-            * Call the `dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_params_df` data flow to generate masking
-              parameters
-            * Call the `dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_df` data flow, passing in parameters as
-              generated by the generate masking parameters dataflow
-          * If a filter needs to be applied:
-            * Call the `dcsazure_AzureSQL_to_AzureSQL_filtered_mask_params_df` data flow to generate masking
-              parameters using the filter alias
-            * Call the `dcsazure_AzureSQL_to_AzureSQL_filtered_mask_df` data flow, passing in parameters as
-              generated by the generate masking parameters dataflow and the filter as determined by the output of For
-              Each Table To Mask
-        * If the table cannot be written to (i.e. the Data Factory backend doesn't support this table writer version)
-          * Provide a `400` status error code to indicate the failure of this table (with the appropriate message)
-* Note that there is a deactivated activity `Test Filter Conditions` that exists in order to support importing the
-  filter test utility dataflow, this is making it easier to test writing filter conditions leveraging a dataflow debug
-  session
+    * Check if the table must be masked with a filter condition
+      * If no filter needs to be applied:
+        * Call the `dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_params_df` data flow to generate masking parameters
+        * Call the `dcsazure_AzureSQL_to_AzureSQL_unfiltered_mask_df` data flow, passing in parameters as generated by the generate masking parameters dataflow
+        * Update the mapped status based on the success of this dataflow, and fail accordingly
+      * If a filter needs to be applied:
+        * Call the `dcsazure_AzureSQL_to_AzureSQL_filtered_mask_params_df` data flow to generate masking parameters using the filter alias
+        * Call the `dcsazure_AzureSQL_to_AzureSQL_filtered_mask_df` data flow, passing in parameters as generated by the generate masking parameters dataflow and the filter as determined by the output of For Each Table To Mask
+        * Update the mapped status based on the success of this dataflow, and fail accordingly
+* Note that there is a deactivated activity `Test Filter Conditions` that exists in order to support importing the filter test utility dataflow, this is making it easier to test writing filter conditions leveraging a dataflow debug session
 
 ### Variables
 
@@ -89,12 +103,7 @@ have customized your metadata store, then these variables may need editing.
   when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
   ADF syntax for referencing the key column (default `%`)
 * `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`)
-
-The following variables are used by the pipeline and should not be edited unless directed.
-* `writerVersion` - Integer - Default value `5`, this is the value of the maximum writer version supported by ADF's
-internal Spark cluster
-* `readerVersion` - Integer - Default value `2`, this is the value of the maximum reader version supported by ADF's
-internal Spark cluster
+* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the metadata data store and sets the masked and mapping states on the items processed during execution (default `insert_adf_masking_event`).
 
 ### Parameters
 
@@ -102,10 +111,8 @@ internal Spark cluster
 exists, but no algorithms have been defined (default `false`)
 * `P_FAIL_ON_NONCONFORMANT_DATA` - Bool - This will fail the pipeline if non-conformant data is encountered (default
 `true`)
-* `P_SOURCE_CATALOG` - String - This is the source catalog in AzureSQL that contains the unmasked data
-* `P_SINK_CATALOG` - String - This is the sink catalog in AzureSQL that will serve as a destination for masked data
-* `P_SOURCE_SCHEMA` - String - This is the source schema in AzureSQL (that lives under the specified source catalog)
-and that contains the unmasked data
-* `P_SINK_SCHEMA` - String - This is the sink schema in AzureSQL (that lives under the specified sink catalog) and
-that will serve as a destination for masked data
+* `P_SOURCE_DATABASE` - String - This is the source database in AzureSQL that contains the unmasked data
+* `P_SINK_DATABASE` - String - This is the sink database in AzureSQL that will serve as a destination for masked data
+* `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that we will mask
+* `P_SINK_SCHEMA` - String - This is the schema within the above sink database where we will place masked data
 

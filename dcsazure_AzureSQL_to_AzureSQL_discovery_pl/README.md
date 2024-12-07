@@ -34,8 +34,10 @@ steps:
 
 ### How It Works
 
+* Check If We Should Rediscover Data
+  * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables have not had their sensitive data discovered
 * Schema Discovery From AzureSQL
-  * Query metadata from AzureSQL `information_schema` to identify tables and columns in the AzureSQL instance
+  * Query metadata from Azure SQL `information_schema` to identify tables and columns in the Azure SQL instance
 * Select Discovered Tables
   * After persisting the metadata to the metadata store, collect the list of discovered tables
 * For Each Discovered Table
@@ -50,8 +52,12 @@ have customized your metadata store, then these variables may need editing.
   (default `dbo`)
 * `METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset
   (default `discovered_ruleset`)
+* `DATASET` - This is used to identify data that belongs to this pipeline in the metadata store (default `AZURESQL`)
+* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the metadata data store and sets the discovery state on the items discovered during execution (default `insert_adf_discovery_event`).
+* `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value could cause requests to fail (default `1000`).
 
 ### Parameters
 
-* `P_SOURCE_DATABASE` - String - This is the database in AzureSQL that contains data we wish to profile
-* `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that we will profile
+* `P_SOURCE_DATABASE` - String - This is the database in AzureSQL that may contain sensitive data
+* `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that may contain sensitive data
+* `P_REDISCOVER` - This is a Bool that specifies if we should re-execute the data discovery dataflow for previously discovered files that have not had their schema modified (default `true`)
