@@ -51,11 +51,9 @@ steps:
 
 ### How It Works
 * Check If We Should Reapply Mapping
-  * If we should, Mark Table Mapping Incomplete. This is done by updating the metadata store to indicate that tables
-      have not had their mapping applied
+  * If we should, Mark Table Mapping Incomplete. This is done by updating the metadata store to indicate that tables have not had their mapping applied
 * Select Tables We Should Truncate
-  * Select sink tables with an incomplete mapping and based on the value of `P_TRUNCATE_SINK_BEFORE_WRITE`, create a
-    list of tables that we should truncate
+  * Select sink tables with an incomplete mapping and based on the value of `P_TRUNCATE_SINK_BEFORE_WRITE`, create a list of tables that we should truncate
     * For Each Table To Truncate, execute a query to truncate the sink table
 * Select Tables That Require Masking
   * Configure Masked Status

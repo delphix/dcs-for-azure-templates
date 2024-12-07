@@ -211,8 +211,8 @@
                                 "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping",
                                 "type": "Expression"
                               },
-                              "DF_NUMBER_OF_BATCHES": {
-                                "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches",
+                              "DF_NUMBER_OF_ROWS_PER_BATCH": {
+                                "value": "@variables('TARGET_BATCH_SIZE')",
                                 "type": "Expression"
                               },
                               "DF_TRIM_LENGTHS": {
@@ -228,7 +228,8 @@
                                 "type": "Expression"
                               }
                             },
-                            "datasetParameters": { "Source": {}, "Sink": {} }
+                            "datasetParameters": { "Source": {}, "Sink": {} },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -694,8 +695,8 @@
                                 "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping",
                                 "type": "Expression"
                               },
-                              "DF_NUMBER_OF_BATCHES": {
-                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].NumberOfBatches",
+                              "DF_NUMBER_OF_ROWS_PER_BATCH": {
+                                "value": "@variables('TARGET_BATCH_SIZE')",
                                 "type": "Expression"
                               },
                               "DF_TRIM_LENGTHS": {
@@ -715,7 +716,8 @@
                                 "type": "Expression"
                               }
                             },
-                            "datasetParameters": { "Source": {}, "Sink": {} }
+                            "datasetParameters": { "Source": {}, "Sink": {} },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -2214,7 +2216,8 @@
           "METADATA_EVENT_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "insert_adf_masking_event"
-          }
+          },
+          "TARGET_BATCH_SIZE": { "type": "Integer", "defaultValue": 2000 }
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
@@ -2277,7 +2280,7 @@
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
-              "description": "Select source data at DF_SOURCE_CONTAINER/DF_SOURCE_DELTAPATH using an inline dataset"
+              "description": "Select source data at DF_SOURCE_SCHEMA.DF_SOURCE_TABLE using an inline dataset"
             }
           ],
           "sinks": [
@@ -2567,7 +2570,7 @@
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
-              "description": "Select source data at DF_SOURCE_CONTAINER/DF_SOURCE_DELTAPATH using an inline dataset"
+              "description": "Select source data at DF_SOURCE_SCHEMA.DF_SOURCE_TABLE using an inline dataset"
             }
           ],
           "sinks": [
@@ -2610,7 +2613,7 @@
             },
             {
               "name": "AggregateColumnsByBatch",
-              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID modulo DF_NUMBER_OF_BATCHES - so there will be DF_NUMBER_OF_BATCHES total such aggregations, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
+              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID with integer division by DF_NUMBER_OF_ROWS_PER_BATCH - so there will be a targeted number of total rows in each aggregation, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
             },
             {
               "name": "FlattenValuesOutOfArray",
@@ -2643,7 +2646,7 @@
             "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
             "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
-            "     DF_NUMBER_OF_BATCHES as integer (100),",
+            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
             "     DF_FIELD_DATE_FORMAT as string ('{}')",
@@ -2692,7 +2695,7 @@
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
-            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/$DF_NUMBER_OF_ROWS_PER_BATCH))),",
             "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
             "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
@@ -3118,7 +3121,7 @@
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
-              "description": "Select source data at DF_SOURCE_CONTAINER/DF_SOURCE_DELTAPATH using an inline dataset"
+              "description": "Select source data at DF_SOURCE_SCHEMA.DF_SOURCE_TABLE using an inline dataset"
             }
           ],
           "sinks": [
@@ -3161,7 +3164,7 @@
             },
             {
               "name": "AggregateColumnsByBatch",
-              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID modulo DF_NUMBER_OF_BATCHES - so there will be DF_NUMBER_OF_BATCHES total such aggregations, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
+              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID with integer division by DF_NUMBER_OF_ROWS_PER_BATCH - so there will be a targeted number of total rows in each aggregation, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
             },
             {
               "name": "FlattenValuesOutOfArray",
@@ -3198,7 +3201,7 @@
             "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
             "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
-            "     DF_NUMBER_OF_BATCHES as integer (100),",
+            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
@@ -3248,7 +3251,7 @@
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
-            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/$DF_NUMBER_OF_ROWS_PER_BATCH))),",
             "     each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
             "AggregateColumnsByBatch derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
@@ -3367,7 +3370,7 @@
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
-              "description": "Using an inline data set, specify the source as DF_SOURCE_CONTAINER/DF_SOURCE_DELTAPATH"
+              "description": "Select source data at DF_SOURCE_SCHEMA.DF_SOURCE_TABLE using an inline dataset"
             }
           ],
           "sinks": [
@@ -3377,7 +3380,7 @@
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",
-              "description": "Using an inline data set, specify the sink as DF_SINK_CONTAINER/DF_SINK_DELTAPATH"
+              "description": "Select sink data at DF_SINK_SCHEMA.DF_SINK_TABLE using an inline dataset"
             }
           ],
           "transformations": [],

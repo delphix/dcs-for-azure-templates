@@ -184,7 +184,10 @@
                           "value": "'@{item().identified_table}'",
                           "type": "Expression"
                         },
-                        "DF_NUM_ROWS_TO_PROFILE": "1000",
+                        "DF_NUM_ROWS_TO_PROFILE": {
+                          "value": "@variables('NUMBER_OF_ROWS_TO_PROFILE')",
+                          "type": "Expression"
+                        },
                         "DF_METADATA_SCHEMA": {
                           "value": "'@{variables('METADATA_SCHEMA')}'",
                           "type": "Expression"
@@ -206,7 +209,8 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
-                      }
+                      },
+                      "linkedServiceParameters": {}
                     },
                     "staging": {},
                     "compute": { "coreCount": 8, "computeType": "General" },
@@ -499,14 +503,8 @@
         ],
         "policy": { "elapsedTimeMetric": {} },
         "parameters": {
-          "P_SOURCE_DATABASE": {
-            "type": "string",
-            "defaultValue": "shared-azure-sql-server"
-          },
-          "P_SOURCE_SCHEMA": {
-            "type": "string",
-            "defaultValue": "test_sql_data"
-          },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
           "P_REDISCOVER": { "type": "bool", "defaultValue": true }
         },
         "variables": {
