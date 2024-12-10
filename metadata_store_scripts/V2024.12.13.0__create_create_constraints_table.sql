@@ -8,7 +8,7 @@ CREATE TABLE capture_constraints (
     parent_columns VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
     children_columns VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
     before_masking_status VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-    last_captured_updated_timestamp DATETIME,
+    last_captured_timestamp DATETIME,
     after_masking_status VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
     CONSTRAINT capture_constraints_pk PRIMARY KEY (
         dataset, 
