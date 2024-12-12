@@ -2293,7 +2293,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT \n    '@{pipeline().RunId}' AS pipeline_run_id,\n    'AZURESQL' AS dataset, \n    '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n    '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n    parent_table.name AS identified_parent_table, \n    child_table.name AS child_table, \n    fk.name AS constraint_name, \n    STUFF(\n        (\n            SELECT ',' + parent_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS parent_col \n                ON fk_col.parent_object_id = parent_col.object_id \n                AND fk_col.parent_column_id = parent_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS children_columns, \n    STUFF(\n        (\n            SELECT ',' + child_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS child_col \n                ON fk_col.referenced_object_id = child_col.object_id \n                AND fk_col.referenced_column_id = child_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS parent_columns, \n    CASE \n        WHEN fk.is_disabled = 0 THEN 'Enabled' \n        ELSE 'Disabled' \n    END AS pre_drop_status, \n    GETDATE() AS last_drop_timestamp, \n    'N/A' AS post_create_status \nFROM sys.foreign_keys AS fk \nINNER JOIN sys.tables AS child_table \n    ON fk.parent_object_id = child_table.object_id \nINNER JOIN sys.tables AS parent_table \n    ON fk.referenced_object_id = parent_table.object_id \nWHERE LOWER(SCHEMA_NAME(parent_table.schema_id)) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n",
+                  "value": "SELECT \n    '@{pipeline().RunId}' AS pipeline_run_id,\n    'AZURESQL' AS dataset, \n    '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n    '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n    parent_table.name AS identified_parent_table, \n    child_table.name AS child_table, \n    fk.name AS constraint_name, \n    STUFF(\n        (\n            SELECT ',' + parent_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS parent_col \n                ON fk_col.parent_object_id = parent_col.object_id \n                AND fk_col.parent_column_id = parent_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS children_columns, \n    STUFF(\n        (\n            SELECT ',' + child_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS child_col \n                ON fk_col.referenced_object_id = child_col.object_id \n                AND fk_col.referenced_column_id = child_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS parent_columns, \n    CASE \n        WHEN fk.is_disabled = 0 THEN 'Enabled' \n        ELSE 'Disabled' \n    END AS pre_drop_status, \n    GETDATE() AS drop_timestamp, \n    'N/A' AS post_create_status \nFROM sys.foreign_keys AS fk \nINNER JOIN sys.tables AS child_table \n    ON fk.parent_object_id = child_table.object_id \nINNER JOIN sys.tables AS parent_table \n    ON fk.referenced_object_id = parent_table.object_id \nWHERE LOWER(SCHEMA_NAME(parent_table.schema_id)) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -2322,6 +2322,18 @@
                 "mappings": [
                   {
                     "source": {
+                      "name": "pipeline_run_id",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    },
+                    "sink": {
+                      "name": "pipeline_run_id",
+                      "type": "Guid",
+                      "physicalType": "uniqueidentifier"
+                    }
+                  },
+                  {
+                    "source": {
                       "name": "dataset",
                       "type": "String",
                       "physicalType": "varchar"
@@ -2430,12 +2442,12 @@
                   },
                   {
                     "source": {
-                      "name": "last_drop_timestamp",
+                      "name": "drop_timestamp",
                       "type": "DateTime",
                       "physicalType": "datetime"
                     },
                     "sink": {
-                      "name": "last_drop_timestamp",
+                      "name": "drop_timestamp",
                       "type": "DateTime",
                       "physicalType": "datetime"
                     }
@@ -2656,7 +2668,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT \n    '@{pipeline().RunId}' AS pipeline_run_id,\n    'AZURESQL' AS dataset, \n    '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n    '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n    parent_table.name AS identified_parent_table, \n    child_table.name AS child_table, \n    fk.name AS constraint_name, \n    STUFF(\n        (\n            SELECT ',' + parent_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS parent_col \n                ON fk_col.parent_object_id = parent_col.object_id \n                AND fk_col.parent_column_id = parent_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS children_columns, \n    STUFF(\n        (\n            SELECT ',' + child_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS child_col \n                ON fk_col.referenced_object_id = child_col.object_id \n                AND fk_col.referenced_column_id = child_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS parent_columns, \n    CASE \n        WHEN fk.is_disabled = 0 THEN 'Enabled' \n        ELSE 'Disabled' \n    END AS post_create_status ,\n    GETDATE() AS last_create_timestamp\nFROM sys.foreign_keys AS fk \nINNER JOIN sys.tables AS child_table \n    ON fk.parent_object_id = child_table.object_id \nINNER JOIN sys.tables AS parent_table \n    ON fk.referenced_object_id = parent_table.object_id \nWHERE LOWER(SCHEMA_NAME(parent_table.schema_id)) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')",
+                  "value": "SELECT \n    '@{pipeline().RunId}' AS pipeline_run_id,\n    'AZURESQL' AS dataset, \n    '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n    '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n    parent_table.name AS identified_parent_table, \n    child_table.name AS child_table, \n    fk.name AS constraint_name, \n    STUFF(\n        (\n            SELECT ',' + parent_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS parent_col \n                ON fk_col.parent_object_id = parent_col.object_id \n                AND fk_col.parent_column_id = parent_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS children_columns, \n    STUFF(\n        (\n            SELECT ',' + child_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS child_col \n                ON fk_col.referenced_object_id = child_col.object_id \n                AND fk_col.referenced_column_id = child_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS parent_columns, \n    CASE \n        WHEN fk.is_disabled = 0 THEN 'Enabled' \n        ELSE 'Disabled' \n    END AS post_create_status,\n    GETDATE() AS create_timestamp\nFROM sys.foreign_keys AS fk \nINNER JOIN sys.tables AS child_table \n    ON fk.parent_object_id = child_table.object_id \nINNER JOIN sys.tables AS parent_table \n    ON fk.referenced_object_id = parent_table.object_id \nWHERE LOWER(SCHEMA_NAME(parent_table.schema_id)) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -2685,6 +2697,18 @@
                 "mappings": [
                   {
                     "source": {
+                      "name": "pipeline_run_id",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    },
+                    "sink": {
+                      "name": "pipeline_run_id",
+                      "type": "Guid",
+                      "physicalType": "uniqueidentifier"
+                    }
+                  },
+                  {
+                    "source": {
                       "name": "dataset",
                       "type": "String",
                       "physicalType": "varchar"
@@ -2793,12 +2817,12 @@
                   },
                   {
                     "source": {
-                      "name": "last_create_timestamp",
+                      "name": "create_timestamp",
                       "type": "DateTime",
                       "physicalType": "datetime"
                     },
                     "sink": {
-                      "name": "last_create_timestamp",
+                      "name": "create_timestamp",
                       "type": "DateTime",
                       "physicalType": "datetime"
                     }
