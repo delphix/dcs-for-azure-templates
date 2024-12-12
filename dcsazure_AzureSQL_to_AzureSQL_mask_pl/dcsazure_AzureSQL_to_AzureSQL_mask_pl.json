@@ -2047,7 +2047,7 @@
             "type": "Lookup",
             "dependsOn": [
               {
-                "activity": "Drop Constraints",
+                "activity": "For Each Constraint to Drop",
                 "dependencyConditions": ["Succeeded"]
               }
             ],
@@ -2170,7 +2170,7 @@
             }
           },
           {
-            "name": "Drop Constraints",
+            "name": "For Each Constraint to Drop",
             "description": "Drop constraints for all tables in sink schema",
             "type": "ForEach",
             "dependsOn": [
@@ -2207,7 +2207,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "@concat('IF (OBJECT_ID(''',item().specified_schema, '.',item().constraint_name,''') IS NOT NULL) BEGIN ALTER TABLE ',item().specified_schema, '.', item().child_table, ' DROP CONSTRAINT ', item().constraint_name, ' END ')",
+                          "value": "@concat('IF (OBJECT_ID(''',item().specified_schema, '.',item().constraint_name,''') IS NOT NULL) BEGIN ALTER TABLE [',item().specified_schema, '].[', item().child_table, '] DROP CONSTRAINT ', item().constraint_name, ' END ')",
                           "type": "Expression"
                         }
                       }
@@ -2242,7 +2242,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "UPDATE capture_constraints\nSET drop_error_message = '@{item().Error.message}'\nWHERE pipeline_run_id = '@{pipeline().RunId}'\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND identified_parent_table = '@{item().identified_parent_table}'\n    AND child_table = '@{item().child_table}'\n    AND constraint_name = '@{item().constraint_name}'",
+                          "value": "UPDATE capture_constraints\nSET drop_error_message = '@{activity('Drop Constraint').Error.message}'\nWHERE pipeline_run_id = '@{pipeline().RunId}'\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND identified_parent_table = '@{item().identified_parent_table}'\n    AND child_table = '@{item().child_table}'\n    AND constraint_name = '@{item().constraint_name}'",
                           "type": "Expression"
                         }
                       }
@@ -2301,18 +2301,7 @@
               },
               "sink": {
                 "type": "AzureSqlSink",
-                "writeBehavior": "upsert",
-                "upsertSettings": {
-                  "useTempDB": true,
-                  "keys": [
-                    "dataset",
-                    "specified_database",
-                    "specified_schema",
-                    "identified_parent_table",
-                    "child_table",
-                    "constraint_name"
-                  ]
-                },
+                "writeBehavior": "insert",
                 "sqlWriterUseTableLock": false,
                 "disableMetricsCollection": false
               },
@@ -2517,7 +2506,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT \n    ct.specified_database, \n    ct.specified_schema, \n    ct.identified_parent_table, \n    ct.child_table, \n    ct.constraint_name, \n    ct.parent_columns, \n    ct.children_columns, \n    ct.pre_drop_status \nFROM \n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_CONSTRAINT_TABLE')} ct\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\nON \n\tct.dataset = dm.sink_dataset \n    AND ct.specified_database = dm.sink_database \n    AND ct.specified_schema = dm.sink_schema \n    AND (\n\t\tct.identified_parent_table = dm.sink_table OR\n\t\tct.child_table = dm.sink_table \n\t)\nWHERE\n    pipeline_run_id = '@{pipeline().RunId}'\n    AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n    AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n    AND dataset = '@{variables('DATASET')}'\n    AND LOWER(ct.pre_drop_status) = LOWER('Enabled')\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0 OR dm.masked_status IS NULL)\nORDER BY \n    ct.child_table",
+                  "value": "SELECT DISTINCT \n    ct.specified_database, \n    ct.specified_schema, \n    ct.identified_parent_table, \n    ct.child_table, \n    ct.constraint_name, \n    ct.parent_columns, \n    ct.children_columns, \n    ct.pre_drop_status \nFROM \n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_CONSTRAINT_TABLE')} ct\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\nON \n\tct.dataset = dm.sink_dataset \n    AND ct.specified_database = dm.sink_database \n    AND ct.specified_schema = dm.sink_schema \n    AND (\n\t\tct.identified_parent_table = dm.sink_table OR\n\t\tct.child_table = dm.sink_table \n\t)\nWHERE\n    pipeline_run_id = '@{pipeline().RunId}'\n    AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n    AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n    AND dataset = '@{variables('DATASET')}'\n    AND LOWER(ct.pre_drop_status) = LOWER('Enabled')\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0 OR dm.masked_status IS NULL)\nORDER BY \n    ct.child_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -2541,7 +2530,7 @@
             }
           },
           {
-            "name": "Create Constraints",
+            "name": "For Each Constraint to Create",
             "description": "Create constraints for all tables in sink schema",
             "type": "ForEach",
             "dependsOn": [
@@ -2582,7 +2571,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "@concat('ALTER TABLE ', item().specified_schema, '.', item().child_table,' ADD CONSTRAINT ', item().constraint_name,' FOREIGN KEY (',item().children_columns,') REFERENCES ',item().specified_schema, '.', item().identified_parent_table, '(', item().parent_columns,')', if(equals(toLower(item().pre_drop_status), toLower('Disabled')), 'NOCHECK', ''))",
+                          "value": "@concat('ALTER TABLE [', item().specified_schema, '].[', item().child_table,'] ADD CONSTRAINT ', item().constraint_name,' FOREIGN KEY (',item().children_columns,') REFERENCES [',item().specified_schema, '].[', item().identified_parent_table, '] (', item().parent_columns,') ', if(equals(toLower(item().pre_drop_status), toLower('Disabled')), 'NOCHECK', ''))",
                           "type": "Expression"
                         }
                       }
@@ -2617,7 +2606,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "UPDATE capture_constraints\nSET create_error_message = '@{item().Error.message}',\nlast_create_timestamp = GETDATE()\nWHERE pipeline_run_id = '@{pipeline().RunId}'\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND identified_parent_table = '@{item().identified_parent_table}'\n    AND child_table = '@{item().child_table}'\n    AND constraint_name = '@{item().constraint_name}'",
+                          "value": "UPDATE capture_constraints\nSET create_error_message = '@{activity('Create Constraint').Error.message}',\nlast_create_timestamp = GETDATE()\nWHERE pipeline_run_id = '@{pipeline().RunId}'\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND identified_parent_table = '@{item().identified_parent_table}'\n    AND child_table = '@{item().child_table}'\n    AND constraint_name = '@{item().constraint_name}'",
                           "type": "Expression"
                         }
                       }
@@ -2652,7 +2641,7 @@
             "type": "Copy",
             "dependsOn": [
               {
-                "activity": "Create Constraints",
+                "activity": "For Each Constraint to Create",
                 "dependencyConditions": ["Succeeded"]
               }
             ],
@@ -2685,7 +2674,8 @@
                     "specified_schema",
                     "identified_parent_table",
                     "child_table",
-                    "constraint_name"
+                    "constraint_name",
+                    "pipeline_run_id"
                   ]
                 },
                 "sqlWriterUseTableLock": false,
