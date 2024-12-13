@@ -3192,7 +3192,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "@concat('IF (OBJECT_ID(''',item().specified_schema, '.',item().constraint_name,''') IS NULL) BEGIN ALTER TABLE [', item().specified_schema, '].[', item().child_table,'] ADD CONSTRAINT ', item().constraint_name,' FOREIGN KEY (',item().children_columns,') REFERENCES [',item().specified_schema, '].[', item().identified_parent_table, '] (', item().parent_columns,') ', if(equals(toLower(item().pre_drop_status), toLower('Disabled')), 'NOCHECK', ''), ' END ')",
+                          "value": "@concat('IF (OBJECT_ID(''',item().specified_schema, '.',item().constraint_name,''') IS NULL) BEGIN ALTER TABLE [', item().specified_schema, '].[', item().child_table,'] ADD CONSTRAINT ', item().constraint_name,' FOREIGN KEY (',item().children_columns,') REFERENCES [',item().specified_schema, '].[', item().identified_parent_table, '] (', item().parent_columns,'); ', if(equals(toLower(item().pre_drop_status), toLower('Disabled')), concat('ALTER TABLE [', item().specified_schema, '].[', item().child_table, '] NOCHECK CONSTRAINT ', item().constraint_name, '; '), ''), ' END ')",
                           "type": "Expression"
                         }
                       }
@@ -3540,7 +3540,7 @@
             "dependsOn": [
               {
                 "activity": "For Each Constraint to Create",
-                "dependencyConditions": ["Succeeded"]
+                "dependencyConditions": ["Completed"]
               }
             ],
             "policy": {
