@@ -2349,7 +2349,7 @@
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2024-11-20T18:33:28Z"
+        "lastPublishTime": "2024-12-12T21:03:11Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -2678,7 +2678,7 @@
                       },
                       "sink_table": {
                         "value": {
-                          "value": "@item().child_table",
+                          "value": "@item().sink_table",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -2820,7 +2820,7 @@
                       },
                       "sink_table": {
                         "value": {
-                          "value": "@item().child_table",
+                          "value": "@item().sink_table",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -3093,7 +3093,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT \n    ct.specified_database, \n    ct.specified_schema, \n    ct.identified_parent_table, \n    ct.child_table, \n    ct.constraint_name, \n    ct.parent_columns, \n    ct.children_columns, \n    ct.pre_drop_status,\n    dm.source_table AS source_table\nFROM \n    @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE} ct\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} dm\nON \n\tct.dataset = dm.sink_dataset \n    AND ct.specified_database = dm.sink_database \n    AND ct.specified_schema = dm.sink_schema \n    AND (\n\t\tct.identified_parent_table = dm.sink_table OR\n\t\tct.child_table = dm.sink_table \n\t)\nWHERE\n    pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n    AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n    AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n    AND dataset = '@{pipeline().parameters.P_DATASET}'\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0 OR dm.masked_status IS NULL)\nORDER BY \n    ct.child_table",
+                  "value": "WITH discovered_constraints AS (    \n    SELECT  \n        ct.specified_database AS specified_database, \n        ct.specified_schema AS specified_schema, \n        ct.identified_parent_table AS identified_parent_table, \n        ct.child_table AS child_table, \n        ct.constraint_name AS constraint_name, \n        ct.parent_columns AS parent_columns, \n        ct.children_columns AS children_columns, \n        ct.pre_drop_status AS pre_drop_status,\n        dm.source_table AS source_table,\n        dm.sink_table AS sink_table,\n        ROW_NUMBER() OVER (PARTITION BY ct.constraint_name ORDER BY dm.source_table) AS row_num\n    FROM \n        @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE} ct\n    JOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} dm\n    ON \n        ct.dataset = dm.sink_dataset \n        AND ct.specified_database = dm.sink_database \n        AND ct.specified_schema = dm.sink_schema \n        AND (\n            ct.identified_parent_table = dm.sink_table OR\n            ct.child_table = dm.sink_table \n        )\n    WHERE\n        pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n        AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n        AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n        AND dataset = '@{pipeline().parameters.P_DATASET}'\n        AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n        AND (ISJSON(dm.masked_status) = 0 OR dm.masked_status IS NULL)\n)\nSELECT \n    specified_database, \n    specified_schema, \n    identified_parent_table, \n    child_table, \n    constraint_name, \n    parent_columns, \n    children_columns, \n    pre_drop_status,\n    source_table,\n    sink_table\nFROM \n    discovered_constraints\nWHERE\n    row_num = 1",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -3141,7 +3141,7 @@
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2024-11-20T18:33:28Z"
+        "lastPublishTime": "2024-12-12T22:09:06Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3227,7 +3227,7 @@
                       {
                         "type": "Query",
                         "text": {
-                          "value": "UPDATE @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE}\nSET create_error_message = @{concat('''', replace(activity('Create Constraint').Error.message, '''', ''''''), '''')},\nlast_create_timestamp = GETDATE()\nWHERE pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n    AND dataset = '@{pipeline().parameters.P_DATASET}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND identified_parent_table = '@{item().identified_parent_table}'\n    AND child_table = '@{item().child_table}'\n    AND constraint_name = '@{item().constraint_name}'",
+                          "value": "UPDATE @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE}\nSET create_error_message = @{concat('''', replace(activity('Create Constraint').Error.message, '''', ''''''), '''')},\ncreate_timestamp = GETDATE()\nWHERE pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n    AND dataset = '@{pipeline().parameters.P_DATASET}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND identified_parent_table = '@{item().identified_parent_table}'\n    AND child_table = '@{item().child_table}'\n    AND constraint_name = '@{item().constraint_name}'",
                           "type": "Expression"
                         }
                       }
@@ -3354,7 +3354,7 @@
                       },
                       "sink_table": {
                         "value": {
-                          "value": "@item().child_table",
+                          "value": "@item().sink_table",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -3490,7 +3490,7 @@
                       },
                       "sink_table": {
                         "value": {
-                          "value": "@item().child_table",
+                          "value": "@item().sink_table",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -3763,7 +3763,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT \n    ct.specified_database, \n    ct.specified_schema, \n    ct.identified_parent_table, \n    ct.child_table, \n    ct.constraint_name, \n    ct.parent_columns, \n    ct.children_columns, \n    ct.pre_drop_status,\n    dm.source_table AS source_table\nFROM \n    @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE} ct\nJOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} dm\nON \n\tct.dataset = dm.sink_dataset \n    AND ct.specified_database = dm.sink_database \n    AND ct.specified_schema = dm.sink_schema \n    AND (\n\t\tct.identified_parent_table = dm.sink_table OR\n\t\tct.child_table = dm.sink_table \n\t)\nWHERE\n    pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n    AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n    AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n    AND dataset = '@{pipeline().parameters.P_DATASET}'\nORDER BY \n    ct.child_table",
+                  "value": "WITH discovered_constraints AS (\n    SELECT  \n        ct.specified_database AS specified_database, \n        ct.specified_schema AS specified_schema, \n        ct.identified_parent_table AS identified_parent_table, \n        ct.child_table AS child_table, \n        ct.constraint_name AS constraint_name, \n        ct.parent_columns AS parent_columns, \n        ct.children_columns AS children_columns, \n        ct.pre_drop_status AS pre_drop_status,\n        dm.source_table AS source_table,\n        dm.sink_table AS sink_table,\n        ROW_NUMBER() OVER (PARTITION BY ct.constraint_name ORDER BY dm.source_table) AS row_num\n    FROM \n        @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE} ct\n    JOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} dm\n    ON \n        ct.dataset = dm.sink_dataset \n        AND ct.specified_database = dm.sink_database \n        AND ct.specified_schema = dm.sink_schema \n        AND (\n            ct.identified_parent_table = dm.sink_table OR\n            ct.child_table = dm.sink_table \n        )\n    WHERE\n        pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n        AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n        AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n        AND dataset = '@{pipeline().parameters.P_DATASET}'\n)\nSELECT\n    specified_database,\n    specified_schema,\n    identified_parent_table, \n    child_table, \n    constraint_name, \n    parent_columns, \n    children_columns, \n    pre_drop_status,\n    source_table,\n    sink_table\nFROM \n    discovered_constraints\nWHERE\n    row_num = 1",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -3811,7 +3811,7 @@
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2024-11-20T18:33:28Z"
+        "lastPublishTime": "2024-12-12T22:46:04Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
