@@ -33,9 +33,7 @@
             "dependsOn": [
               {
                 "activity": "Check If We Should Rediscover Data",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -50,7 +48,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT\n    '@{variables('DATASET')}' AS dataset,\n    T.TABLE_CATALOG AS specified_database,\n    T.TABLE_SCHEMA AS specified_schema,\n    T.TABLE_NAME AS identified_table,\n    C.COLUMN_NAME AS identified_column,\n    C.DATA_TYPE AS identified_column_type,\n    COALESCE(C.CHARACTER_MAXIMUM_LENGTH, -1) AS identified_column_max_length,\n    C.ORDINAL_POSITION AS ordinal_position,\n    R.TableRowCount AS row_count\nFROM INFORMATION_SCHEMA.TABLES AS T,\n    INFORMATION_SCHEMA.COLUMNS AS C,\n\n    (SELECT st.name AS TABLE_NAME,\n        CAST(SUM(sp.rows) AS VARCHAR(20)) AS TableRowCount\n    FROM sys.tables AS st\n        JOIN sys.partitions AS sp ON sp.object_id = st.object_id\n            AND sp.index_id IN (0,1)\n    WHERE OBJECT_SCHEMA_NAME(st.object_id)='test'\n    GROUP BY st.name) AS R\nWHERE T.TABLE_SCHEMA='test'\n    AND R.TABLE_NAME = T.TABLE_NAME\n    AND T.TABLE_CATALOG = 'DCSforAzureTraining'\n    AND C.TABLE_SCHEMA = T.TABLE_SCHEMA\n    AND C.TABLE_NAME= T.TABLE_NAME",
+                  "value": "SELECT\n    '@{variables('DATASET')}' AS dataset,\n    T.TABLE_CATALOG AS specified_database,\n    T.TABLE_SCHEMA AS specified_schema,\n    T.TABLE_NAME AS identified_table,\n    C.COLUMN_NAME AS identified_column,\n    C.DATA_TYPE AS identified_column_type,\n    COALESCE(C.CHARACTER_MAXIMUM_LENGTH, -1) AS identified_column_max_length,\n    C.ORDINAL_POSITION AS ordinal_position,\n    R.TableRowCount AS row_count\nFROM INFORMATION_SCHEMA.TABLES AS T,\n    INFORMATION_SCHEMA.COLUMNS AS C,\n\n    (SELECT st.name AS TABLE_NAME,\n        CAST(SUM(sp.rows) AS VARCHAR(20)) AS TableRowCount\n    FROM sys.tables AS st\n        JOIN sys.partitions AS sp ON sp.object_id = st.object_id\n            AND sp.index_id IN (0,1)\n    WHERE OBJECT_SCHEMA_NAME(st.object_id)='@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    GROUP BY st.name) AS R\nWHERE T.TABLE_SCHEMA='@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    AND R.TABLE_NAME = T.TABLE_NAME\n    AND T.TABLE_CATALOG = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n    AND C.TABLE_SCHEMA = T.TABLE_SCHEMA\n    AND C.TABLE_NAME= T.TABLE_NAME",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -222,9 +220,7 @@
             "dependsOn": [
               {
                 "activity": "Schema Discovery From AzureSQL",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -268,9 +264,7 @@
             "dependsOn": [
               {
                 "activity": "Select Discovered Tables",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -350,9 +344,7 @@
                   "dependsOn": [
                     {
                       "activity": "Discover Sensitive Data",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "policy": {
@@ -464,9 +456,7 @@
                   "dependsOn": [
                     {
                       "activity": "Discover Sensitive Data",
-                      "dependencyConditions": [
-                        "Failed"
-                      ]
+                      "dependencyConditions": ["Failed"]
                     }
                   ],
                   "policy": {
@@ -581,9 +571,7 @@
                   "dependsOn": [
                     {
                       "activity": "Update Discovery State Failed",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "userProperties": [],
