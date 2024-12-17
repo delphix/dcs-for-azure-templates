@@ -284,7 +284,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
@@ -442,7 +442,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
@@ -789,7 +789,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
@@ -953,7 +953,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
@@ -1313,7 +1313,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
@@ -1471,7 +1471,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
@@ -1706,7 +1706,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
@@ -1864,7 +1864,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "storedProcedureName": {
-                            "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
                             "type": "Expression"
                           },
                           "storedProcedureParameters": {
