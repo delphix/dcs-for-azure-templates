@@ -2,10 +2,19 @@
   "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "factoryName": { "type": "string", "metadata": "Data Factory name" },
-    "azuresql_discovery_metadata_store_db": { "type": "string" },
-    "azuresql_discovery_source_db": { "type": "string" },
-    "ProdDCSForAzureService": { "type": "string" }
+    "factoryName": {
+      "type": "string",
+      "metadata": "Data Factory name"
+    },
+    "azuresql_discovery_metadata_store_db": {
+      "type": "string"
+    },
+    "azuresql_discovery_source_db": {
+      "type": "string"
+    },
+    "ProdDCSForAzureService": {
+      "type": "string"
+    }
   },
   "variables": {
     "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
@@ -24,7 +33,9 @@
             "dependsOn": [
               {
                 "activity": "Check If We Should Rediscover Data",
-                "dependencyConditions": ["Succeeded"]
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
               }
             ],
             "policy": {
@@ -39,7 +50,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT \n    '@{variables('DATASET')}' AS dataset,\n    T.TABLE_CATALOG AS specified_database,\n    S.NAME AS specified_schema,\n    T.TABLE_NAME AS identified_table,\n    C.COLUMN_NAME AS identified_column,\n    UPPER(C.DATA_TYPE) AS identified_column_type,\n    COALESCE(C.CHARACTER_MAXIMUM_LENGTH,-1) AS identified_column_max_length,\n    C.ORDINAL_POSITION AS ordinal_position,\n\tSUM(P.rows) AS row_count\nFROM\n    INFORMATION_SCHEMA.COLUMNS C,\n    INFORMATION_SCHEMA.TABLES T\n\tJOIN SYS.SCHEMAS AS S ON T.TABLE_SCHEMA = S.NAME\n\tJOIN SYS.TABLES AS ST ON ST.SCHEMA_ID = S.SCHEMA_ID\n\tJOIN SYS.PARTITIONS AS P ON P.OBJECT_ID = ST.OBJECT_ID\nWHERE\n    UPPER(T.TABLE_CATALOG) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n    AND UPPER(C.TABLE_SCHEMA) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n    AND C.TABLE_NAME = T.TABLE_NAME\n    AND C.TABLE_SCHEMA = T.TABLE_SCHEMA\n    AND T.TABLE_TYPE = 'BASE TABLE'\nGROUP BY T.TABLE_CATALOG, S.NAME, T.TABLE_NAME, C.COLUMN_NAME, C.DATA_TYPE, C.CHARACTER_MAXIMUM_LENGTH, C.ORDINAL_POSITION\nORDER BY T.TABLE_NAME, C.ORDINAL_POSITION",
+                  "value": "SELECT\n    '@{variables('DATASET')}' AS dataset,\n    T.TABLE_CATALOG AS specified_database,\n    T.TABLE_SCHEMA AS specified_schema,\n    T.TABLE_NAME AS identified_table,\n    C.COLUMN_NAME AS identified_column,\n    C.DATA_TYPE AS identified_column_type,\n    COALESCE(C.CHARACTER_MAXIMUM_LENGTH, -1) AS identified_column_max_length,\n    C.ORDINAL_POSITION AS ordinal_position,\n    R.TableRowCount AS row_count\nFROM INFORMATION_SCHEMA.TABLES AS T,\n    INFORMATION_SCHEMA.COLUMNS AS C,\n\n    (SELECT st.name AS TABLE_NAME,\n        CAST(SUM(sp.rows) AS VARCHAR(20)) AS TableRowCount\n    FROM sys.tables AS st\n        JOIN sys.partitions AS sp ON sp.object_id = st.object_id\n            AND sp.index_id IN (0,1)\n    WHERE OBJECT_SCHEMA_NAME(st.object_id)='test'\n    GROUP BY st.name) AS R\nWHERE T.TABLE_SCHEMA='test'\n    AND R.TABLE_NAME = T.TABLE_NAME\n    AND T.TABLE_CATALOG = 'DCSforAzureTraining'\n    AND C.TABLE_SCHEMA = T.TABLE_SCHEMA\n    AND C.TABLE_NAME= T.TABLE_NAME",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -64,6 +75,116 @@
               "enableStaging": false,
               "translator": {
                 "type": "TabularTranslator",
+                "mappings": [
+                  {
+                    "source": {
+                      "name": "dataset",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    },
+                    "sink": {
+                      "name": "dataset",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "specified_database",
+                      "type": "String",
+                      "physicalType": "nvarchar"
+                    },
+                    "sink": {
+                      "name": "specified_database",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "specified_schema",
+                      "type": "String",
+                      "physicalType": "nvarchar"
+                    },
+                    "sink": {
+                      "name": "specified_schema",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "identified_table",
+                      "type": "String",
+                      "physicalType": "nvarchar"
+                    },
+                    "sink": {
+                      "name": "identified_table",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "identified_column",
+                      "type": "String",
+                      "physicalType": "nvarchar"
+                    },
+                    "sink": {
+                      "name": "identified_column",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "identified_column_type",
+                      "type": "String",
+                      "physicalType": "nvarchar"
+                    },
+                    "sink": {
+                      "name": "identified_column_type",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "identified_column_max_length",
+                      "type": "Int32",
+                      "physicalType": "int"
+                    },
+                    "sink": {
+                      "name": "identified_column_max_length",
+                      "type": "Int32",
+                      "physicalType": "int"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "ordinal_position",
+                      "type": "Int32",
+                      "physicalType": "int"
+                    },
+                    "sink": {
+                      "name": "ordinal_position",
+                      "type": "Int32",
+                      "physicalType": "int"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "row_count",
+                      "type": "String",
+                      "physicalType": "varchar"
+                    },
+                    "sink": {
+                      "name": "row_count",
+                      "type": "Int64",
+                      "physicalType": "bigint"
+                    }
+                  }
+                ],
                 "typeConversion": true,
                 "typeConversionSettings": {
                   "allowDataTruncation": true,
@@ -101,7 +222,9 @@
             "dependsOn": [
               {
                 "activity": "Schema Discovery From AzureSQL",
-                "dependencyConditions": ["Succeeded"]
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
               }
             ],
             "policy": {
@@ -145,7 +268,9 @@
             "dependsOn": [
               {
                 "activity": "Select Discovered Tables",
-                "dependencyConditions": ["Succeeded"]
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
               }
             ],
             "userProperties": [],
@@ -209,11 +334,13 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
-                      },
-                      "linkedServiceParameters": {}
+                      }
                     },
                     "staging": {},
-                    "compute": { "coreCount": 8, "computeType": "General" },
+                    "compute": {
+                      "coreCount": 8,
+                      "computeType": "General"
+                    },
                     "traceLevel": "Fine"
                   }
                 },
@@ -223,7 +350,9 @@
                   "dependsOn": [
                     {
                       "activity": "Discover Sensitive Data",
-                      "dependencyConditions": ["Succeeded"]
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
                     }
                   ],
                   "policy": {
@@ -247,7 +376,10 @@
                         },
                         "type": "Guid"
                       },
-                      "error_message": { "value": null, "type": "String" },
+                      "error_message": {
+                        "value": null,
+                        "type": "String"
+                      },
                       "execution_end_time": {
                         "value": {
                           "value": "@activity('Discover Sensitive Data').ExecutionEndTime",
@@ -301,7 +433,10 @@
                         },
                         "type": "String"
                       },
-                      "source_metadata": { "value": null, "type": "String" },
+                      "source_metadata": {
+                        "value": null,
+                        "type": "String"
+                      },
                       "source_schema": {
                         "value": {
                           "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
@@ -329,7 +464,9 @@
                   "dependsOn": [
                     {
                       "activity": "Discover Sensitive Data",
-                      "dependencyConditions": ["Failed"]
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
                     }
                   ],
                   "policy": {
@@ -413,7 +550,10 @@
                         },
                         "type": "String"
                       },
-                      "source_metadata": { "value": null, "type": "String" },
+                      "source_metadata": {
+                        "value": null,
+                        "type": "String"
+                      },
                       "source_schema": {
                         "value": {
                           "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
@@ -441,7 +581,9 @@
                   "dependsOn": [
                     {
                       "activity": "Update Discovery State Failed",
-                      "dependencyConditions": ["Succeeded"]
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
                     }
                   ],
                   "userProperties": [],
@@ -501,19 +643,34 @@
             }
           }
         ],
-        "policy": { "elapsedTimeMetric": {} },
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
         "parameters": {
-          "P_SOURCE_DATABASE": { "type": "string" },
-          "P_SOURCE_SCHEMA": { "type": "string" },
-          "P_REDISCOVER": { "type": "bool", "defaultValue": true }
+          "P_SOURCE_DATABASE": {
+            "type": "string"
+          },
+          "P_SOURCE_SCHEMA": {
+            "type": "string"
+          },
+          "P_REDISCOVER": {
+            "type": "bool",
+            "defaultValue": true
+          }
         },
         "variables": {
-          "METADATA_SCHEMA": { "type": "String", "defaultValue": "dbo" },
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
           "METADATA_RULESET_TABLE": {
             "type": "String",
             "defaultValue": "discovered_ruleset"
           },
-          "DATASET": { "type": "String", "defaultValue": "AZURESQL" },
+          "DATASET": {
+            "type": "String",
+            "defaultValue": "AZURESQL"
+          },
           "METADATA_EVENT_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "insert_adf_discovery_event"
@@ -523,9 +680,11 @@
             "defaultValue": 1000
           }
         },
-        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
+        },
         "annotations": [],
-        "lastPublishTime": "2024-10-03T11:28:48Z"
+        "lastPublishTime": "2024-12-16T18:00:25Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds')]",
@@ -543,14 +702,28 @@
           "referenceName": "[parameters('azuresql_discovery_source_db')]",
           "type": "LinkedServiceReference"
         },
-        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
+        },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [
-          { "name": "TABLE_CATALOG", "type": "nvarchar" },
-          { "name": "TABLE_SCHEMA", "type": "nvarchar" },
-          { "name": "TABLE_NAME", "type": "nvarchar" },
-          { "name": "TABLE_TYPE", "type": "varchar" }
+          {
+            "name": "TABLE_CATALOG",
+            "type": "nvarchar"
+          },
+          {
+            "name": "TABLE_SCHEMA",
+            "type": "nvarchar"
+          },
+          {
+            "name": "TABLE_NAME",
+            "type": "nvarchar"
+          },
+          {
+            "name": "TABLE_TYPE",
+            "type": "varchar"
+          }
         ],
         "typeProperties": {}
       },
@@ -567,10 +740,16 @@
           "type": "LinkedServiceReference"
         },
         "parameters": {
-          "DS_METADATA_SCHEMA": { "type": "string" },
-          "DS_METADATA_TABLE": { "type": "string" }
+          "DS_METADATA_SCHEMA": {
+            "type": "string"
+          },
+          "DS_METADATA_TABLE": {
+            "type": "string"
+          }
         },
-        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
+        },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [],
@@ -593,7 +772,9 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "DCSAzure - AzureSQL to AzureSQL Discovery Dataflow",
-        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
+        "folder": {
+          "name": "dcsazure_AzureSQL_to_AzureSQL"
+        },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
