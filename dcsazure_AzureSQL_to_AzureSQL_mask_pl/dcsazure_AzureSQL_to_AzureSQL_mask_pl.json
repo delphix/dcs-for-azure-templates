@@ -2308,7 +2308,7 @@
             "userProperties": [],
             "typeProperties": {
               "expression": {
-                "value": "@equals(variables('PIPELINE_HAS_ERROR'), true)",
+                "value": "@equals(variables('PIPELINE_FAILED'), true)",
                 "type": "Expression"
               },
               "ifTrueActivities": [
@@ -2345,7 +2345,7 @@
             "policy": { "secureOutput": false, "secureInput": false },
             "userProperties": [],
             "typeProperties": {
-              "variableName": "PIPELINE_HAS_ERROR",
+              "variableName": "PIPELINE_FAILED",
               "value": true
             }
           }
@@ -2400,7 +2400,7 @@
             "type": "String",
             "defaultValue": "capture_constraints"
           },
-          "PIPELINE_HAS_ERROR": { "type": "Boolean", "defaultValue": false }
+          "PIPELINE_FAILED": { "type": "Boolean", "defaultValue": false }
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
