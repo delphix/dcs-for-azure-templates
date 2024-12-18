@@ -2,22 +2,11 @@
   "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "factoryName": {
-      "type": "string",
-      "metadata": "Data Factory name"
-    },
-    "azuresql_mask_metadata_store_db": {
-      "type": "string"
-    },
-    "azuresql_mask_sink_db": {
-      "type": "string"
-    },
-    "azuresql_mask_source_db": {
-      "type": "string"
-    },
-    "ProdDCSForAzureService": {
-      "type": "string"
-    }
+    "factoryName": { "type": "string", "metadata": "Data Factory name" },
+    "azuresql_mask_metadata_store_db": { "type": "string" },
+    "azuresql_mask_sink_db": { "type": "string" },
+    "azuresql_mask_source_db": { "type": "string" },
+    "ProdDCSForAzureService": { "type": "string" }
   },
   "variables": {
     "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
@@ -36,9 +25,7 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Truncate",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -82,9 +69,7 @@
             "dependsOn": [
               {
                 "activity": "Configure Masked Status",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -168,9 +153,7 @@
                             "computeType": "General"
                           },
                           "traceLevel": "None",
-                          "cacheSinks": {
-                            "firstRowOnly": true
-                          }
+                          "cacheSinks": { "firstRowOnly": true }
                         }
                       },
                       {
@@ -180,9 +163,7 @@
                         "dependsOn": [
                           {
                             "activity": "Get Masking Parameters No Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -247,10 +228,7 @@
                                 "type": "Expression"
                               }
                             },
-                            "datasetParameters": {
-                              "Source": {},
-                              "Sink": {}
-                            }
+                            "datasetParameters": { "Source": {}, "Sink": {} }
                           },
                           "staging": {},
                           "compute": {
@@ -258,9 +236,7 @@
                             "computeType": "General"
                           },
                           "traceLevel": "None",
-                          "cacheSinks": {
-                            "firstRowOnly": true
-                          }
+                          "cacheSinks": { "firstRowOnly": true }
                         }
                       },
                       {
@@ -269,9 +245,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table No Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -313,10 +287,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -427,9 +398,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table No Filter",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -474,10 +443,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -588,9 +554,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Masked State No Filter Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -672,9 +636,7 @@
                             "computeType": "General"
                           },
                           "traceLevel": "None",
-                          "cacheSinks": {
-                            "firstRowOnly": true
-                          }
+                          "cacheSinks": { "firstRowOnly": true }
                         }
                       },
                       {
@@ -684,9 +646,7 @@
                         "dependsOn": [
                           {
                             "activity": "Get Masking Parameters With Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -755,10 +715,7 @@
                                 "type": "Expression"
                               }
                             },
-                            "datasetParameters": {
-                              "Source": {},
-                              "Sink": {}
-                            }
+                            "datasetParameters": { "Source": {}, "Sink": {} }
                           },
                           "staging": {},
                           "compute": {
@@ -774,9 +731,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table With Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -938,9 +893,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table With Filter",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -1105,9 +1058,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Masked State With Filter Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -1132,9 +1083,7 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Truncate",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -1178,9 +1127,7 @@
             "dependsOn": [
               {
                 "activity": "Select Tables Without Required Masking",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -1202,9 +1149,7 @@
             "dependsOn": [
               {
                 "activity": "Filter If Copy Unmasked Enabled",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -1298,9 +1243,7 @@
                         "dependsOn": [
                           {
                             "activity": "Copy Unmasked Data",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -1342,10 +1285,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -1456,9 +1396,7 @@
                         "dependsOn": [
                           {
                             "activity": "Copy Unmasked Data",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -1503,10 +1441,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -1617,9 +1552,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Copy Unmasked Data State Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -1691,9 +1624,7 @@
                         "dependsOn": [
                           {
                             "activity": "Call Copy Dataflow",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -1735,10 +1666,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -1849,9 +1777,7 @@
                         "dependsOn": [
                           {
                             "activity": "Call Copy Dataflow",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -1896,10 +1822,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -2010,9 +1933,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Copy Dataflow State Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -2062,28 +1983,18 @@
                   "DF_SINK_SCHEMA": "''",
                   "DF_SINK_TABLE": "''",
                   "DF_FIELD_ALGORITHM_ASSIGNMENT": "'{}'",
-                  "DF_COLUMNS_TO_MASK": [
-                    ""
-                  ],
+                  "DF_COLUMNS_TO_MASK": [""],
                   "DF_BODY_TYPE_MAPPING": "'(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'",
                   "DF_NUMBER_OF_BATCHES": "100",
-                  "DF_TRIM_LENGTHS": [
-                    1000
-                  ],
+                  "DF_TRIM_LENGTHS": [1000],
                   "DF_FAIL_ON_NONCONFORMANT_DATA": "true()",
                   "DF_FIELD_DATE_FORMAT": "'{}'",
                   "DF_FILTER_CONDITION": "true()"
                 },
-                "datasetParameters": {
-                  "Source": {},
-                  "Sink": {}
-                }
+                "datasetParameters": { "Source": {}, "Sink": {} }
               },
               "staging": {},
-              "compute": {
-                "coreCount": 8,
-                "computeType": "General"
-              },
+              "compute": { "coreCount": 8, "computeType": "General" },
               "traceLevel": "Fine"
             }
           },
@@ -2137,9 +2048,7 @@
             "dependsOn": [
               {
                 "activity": "Execute Drop Constraint Pipeline",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -2183,9 +2092,7 @@
             "dependsOn": [
               {
                 "activity": "Select Tables We Should Truncate",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -2234,9 +2141,7 @@
             "dependsOn": [
               {
                 "activity": "Select Tables That Require Masking",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -2270,14 +2175,10 @@
             "dependsOn": [
               {
                 "activity": "Check If We Should Reapply Mapping",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
-            "policy": {
-              "secureInput": false
-            },
+            "policy": { "secureInput": false },
             "userProperties": [],
             "typeProperties": {
               "pipeline": {
@@ -2335,20 +2236,14 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Mask",
-                "dependencyConditions": [
-                  "Completed"
-                ]
+                "dependencyConditions": ["Completed"]
               },
               {
                 "activity": "For Each Table With No Masking",
-                "dependencyConditions": [
-                  "Completed"
-                ]
+                "dependencyConditions": ["Completed"]
               }
             ],
-            "policy": {
-              "secureInput": false
-            },
+            "policy": { "secureInput": false },
             "userProperties": [],
             "typeProperties": {
               "pipeline": {
@@ -2407,9 +2302,7 @@
             "dependsOn": [
               {
                 "activity": "Execute Create Constraint Pipeline",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -2425,7 +2318,10 @@
                   "dependsOn": [],
                   "userProperties": [],
                   "typeProperties": {
-                    "message": "The pipeline failed due to one or more previous activities failed.",
+                    "message": {
+                      "value": "The pipeline failed due to one or more previous activities failed.",
+                      "type": "Expression"
+                    },
                     "errorCode": "500"
                   }
                 }
@@ -2439,21 +2335,14 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Mask",
-                "dependencyConditions": [
-                  "Failed"
-                ]
+                "dependencyConditions": ["Failed"]
               },
               {
                 "activity": "For Each Table With No Masking",
-                "dependencyConditions": [
-                  "Failed"
-                ]
+                "dependencyConditions": ["Failed"]
               }
             ],
-            "policy": {
-              "secureOutput": false,
-              "secureInput": false
-            },
+            "policy": { "secureOutput": false, "secureInput": false },
             "userProperties": [],
             "typeProperties": {
               "variableName": "PIPELINE_HAS_ERROR",
@@ -2461,48 +2350,26 @@
             }
           }
         ],
-        "policy": {
-          "elapsedTimeMetric": {}
-        },
+        "policy": { "elapsedTimeMetric": {} },
         "parameters": {
-          "P_COPY_UNMASKED_TABLES": {
-            "type": "bool",
-            "defaultValue": false
-          },
-          "P_USE_COPY_DATAFLOW": {
-            "type": "bool",
-            "defaultValue": false
-          },
+          "P_COPY_UNMASKED_TABLES": { "type": "bool", "defaultValue": false },
+          "P_USE_COPY_DATAFLOW": { "type": "bool", "defaultValue": false },
           "P_FAIL_ON_NONCONFORMANT_DATA": {
             "type": "bool",
             "defaultValue": true
           },
-          "P_SOURCE_DATABASE": {
-            "type": "string"
-          },
-          "P_SINK_DATABASE": {
-            "type": "string"
-          },
-          "P_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "P_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "P_REAPPLY_MAPPING": {
-            "type": "bool",
-            "defaultValue": true
-          },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SINK_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
+          "P_SINK_SCHEMA": { "type": "string" },
+          "P_REAPPLY_MAPPING": { "type": "bool", "defaultValue": true },
           "P_TRUNCATE_SINK_BEFORE_WRITE": {
             "type": "bool",
             "defaultValue": true
           }
         },
         "variables": {
-          "METADATA_SCHEMA": {
-            "type": "String",
-            "defaultValue": "dbo"
-          },
+          "METADATA_SCHEMA": { "type": "String", "defaultValue": "dbo" },
           "METADATA_RULESET_TABLE": {
             "type": "String",
             "defaultValue": "discovered_ruleset"
@@ -2519,10 +2386,7 @@
             "type": "String",
             "defaultValue": "staging-containter"
           },
-          "DATASET": {
-            "type": "String",
-            "defaultValue": "AZURESQL"
-          },
+          "DATASET": { "type": "String", "defaultValue": "AZURESQL" },
           "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
             "type": "String",
             "defaultValue": "%"
@@ -2531,22 +2395,14 @@
             "type": "String",
             "defaultValue": "insert_adf_masking_event"
           },
-          "TARGET_BATCH_SIZE": {
-            "type": "Integer",
-            "defaultValue": 2000
-          },
+          "TARGET_BATCH_SIZE": { "type": "Integer", "defaultValue": 2000 },
           "METADATA_CONSTRAINT_TABLE": {
             "type": "String",
             "defaultValue": "capture_constraints"
           },
-          "PIPELINE_HAS_ERROR": {
-            "type": "Boolean",
-            "defaultValue": false
-          }
+          "PIPELINE_HAS_ERROR": { "type": "Boolean", "defaultValue": false }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "lastPublishTime": "2024-12-17T07:17:03Z"
       },
@@ -2574,16 +2430,10 @@
           "type": "LinkedServiceReference"
         },
         "parameters": {
-          "DS_METADATA_SCHEMA": {
-            "type": "string"
-          },
-          "DS_METADATA_TABLE": {
-            "type": "string"
-          }
+          "DS_METADATA_SCHEMA": { "type": "string" },
+          "DS_METADATA_TABLE": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [],
@@ -2605,9 +2455,7 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
@@ -2697,9 +2545,7 @@
             "dependsOn": [
               {
                 "activity": "Select Discovered Constraints",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -2745,9 +2591,7 @@
                   "dependsOn": [
                     {
                       "activity": "Update Masked State With Drop Constraint Error",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "policy": {
@@ -2782,9 +2626,7 @@
                   "dependsOn": [
                     {
                       "activity": "Update Drop Contraint Error",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "userProperties": [],
@@ -2803,9 +2645,7 @@
                   "dependsOn": [
                     {
                       "activity": "Drop Constraint",
-                      "dependencyConditions": [
-                        "Failed"
-                      ]
+                      "dependencyConditions": ["Failed"]
                     }
                   ],
                   "policy": {
@@ -2850,18 +2690,9 @@
                         },
                         "type": "DateTimeOffset"
                       },
-                      "filter_alias": {
-                        "value": null,
-                        "type": "String"
-                      },
-                      "filter_condition": {
-                        "value": null,
-                        "type": "String"
-                      },
-                      "input_parameters": {
-                        "value": null,
-                        "type": "String"
-                      },
+                      "filter_alias": { "value": null, "type": "String" },
+                      "filter_condition": { "value": null, "type": "String" },
+                      "input_parameters": { "value": null, "type": "String" },
                       "is_masking_activity": {
                         "value": "false",
                         "type": "Boolean"
@@ -2898,10 +2729,7 @@
                         },
                         "type": "String"
                       },
-                      "sink_metadata": {
-                        "value": null,
-                        "type": "String"
-                      },
+                      "sink_metadata": { "value": null, "type": "String" },
                       "sink_schema": {
                         "value": {
                           "value": "@pipeline().parameters.P_SINK_SCHEMA",
@@ -2930,10 +2758,7 @@
                         },
                         "type": "String"
                       },
-                      "source_metadata": {
-                        "value": null,
-                        "type": "String"
-                      },
+                      "source_metadata": { "value": null, "type": "String" },
                       "source_schema": {
                         "value": {
                           "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
@@ -3146,10 +2971,7 @@
               {
                 "referenceName": "dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds",
                 "type": "DatasetReference",
-                "parameters": {
-                  "DS_SINK_SCHEMA": " ",
-                  "DS_SINK_TABLE": " "
-                }
+                "parameters": { "DS_SINK_SCHEMA": " ", "DS_SINK_TABLE": " " }
               }
             ],
             "outputs": [
@@ -3175,9 +2997,7 @@
             "dependsOn": [
               {
                 "activity": "Capture Referential Constraints",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -3216,34 +3036,18 @@
             }
           }
         ],
-        "policy": {
-          "elapsedTimeMetric": {}
-        },
+        "policy": { "elapsedTimeMetric": {} },
         "parameters": {
-          "P_SOURCE_DATABASE": {
-            "type": "string"
-          },
-          "P_SINK_DATABASE": {
-            "type": "string"
-          },
-          "P_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "P_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "P_DATASET": {
-            "type": "string",
-            "defaultValue": "AZURESQL"
-          },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SINK_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
+          "P_SINK_SCHEMA": { "type": "string" },
+          "P_DATASET": { "type": "string", "defaultValue": "AZURESQL" },
           "P_METADATA_CONSTRAINT_TABLE": {
             "type": "string",
             "defaultValue": "capture_constraints"
           },
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
+          "P_METADATA_SCHEMA": { "type": "string", "defaultValue": "dbo" },
           "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
             "type": "string",
             "defaultValue": "adf_data_mapping"
@@ -3252,13 +3056,9 @@
             "type": "string",
             "defaultValue": "insert_adf_masking_event"
           },
-          "P_PARENT_RUN_ID": {
-            "type": "string"
-          }
+          "P_PARENT_RUN_ID": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "lastPublishTime": "2024-12-17T07:17:03Z"
       },
@@ -3280,9 +3080,7 @@
             "dependsOn": [
               {
                 "activity": "Select Discovered Constraints",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -3328,9 +3126,7 @@
                   "dependsOn": [
                     {
                       "activity": "Create Constraint",
-                      "dependencyConditions": [
-                        "Failed"
-                      ]
+                      "dependencyConditions": ["Failed"]
                     }
                   ],
                   "policy": {
@@ -3365,9 +3161,7 @@
                   "dependsOn": [
                     {
                       "activity": "Update Create Constraint error",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "userProperties": [],
@@ -3388,9 +3182,7 @@
             "dependsOn": [
               {
                 "activity": "For Each Constraint to Create",
-                "dependencyConditions": [
-                  "Completed"
-                ]
+                "dependencyConditions": ["Completed"]
               }
             ],
             "policy": {
@@ -3577,10 +3369,7 @@
               {
                 "referenceName": "dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds",
                 "type": "DatasetReference",
-                "parameters": {
-                  "DS_SINK_SCHEMA": " ",
-                  "DS_SINK_TABLE": " "
-                }
+                "parameters": { "DS_SINK_SCHEMA": " ", "DS_SINK_TABLE": " " }
               }
             ],
             "outputs": [
@@ -3640,34 +3429,18 @@
             }
           }
         ],
-        "policy": {
-          "elapsedTimeMetric": {}
-        },
+        "policy": { "elapsedTimeMetric": {} },
         "parameters": {
-          "P_SOURCE_DATABASE": {
-            "type": "string"
-          },
-          "P_SINK_DATABASE": {
-            "type": "string"
-          },
-          "P_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "P_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SINK_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
+          "P_SINK_SCHEMA": { "type": "string" },
+          "P_METADATA_SCHEMA": { "type": "string", "defaultValue": "dbo" },
           "P_METADATA_CONSTRAINT_TABLE": {
             "type": "string",
             "defaultValue": "capture_constraints"
           },
-          "P_DATASET": {
-            "type": "string",
-            "defaultValue": "AZURESQL"
-          },
+          "P_DATASET": { "type": "string", "defaultValue": "AZURESQL" },
           "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
             "type": "string",
             "defaultValue": "adf_data_mapping"
@@ -3676,13 +3449,9 @@
             "type": "string",
             "defaultValue": "insert_adf_masking_event"
           },
-          "P_PARENT_RUN_ID": {
-            "type": "string"
-          }
+          "P_PARENT_RUN_ID": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "lastPublishTime": "2024-12-16T18:00:25Z"
       },
@@ -3701,16 +3470,10 @@
           "type": "LinkedServiceReference"
         },
         "parameters": {
-          "DS_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "DS_SINK_TABLE": {
-            "type": "string"
-          }
+          "DS_SINK_SCHEMA": { "type": "string" },
+          "DS_SINK_TABLE": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [],
@@ -3719,10 +3482,7 @@
             "value": "@dataset().DS_SINK_SCHEMA",
             "type": "Expression"
           },
-          "table": {
-            "value": "@dataset().DS_SINK_TABLE",
-            "type": "Expression"
-          }
+          "table": { "value": "@dataset().DS_SINK_TABLE", "type": "Expression" }
         }
       },
       "dependsOn": []
@@ -3732,9 +3492,7 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
@@ -3942,9 +3700,7 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
@@ -4131,9 +3887,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Generate masking parameters when conditional algorithms are defined",
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
@@ -4497,9 +4251,7 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
@@ -4696,16 +4448,10 @@
           "type": "LinkedServiceReference"
         },
         "parameters": {
-          "DS_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "DS_SOURCE_TABLE": {
-            "type": "string"
-          }
+          "DS_SOURCE_SCHEMA": { "type": "string" },
+          "DS_SOURCE_TABLE": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [],
@@ -4727,9 +4473,7 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
