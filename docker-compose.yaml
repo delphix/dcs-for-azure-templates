@@ -22,7 +22,9 @@ services:
              zip dcsazure_Databricks_to_Databricks_discovery_pl.zip dcsazure_Databricks_to_Databricks_discovery_pl/* &&
              cp VERSION.md dcsazure_Databricks_to_Databricks_mask_pl/VERSION.md &&
              zip dcsazure_Databricks_to_Databricks_mask_pl.zip dcsazure_Databricks_to_Databricks_mask_pl/* &&
+             cp VERSION.md dcsazure_AzureSQL_to_AzureSQL_discovery_pl/VERSION.md &&
              zip dcsazure_AzureSQL_to_AzureSQL_discovery_pl.zip dcsazure_AzureSQL_to_AzureSQL_discovery_pl/* &&
+             cp VERSION.md dcsazure_AzureSQL_to_AzureSQL_mask_pl/VERSION.md &&
              zip dcsazure_AzureSQL_to_AzureSQL_mask_pl.zip dcsazure_AzureSQL_to_AzureSQL_mask_pl/* &&
              rm *_pl/VERSION.md &&
              mv *.zip releases/."
