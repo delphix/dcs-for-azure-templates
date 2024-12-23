@@ -311,8 +311,6 @@ Consider adding additional clauses to the `WHERE` condition, such as `filter_ali
 * Pipeline documentation - Documentation for each pipeline is included in the released version of the template
   * [dcsazure_Databricks_to_Databricks_mask_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_mask_pl.md)
   * [dcsazure_Databricks_to_Databricks_discovery_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_discovery_pl.md)
-  * [dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl](./documentation/pipelines/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_mask_pl.md)
-  * [dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl](./documentation/pipelines/dcsazure_Snowflake_Legacy_to_Snowflake_Legacy_discovery_pl.md)
   * [dcsazure_Snowflake_to_Snowflake_mask_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_mask_pl.md)
   * [dcsazure_Snowflake_to_Snowflake_discovery_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_discovery_pl.md)
   * [dcsazure_adls_to_adls_mask_pl](./documentation/pipelines/dcsazure_adls_to_adls_mask_pl.md)

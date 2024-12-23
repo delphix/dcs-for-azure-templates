@@ -1,9 +1,11 @@
 # CHANGELOG
 
-# 0.0.13
-
+# 0.0.14
 * Add support for DCS for Azure SQL to Azure SQL Discovery Pipeline
 * Add support for DCS for Azure SQL to Azure SQL Masking Pipeline
+
+# 0.0.13
+* Remove support for Snowflake (Legacy) connectors
 
 # 0.0.12
 * Add support for checkpointing and error handling to all pipelines
