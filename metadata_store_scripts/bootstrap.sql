@@ -4,6 +4,8 @@
 -- * V2024.05.02.0__update_adls_to_adls_support
 -- * V2024.08.25.0__add_conditional_masking_support
 -- * V2024.10.24.0__add_checkpointing_and_logging
+-- * V2024.12.02.0__add_azuresql_to_azuresql_support
+-- * V2024.12.13.0__create_create_constraints_table
 -- The contents of each of those files follows
 
 
@@ -546,3 +548,65 @@ BEGIN
         END
 -- End stored procedure definition
 END;
+
+-- source: V2024.12.02.0__add_azuresql_to_azuresql_support
+INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
+   VALUES
+('AZURESQL', 'tinyint', 'integer'),
+('AZURESQL', 'smallint', 'short'),
+('AZURESQL', 'int', 'integer'),
+('AZURESQL', 'bigint', 'long'),
+('AZURESQL', 'bit', 'boolean'),
+('AZURESQL', 'decimal', 'decimal'),
+('AZURESQL', 'numeric', 'decimal'),
+('AZURESQL', 'money', 'decimal'),
+('AZURESQL', 'smallmoney', 'decimal'),
+('AZURESQL', 'float', 'double'),
+('AZURESQL', 'real', 'float'),
+('AZURESQL', 'date', 'date'),
+('AZURESQL', 'time', 'timestamp'),
+('AZURESQL', 'datetime2', 'timestamp'),
+('AZURESQL', 'datetimeoffset', 'string'),
+('AZURESQL', 'datetime', 'timestamp'),
+('AZURESQL', 'smalldatetime', 'timestamp'),
+('AZURESQL', 'char', 'string'),
+('AZURESQL', 'varchar', 'string'),
+('AZURESQL', 'text', 'string'),
+('AZURESQL', 'nchar', 'string'),
+('AZURESQL', 'nvarchar', 'string'),
+('AZURESQL', 'ntext', 'string'),
+('AZURESQL', 'binary', 'binary'),
+('AZURESQL', 'varbinary', 'binary'),
+('AZURESQL', 'image', 'binary'),
+('AZURESQL', 'json', 'string'),
+('AZURESQL', 'uniqueidentifier', 'string'),
+('AZURESQL', 'xml', 'string')
+;
+
+-- source: V2024.12.13.0__create_create_constraints_table
+CREATE TABLE capture_constraints (
+    pipeline_run_id UNIQUEIDENTIFIER NOT NULL,
+    dataset VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    specified_database VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    specified_schema VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    identified_parent_table VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    child_table VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    constraint_name VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    parent_columns VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    children_columns VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    pre_drop_status VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    drop_error_message NVARCHAR(MAX),
+    drop_timestamp DATETIME,
+    post_create_status VARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+    create_error_message NVARCHAR(MAX),
+    create_timestamp DATETIME,
+    CONSTRAINT capture_constraints_pk PRIMARY KEY (
+        pipeline_run_id,
+        dataset,
+        specified_database,
+        specified_schema,
+        identified_parent_table,
+        child_table,
+        constraint_name
+    )
+);
