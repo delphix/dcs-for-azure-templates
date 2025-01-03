@@ -139,7 +139,11 @@
                                 "type": "Expression"
                               },
                               "DF_COLUMN_WIDTH_ESTIMATE": "1000",
-                              "DF_DATASET": "'AZURESQL'"
+                              "DF_DATASET": "'AZURESQL'",
+                              "DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER": {
+                                "value": "'@{pipeline().parameters.P_COLUMN_NAME_NORMALIZATION_PLACEHOLDER}'",
+                                "type": "Expression"
+                              }
                             },
                             "datasetParameters": {
                               "Ruleset": {},
@@ -225,6 +229,10 @@
                               },
                               "DF_FIELD_DATE_FORMAT": {
                                 "value": "'@{activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].DateFormatAssignments}'",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER": {
+                                "value": "'@{pipeline().parameters.P_COLUMN_NAME_NORMALIZATION_PLACEHOLDER}'",
                                 "type": "Expression"
                               }
                             },
@@ -622,6 +630,10 @@
                               "DF_DATASET": {
                                 "value": "'@{item().source_dataset}'",
                                 "type": "Expression"
+                              },
+                              "DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER": {
+                                "value": "'@{pipeline().parameters.P_COLUMN_NAME_NORMALIZATION_PLACEHOLDER}'",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
@@ -712,6 +724,10 @@
                               },
                               "DF_FILTER_CONDITION": {
                                 "value": "@item().filter_value",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER": {
+                                "value": "'@{pipeline().parameters.P_COLUMN_NAME_NORMALIZATION_PLACEHOLDER}'",
                                 "type": "Expression"
                               }
                             },
@@ -2366,6 +2382,10 @@
           "P_TRUNCATE_SINK_BEFORE_WRITE": {
             "type": "bool",
             "defaultValue": true
+          },
+          "P_COLUMN_NAME_NORMALIZATION_PLACEHOLDER": {
+            "type": "string",
+            "defaultValue": "__$__"
           }
         },
         "variables": {
@@ -2404,7 +2424,7 @@
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2024-12-17T07:17:03Z"
+        "lastPublishTime": "2025-01-02T10:39:35Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -3060,7 +3080,7 @@
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2024-12-17T07:17:03Z"
+        "lastPublishTime": "2025-01-02T10:39:34Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3453,7 +3473,7 @@
         },
         "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2024-12-16T18:00:25Z"
+        "lastPublishTime": "2025-01-02T10:39:34Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3591,7 +3611,8 @@
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
-            "     DF_DATASET as string ('AZURESQL')",
+            "     DF_DATASET as string ('AZURESQL'),",
+            "     DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER as string ('__$__')",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -3642,13 +3663,13 @@
             "     ignoreSpaces: false,",
             "     broadcast: 'left')~> RulesetWithTypes",
             "RulesetWithTypes derive(output_row = 1,",
-            "          adf_type_conversion = concat(identified_column, ' as ', adf_type),",
+            "          adf_type_conversion = concat(replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER), ' as ', adf_type),",
             "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
             "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
-            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
-            "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER)), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "          ColumnsToMask = regexReplace(reduce(collect(replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER)), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
-            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    regexReplace(reduce(collect(replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER)  + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
             "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count)) +1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
@@ -3774,6 +3795,10 @@
             {
               "name": "TrimMaskedStrings",
               "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
+            },
+            {
+              "name": "NormalizeColumnNames",
+              "description": "Normalize all column names with spaces with the normalization placeholder"
             }
           ],
           "scriptLines": [
@@ -3789,7 +3814,8 @@
             "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
-            "     DF_FIELD_DATE_FORMAT as string ('{}')",
+            "     DF_FIELD_DATE_FORMAT as string ('{}'),",
+            "     DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER as string ('__$__')",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -3824,7 +3850,7 @@
             "     requestFormat: ['type' -> 'json'],",
             "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
             "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
-            "Source derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
+            "NormalizeColumnNames derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
             "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
             "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
@@ -3856,6 +3882,12 @@
             "    substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), ",
             "    $$",
             "))) ~> TrimMaskedStrings",
+            "Source select(mapColumn(",
+            "          each(match(true()),",
+            "               replace($$,' ',$DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> NormalizeColumnNames",
             "JoinMaskedAndUnmaskedData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'table',",
@@ -3872,7 +3904,8 @@
             "     skipDuplicateMapOutputs: true,",
             "     errorHandlingOption: 'stopOnFirstError',",
             "     mapColumn(",
-            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"),",
+            "               replace($$,$DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER,' ') = $$)",
             "     ),",
             "     preCommands: [],",
             "     postCommands: []) ~> Sink"
@@ -4035,7 +4068,8 @@
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
             "     DF_FILTER_KEY as string (''),",
-            "     DF_DATASET as string ('AZURESQL')",
+            "     DF_DATASET as string ('AZURESQL'),",
+            "     DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER as string ('__$__')",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -4086,13 +4120,13 @@
             "     ignoreSpaces: false,",
             "     broadcast: 'left')~> RulesetWithTypes",
             "RulesetWithTypes derive(output_row = 1,",
-            "          adf_type_conversion = concat(identified_column, ' as ', adf_type),",
+            "          adf_type_conversion = concat('\"', replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER), '\"', ' as ', adf_type),",
             "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
             "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
-            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(identified_column), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
-            "          ColumnsToMask = regexReplace(reduce(collect(identified_column), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
+            "     FieldAlgorithmAssignments = regexReplace(reduce(mapAssociation(keyValues(collect(replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER)), collect(assigned_algorithm)), '\"' + #key + '\":\"' + #value + '\"'), '{', #acc + #item + ',', #result + '}'), ',}', '}'),",
+            "          ColumnsToMask = regexReplace(reduce(collect(replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER)), '[',  #acc + '\"' + #item + '\",', #result + ']'), ',]', ']'),",
             "          DataFactoryTypeMapping = concat(\"'\", '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ',",
-            "    regexReplace(reduce(collect(identified_column + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
+            "    regexReplace(reduce(collect('\"' + replace(identified_column, ' ', $DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER) + '\"' + ' as ' + adf_type), '', #acc + #item + ', ', #result + ')'), ', \\\\)', ')'),",
             "    '[])', \"'\"),",
             "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count)) +1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
@@ -4329,6 +4363,10 @@
             {
               "name": "ApplyTableFilter",
               "description": "Filter base table based on supplied filter"
+            },
+            {
+              "name": "NormalizeColumnNames",
+              "description": "Normalize all column names with spaces with the normalization placeholder"
             }
           ],
           "scriptLines": [
@@ -4345,7 +4383,8 @@
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
-            "     DF_FILTER_CONDITION as boolean (true())",
+            "     DF_FILTER_CONDITION as boolean (true()),",
+            "     DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER as string ('__$__')",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -4412,7 +4451,13 @@
             "    substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), ",
             "    $$",
             "))) ~> TrimMaskedStrings",
-            "Source filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
+            "NormalizeColumnNames filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
+            "Source select(mapColumn(",
+            "          each(match(true()),",
+            "               replace($$,' ',$DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> NormalizeColumnNames",
             "JoinMaskedAndUnmaskedData sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     format: 'table',",
@@ -4429,7 +4474,8 @@
             "     skipDuplicateMapOutputs: true,",
             "     errorHandlingOption: 'stopOnFirstError',",
             "     mapColumn(",
-            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"),",
+            "               replace($$,$DF_COLUMN_NAME_NORMALIZATION_PLACEHOLDER,' ') = $$)",
             "     ),",
             "     preCommands: [],",
             "     postCommands: []) ~> Sink"

@@ -75,10 +75,10 @@ have customized your metadata store, then these variables may need editing.
   accept, in part, the file structure from the `Get Metadata` ADF pipeline Activity.
 * `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
   accumulator for the list of directories with heterogeneous schemas (default `[]` - do not modify).
-* `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
+* `HOMOGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
   accumulator for the list of directories with homogeneous schemas (default `[]` - do not modify).
 * `DATASET` - This is used to identify data that belongs to this pipeline in the metadata store (default `ADLS`).
-* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the 
+* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
   metadata data store and sets the discovery state on the items discovered during execution
   (default `insert_adf_discovery_event`).
 * `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value
@@ -114,6 +114,9 @@ have customized your metadata store, then these variables may need editing.
   `{"DCS_EXAMPLE_PREFIX":{"suffixes":["csv","txt","NO_EXT"]}}`)
 * `P_REDISCOVER` - This is a Bool that specifies if we should re-execute the data discovery dataflow for previously
   discovered files that have not had their schema modified (default `true`)
+* `P_COLUMN_NAME_NORMALIZATION_PLACEHOLDER` - String - For column names containing spaces, this placeholder will be used to normalize the column names.
+  Spaces will be replaced with this placeholder when reading from the source. Before writing back to source we de-normalize the normalized column name to
+  its original name.
 
 
 #### Notes
@@ -216,7 +219,7 @@ directory_to_profile
     └── file2.txt
 ```
 
-In order to correctly profile, we'd have to specify `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` as 
+In order to correctly profile, we'd have to specify `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` as
 `["heterogeneous_subdirectory"]` and `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` as:
 ```json
 {
