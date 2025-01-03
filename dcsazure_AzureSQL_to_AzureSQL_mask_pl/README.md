@@ -124,3 +124,6 @@ exists, but no algorithms have been defined (default `false`)
 * `P_SINK_DATABASE` - String - This is the sink database in AzureSQL that will serve as a destination for masked data
 * `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that we will mask
 * `P_SINK_SCHEMA` - String - This is the schema within the above sink database where we will place masked data
+* `P_COLUMN_NAME_NORMALIZATION_PLACEHOLDER` - String - For column names containing spaces, this placeholder will be used to normalize the column names.
+  Spaces will be replaced with this placeholder when reading from the source. Before writing back to source we de-normalize the normalized column name to
+  its original name.
