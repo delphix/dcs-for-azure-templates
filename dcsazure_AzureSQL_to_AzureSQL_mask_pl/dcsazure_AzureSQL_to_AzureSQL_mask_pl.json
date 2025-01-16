@@ -3037,7 +3037,7 @@
           },
           {
             "name": "Delete Masked Table Constraints",
-            "description": "Delete Constraints of already masked tables",
+            "description": "Delete those constraints that do not reference unmasked tables",
             "type": "Script",
             "dependsOn": [
               {
@@ -3062,7 +3062,7 @@
                 {
                   "type": "Query",
                   "text": {
-                    "value": "WITH masked_tables AS (\n    SELECT \n        sink_table\n    FROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\n    WHERE \n        sink_dataset = '@{pipeline().parameters.P_DATASET}'\n        AND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n        AND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n        AND mapping_complete = 1   \n)\nDELETE FROM capture_constraints\nWHERE \n    dataset = '@{pipeline().parameters.P_DATASET}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND identified_parent_table IN (SELECT sink_table FROM masked_tables)\n    AND child_table IN (SELECT sink_table FROM masked_tables)\n    AND pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'",
+                    "value": "WITH unmasked_tables AS (\n    SELECT \n        sink_table\n    FROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\n    WHERE \n        sink_dataset = '@{pipeline().parameters.P_DATASET}'\n        AND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n        AND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n        AND mapping_complete = 0\n)\nDELETE FROM capture_constraints\nWHERE \n    dataset = '@{pipeline().parameters.P_DATASET}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND NOT (\n        identified_parent_table IN (SELECT sink_table FROM unmasked_tables)\n        OR child_table IN (SELECT sink_table FROM unmasked_tables)\n    )\n    AND pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'",
                     "type": "Expression"
                   }
                 }
