@@ -55,6 +55,7 @@ steps:
 * Execute drop constraint pipeline
   * Call the `dcsazure_AzureSQL_to_AzureSQL_mask_drop_constraint_pl` child pipeline to drop the foreign key constraints from the sink schema.
   * The child pipeline records all the foreign key constraints in the metadata store table `capture_constraints` before dropping them.
+  * **Note**: Only drops constraints related to sink tables whose data mapping in the `METADATA_SOURCE_TO_SINK_MAPPING_TABLE` has not been successfully mapped. This includes unmasked tables, independent of `P_COPY_UNMASKED_TABLES`. 
 * Select Tables We Should Truncate
   * Select sink tables with an incomplete mapping and based on the value of `P_TRUNCATE_SINK_BEFORE_WRITE`, create a list of tables that we should truncate
     * For Each Table To Truncate, execute a query to truncate the sink table
