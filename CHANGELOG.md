@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.17
+* Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl` that causes the Create Constraints pipeline to fail when the metadata store schema is not present in the sink database.
+
 # 0.0.16
 * Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl` that causes the pipeline to fail when the metadata store schema is not present in the sink database.
 
