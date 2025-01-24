@@ -24,7 +24,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_mask_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_mask_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -53,14 +53,14 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "WITH\ntables_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE ISJSON(assigned_algorithm) = 1\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND specified_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n),\ntables_not_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE assigned_algorithm IS NOT NULL\n    AND assigned_algorithm != ''\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND specified_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n    EXCEPT\n    SELECT dataset, specified_database, specified_schema, identified_table\n    FROM tables_requiring_filters\n    WHERE dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND specified_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n),\nall_filters AS\n(\n    SELECT DISTINCT\n        JSON_VALUE(kc.value, '$.alias') as filter_alias,\n        replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n    UNION\n    SELECT DISTINCT\n        'default' as filter_alias,\n        STRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n), sources_and_filters AS (\n    SELECT\n        dataset,\n        specified_database,\n        specified_schema,\n        identified_table,\n        filter_alias,\n        filter_value\n    FROM tables_requiring_filters CROSS JOIN all_filters\n    UNION\n    SELECT\n        dataset,\n        specified_database,\n        specified_schema,\n        identified_table,\n        '',\n        ''\n    FROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema), CHARINDEX('/', REVERSE(dm.source_schema)), LEN(dm.source_schema))) AS source_directory,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema),0, CHARINDEX('/', REVERSE(dm.source_schema)))) AS source_prefix,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n    REVERSE(SUBSTRING(REVERSE(dm.sink_schema), CHARINDEX('/', REVERSE(dm.sink_schema)), LEN(dm.sink_schema))) AS sink_directory,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema),0, CHARINDEX('/', REVERSE(dm.source_schema)))) AS sink_prefix,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_CONTAINER}'\n    AND dm.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}/%'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0  OR dm.masked_status IS NULL)\nUNION\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema), CHARINDEX('/', REVERSE(dm.source_schema)), LEN(dm.source_schema))) AS source_directory,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema),0, CHARINDEX('/', REVERSE(dm.source_schema)))) AS source_prefix,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n    REVERSE(SUBSTRING(REVERSE(dm.sink_schema), CHARINDEX('/', REVERSE(dm.sink_schema)), LEN(dm.sink_schema))) AS sink_directory,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema),0, CHARINDEX('/', REVERSE(dm.source_schema)))) AS sink_prefix,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tCROSS APPLY OPENJSON(dm.masked_status) kc\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_CONTAINER}'\n    AND dm.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}/%'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND ISJSON(dm.masked_status) = 1\n\tAND kc.[key] = rs.filter_alias\n    AND kc.[value] = 'false'\n\tAND\t(\n\t\t(filter_alias = 'default' AND  \n\t\t\tidentified_table IN (\n\t\t\t\tSELECT DISTINCT\n\t\t\t\t\tidentified_table\n\t\t\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n\t\t\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\t\t\tWHERE\n\t\t\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\t\t\tAND JSON_VALUE(kc.value, '$.alias') = 'default'\n\t\t\t)\n\t\t)\n\t\tOR\n\t\t(filter_alias != 'default')\n\t)",
+                  "value": "WITH\ntables_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE ISJSON(assigned_algorithm) = 1\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND specified_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n),\ntables_not_requiring_filters AS\n(\n    SELECT DISTINCT\n        dataset, specified_database, specified_schema, identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE assigned_algorithm IS NOT NULL\n    AND assigned_algorithm != ''\n    AND dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND specified_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n    EXCEPT\n    SELECT dataset, specified_database, specified_schema, identified_table\n    FROM tables_requiring_filters\n    WHERE dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_CONTAINER}'\n    AND specified_schema LIKE '@{pipeline().parameters.P_SOURCE_DIRECTORY}%'\n),\nall_filters AS\n(\n    SELECT DISTINCT\n        JSON_VALUE(kc.value, '$.alias') as filter_alias,\n        replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n    UNION\n    SELECT DISTINCT\n        'default' as filter_alias,\n        STRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n        CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n    WHERE\n        ISJSON(assigned_algorithm,ARRAY) = 1\n        AND\n        identified_table in (\n            SELECT identified_table FROM tables_requiring_filters\n        )\n        AND JSON_VALUE(kc.value,'$.alias') != 'default'\n), sources_and_filters AS (\n    SELECT\n        dataset,\n        specified_database,\n        specified_schema,\n        identified_table,\n        filter_alias,\n        filter_value\n    FROM tables_requiring_filters CROSS JOIN all_filters\n    UNION\n    SELECT\n        dataset,\n        specified_database,\n        specified_schema,\n        identified_table,\n        '',\n        ''\n    FROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n    dm.source_dataset,\n    dm.source_database,\n    dm.source_schema,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema), CHARINDEX('/', REVERSE(dm.source_schema)), LEN(dm.source_schema))) AS source_directory,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema),0, CHARINDEX('/', REVERSE(dm.source_schema)))) AS source_prefix,\n    dm.source_table,\n    dm.sink_database,\n    dm.sink_schema,\n    REVERSE(SUBSTRING(REVERSE(dm.sink_schema), CHARINDEX('/', REVERSE(dm.sink_schema)), LEN(dm.sink_schema))) AS sink_directory,\n    REVERSE(SUBSTRING(REVERSE(dm.source_schema),0, CHARINDEX('/', REVERSE(dm.source_schema)))) AS sink_prefix,\n    dm.sink_table,\n    rs.filter_alias,\n    rs.filter_value\nFROM\n    sources_and_filters rs\n    JOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n    ON (\n        rs.dataset = dm.source_dataset AND\n        rs.specified_database = dm.source_database AND\n        rs.specified_schema = dm.source_schema AND\n        rs.identified_table = dm.source_table\n    )\nWHERE\n    dm.sink_database = '@{pipeline().parameters.P_SINK_CONTAINER}'\n    AND dm.sink_schema LIKE '@{pipeline().parameters.P_SINK_DIRECTORY}/%'",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
+                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -118,7 +118,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
+                      "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -167,7 +167,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_params_df",
+                            "referenceName": "dcsazure_adls_to_adls_unfiltered_mask_params_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -204,7 +204,8 @@
                               "Ruleset": {},
                               "TypeMapping": {},
                               "MaskingParameterOutput": {}
-                            }
+                            },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -239,7 +240,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_df",
+                            "referenceName": "dcsazure_adls_to_adls_delimited_unfiltered_mask_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -322,7 +323,8 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            }
+                            },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -697,7 +699,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_filtered_mask_params_df",
+                            "referenceName": "dcsazure_adls_to_adls_filtered_mask_params_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -742,7 +744,8 @@
                               "Ruleset": {},
                               "TypeMapping": {},
                               "MaskingParameterOutput": {}
-                            }
+                            },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -777,7 +780,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_filtered_mask_df",
+                            "referenceName": "dcsazure_adls_to_adls_delimited_filtered_mask_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -864,7 +867,8 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            }
+                            },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -1268,7 +1272,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
+                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -1400,7 +1404,7 @@
                         },
                         "inputs": [
                           {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -1416,7 +1420,7 @@
                         ],
                         "outputs": [
                           {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -1792,7 +1796,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_copy_df",
+                            "referenceName": "dcsazure_adls_to_adls_delimited_copy_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -2224,7 +2228,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
+                      "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -2259,7 +2263,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataflow": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_filter_test_utility_df",
+                "referenceName": "dcsazure_adls_to_adls_delimited_filter_test_utility_df",
                 "type": "DataFlowReference",
                 "parameters": {
                   "runId": "''",
@@ -2362,7 +2366,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds",
+                "referenceName": "dcsazure_adls_to_adls_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -2410,7 +2414,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
+                      "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
@@ -2428,7 +2432,6 @@
                     ],
                     "storeSettings": {
                       "type": "AzureBlobFSReadSettings",
-                      "recursive": true,
                       "enablePartitionDiscovery": false
                     },
                     "formatSettings": {
@@ -2468,7 +2471,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataset": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_adls_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -2592,7 +2595,7 @@
           },
           "DATASET": {
             "type": "String",
-            "defaultValue": "ADLS-DELIMITED"
+            "defaultValue": "ADLS"
           },
           "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
             "type": "String",
@@ -2604,24 +2607,24 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-12-05T00:28:53Z"
+        "lastPublishTime": "2024-09-25T01:21:56Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_filter_test_utility_df')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_params_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_params_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_copy_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_filter_test_utility_df')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_unfiltered_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_unfiltered_mask_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_filtered_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_filtered_mask_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_copy_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_metadata_mask_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2638,7 +2641,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -2730,12 +2733,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_filter_test_utility_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_filter_test_utility_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -2824,7 +2827,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_mask_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory_mask_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2841,7 +2844,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
         "type": "DelimitedText",
@@ -2871,12 +2874,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_params_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_unfiltered_mask_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -2972,7 +2975,6 @@
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
-            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
@@ -3015,7 +3017,7 @@
             "     schemaName: ($DF_METADATA_SCHEMA),",
             "     tableName: ($DF_METADATA_ADF_TYPE_MAPPING_TABLE),",
             "     isolationLevel: 'READ_UNCOMMITTED') ~> TypeMapping",
-            "Ruleset filter(equalsIgnoreCase(dataset, $DF_DATASET) ",
+            "Ruleset filter(equalsIgnoreCase(dataset, 'ADLS') ",
             "&& equalsIgnoreCase(specified_database, $DF_SOURCE_CONTAINER) ",
             "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_SCHEMA) ",
             "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)",
@@ -3038,7 +3040,7 @@
             "          NumberOfBatches = toInteger(ceil(((max(row_count) * (sum(column_width_estimate) + log10(max(row_count))+1)) / (2000000 * .9)))),",
             "          TrimLengths = regexReplace(reduce(collect(identified_column_max_length), '[',  #acc + toString(#item) + ',', toString(#result) + ']'), ',]', ']')) ~> GenerateMaskParameters",
             "GenerateMaskParameters derive(NumberOfBatches = iif(NumberOfBatches > 0, NumberOfBatches, 1)) ~> ModifyNumberOfBatches",
-            "TypeMapping filter(equalsIgnoreCase(dataset, $DF_DATASET)) ~> FilterAdlsType",
+            "TypeMapping filter(equalsIgnoreCase(dataset, 'ADLS')) ~> FilterAdlsType",
             "FilterToSingleTable parse(parsed_metadata = metadata ? (date_format as string),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseMetadata",
@@ -3081,12 +3083,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_unfiltered_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_unfiltered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -3186,7 +3188,6 @@
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
-            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SINK_CONTAINER as string (''),",
             "     DF_SOURCE_DIRECTORY as string (''),",
@@ -3307,13 +3308,13 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_params_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_filtered_mask_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Generate masking parameters when conditional algorithms are defined",
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -3457,12 +3458,12 @@
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_METADATA_ADF_TYPE_MAPPING_TABLE as string ('adf_type_mapping'),",
-            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
-            "     DF_FILTER_KEY as string ('')",
+            "     DF_FILTER_KEY as string (''),",
+            "     DF_DATASET as string ('ADLS')",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -3674,13 +3675,13 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_filtered_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_filtered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Perform masking on a subset of the data that matches the specified filter",
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -3906,12 +3907,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_copy_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_copy_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "type": "MappingDataFlow",
         "typeProperties": {

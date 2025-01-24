@@ -1,11 +1,11 @@
-# dcsazure_ADLS_to_ADLS_delimited_discovery_pl
-## Delphix Compliance Services (DCS) for Azure - ADLS to ADLS Delimited Discovery Pipeline
+# dcsazure_adls_to_adls_discovery_pl
+## Delphix Compliance Services (DCS) for Azure - ADLS to ADLS Discovery Pipeline
 
-This pipeline will perform automated sensitive data discovery on your delimited data in Azure Data Lake Storage (ADLS).
+This pipeline will perform automated sensitive data discovery on your Azure Data Lake Storage (ADLS) Data.
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.12.06.0`).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.10.24.0`).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage (Gen 2) service associated with your ADLS source data.
 
@@ -17,10 +17,10 @@ These linked services types are needed for the following steps:
 
 `Azure Data Lake Storage` (source) - Linked service associated with ADLS source data. This will be used for the
 following steps:
-* dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds (DelimitedText dataset)
-* dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds (DelimitedText dataset)
-* dcsazure_ADLS_to_ADLS_delimited_data_discovery_df/SourceData1MillRowDataSampling (dataFlow)
-* dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds (DelimitedText dataset)
+* dcsazure_adls_container_and_directory_discovery_ds (DelimitedText dataset)
+* dcsazure_adls_sub_directory_discovery_ds (DelimitedText dataset)
+* dcsazure_adls_to_adls_delimited_data_discovery_df/SourceData1MillRowDataSampling (dataFlow)
+* dcsazure_adls_delimited_header_file_schema_discovery_ds (DelimitedText dataset)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
@@ -28,14 +28,14 @@ steps:
 * Update Discovery State (Stored procedure activity)
 * Update Discovery State Failed (Stored procedure activity)
 * Check If We Should Rediscover Data (If Condition activity)
-* dcsazure_ADLS_to_ADLS_delimited_metadata_discovery_ds (Azure SQL Database dataset)
+* dcsazure_adls_to_adls_metadata_discovery_ds (Azure SQL Database dataset)
 * If Match (If Condition activity)
-* dcsazure_ADLS_to_ADLS_delimited_data_discovery_df/MetadataStoreRead (dataFlow)
-* dcsazure_ADLS_to_ADLS_delimited_data_discovery_df/WriteToMetadataStore (dataFlow)
+* dcsazure_adls_to_adls_delimited_data_discovery_df/MetadataStoreRead (dataFlow)
+* dcsazure_adls_to_adls_delimited_data_discovery_df/WriteToMetadataStore (dataFlow)
 
 `REST` (DCS for Azure) - Linked service associated with calling DCS for Azure. This will be used for the following
 steps:
-* dcsazure_ADLS_to_ADLS_delimited_data_discovery_df (dataFlow)
+* dcsazure_adls_to_adls_delimited_data_discovery_df (dataFlow)
 
 ### How It Works
 The discovery pipeline has a few stages:
@@ -49,11 +49,11 @@ The discovery pipeline has a few stages:
     an array-type variable, similarly for heterogeneous schemas.
 * Schema Discovery Using Azure Data Factory Metadata Discovery
   * For each of the directories with heterogeneous schema, identify the schema for each file with one of the suffixes to
-    scan, determine the structure of the file by calling the child `dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl`
+    scan, determine the structure of the file by calling the child `dcsazure_adls_to_adls_file_schema_discovery_pl`
     pipeline with the appropriate parameters.
   * For each of the directories with a homogeneous schema, and for each of the prefixes/suffix combinations specified in
     the `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` variable, determine the structure of the file by calling the child
-    `dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl` pipeline with the appropriate parameters.
+    `dcsazure_adls_to_adls_file_schema_discovery_pl` pipeline with the appropriate parameters.
 * Select Discovered Tables - In this case, we consider the table to be items with the same schema.
   * After the previous step, we query the database for all tables (file suffixes within each distinct path of the
     storage container) and perform profiling for sensitive data discovery in those files that have not yet been
@@ -75,10 +75,10 @@ have customized your metadata store, then these variables may need editing.
   accept, in part, the file structure from the `Get Metadata` ADF pipeline Activity.
 * `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
   accumulator for the list of directories with heterogeneous schemas (default `[]` - do not modify).
-* `HOMOGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
+* `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
   accumulator for the list of directories with homogeneous schemas (default `[]` - do not modify).
 * `DATASET` - This is used to identify data that belongs to this pipeline in the metadata store (default `ADLS`).
-* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
+* `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the 
   metadata data store and sets the discovery state on the items discovered during execution
   (default `insert_adf_discovery_event`).
 * `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value
@@ -216,7 +216,7 @@ directory_to_profile
     └── file2.txt
 ```
 
-In order to correctly profile, we'd have to specify `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` as
+In order to correctly profile, we'd have to specify `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` as 
 `["heterogeneous_subdirectory"]` and `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` as:
 ```json
 {

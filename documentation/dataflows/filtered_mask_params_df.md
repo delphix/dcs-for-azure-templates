@@ -18,110 +18,86 @@ Note that changes to the metadata store may change the masking parameters comput
 ## Structure
 
 The general flow of the data in the dataflow is as follows:
-```mermaid
-flowchart LR
-    Ruleset -->
-    FilterToSingleTable --> ParseMetadata
-    FilterToSingleTable -->
-    HandleConditionalAlgorithms -->
-    ParseKeyColumn -->
-    FlattenKeyConditions --> JoinConditionalAlgorithms
-    HandleConditionalAlgorithms -->
-    ParseAlgorithm -->
-    FlattenAlgorithmAssignments -->
-    JoinConditionalAlgorithms -->
-    FilterToConditionKey -->
-    SimplifyConditionalRulesetTable --> UnionAllRules
-    HandleConditionalAlgorithms -->
-    SimplifySimpleRulesetTable -->
-    UnionAllRules --> RulesetWithTypes
-    TypeMapping -->
-    FilterToDataSourceType -->
-    RulesetWithTypes -->
-    RulesetWithAlgorithmTypeMapping -->
-    GenerateMaskParameters --> AllMaskingParameters
-    ParseMetadata -->
-    FlattenConditionalFormatting -->
-    FilterUnmatchingAlias -->
-    DateFormatString -->
-    SplitOnDateFormat -->
-    DateFormatHeader -->
-    JoinDateHeaders
-    SplitOnDateFormat -->
-    NoFormatHeader -->
-    JoinDateHeaders -->
-    DateFormatHeaderHandlingNulls -->
-    RemoveUnnecessaryColumns -->
-    AllMaskingParameters -->
-    MaskingParameterOutput
+```
+[A] → [B] → [C1] → [D] → [E] →  ↓
+       ↓     ↓                 [H] → [I] → [J]
+       ↓    [C2] → [F] → [G] →  ↑           ↓
+       ↓     ↓                             [L] →  ↓
+       ↓    [C3] → [K] →  →  →  →  →  →  →  ↑     ↓
+       ↓                                         [O] → [P] → [Q] →
+       ↓                             [M] → [N] →  ↑               ↓
+       ↓                                                         [a] → [b]
+        → [R] → [S1] → [S2] → [T] → [U1] → [V] → ↓                ↑
+                                     ↓          [X] → [Y] → [Z] → 
+                                    [U2] → [W] → ↑
 ```
 
-The dataflow will vary slightly based on the data set it was constructed for (e.g. `SNOWFLAKE`, `DATABRICKS`,
-`ADLS-DELIMITED`, `ADLS-PARQUET`). However, each version of the dataset will contain the following steps.
+The dataflow will vary slightly based on the data set it was constructed for (e.g. `SNOWFLAKE`, `DATABRICKS`, `ADLS`).
+However, each version of the dataset will contain the following steps.
 
-* `Ruleset` - Data Source - Get the ruleset table from the metadata store at
+* `[A]` Data Source - `Ruleset` - Get the ruleset table from the metadata store at
 `DF_METADATA_SCHEMA`.`DF_METADATA_RULESET_TABLE`
-* `FilterToSingleTable` - Filter - Filter ruleset table down to the table in question by specifying `dataset`,
+* `[B]` Filter - `FilterToSingleTable` - Filter ruleset table down to the table in question by specifying `dataset`,
 `specified_database`, `specified_schema`, `identified_table`, and `assigned_algorithm` - making sure they match
 the dataset associated with each version of the dataflow, `DF_SOURCE_DATABASE`, `DF_SOURCE_SCHEMA`, `DF_SOURCE_TABLE`,
 and not empty or null (respectively). This filters the ruleset down to only the rules that need to be applied for
 masking this particular table
-* `HandleConditionalAlgorithms` - Conditional Split - Conditionally distributing the data in assigned_algorithm
-groups, based on the type of data in assigned_algorithm:
-  * Conditional Split Stream - `KeyColumn` - Stream of data that contains a JSON array
-  * Conditional Split Stream - `ConditionalAlgorithm` - Stream of data that contains a JSON object
-  * Conditional Split Stream - `StandardAlgorithm` - Stream of data that does not contain JSON 
-* `ParseKeyColumn` - Parse - Parse key column conditions
-* `FlattenKeyConditions` - Flatten - Unroll the aliases and conditions from the key column
-* `ParseAlgorithm` - Parse - Parse conditional algorithm assignment
-* `FlattenAlgorithmAssignments` - Flatten - Unroll the conditions from the conditional algorithm assignment
-* `JoinConditionalAlgorithms` - Join - Join the key column, its conditions, and the algorithms assigned to those
+* `[C]` Conditional Split - `HandleConditionalAlgorithms` - Conditionally distributing the data in assigned_algorithm
+groups, based on the type of data in assigned_algorithm 
+  * `[C1]` Conditional Split Stream - `KeyColumn` - Stream of data that contains a JSON array
+  * `[C2]` Conditional Split Stream - `ConditionalAlgorithm` - Stream of data that contains a JSON object
+  * `[C3]` Conditional Split Stream - `StandardAlgorithm` - Stream of data that does not contain JSON 
+* `[D]` Parse - `ParseKeyColumn` - Parse key column conditions
+* `[E]` Flatten - `FlattenKeyConditions` - Unroll the aliases and conditions from the key column
+* `[F]` Parse - `ParseAlgorithm` - Parse conditional algorithm assignment
+* `[G]` Flatten - `FlattenAlgorithmAssignments` - Unroll the conditions from the conditional algorithm assignment
+* `[H]` Join - `JoinConditionalAlgorithms` - Join the key column, its conditions, and the algorithms assigned to those
 conditions
-* `FilterToConditionKey` - Filter - Filter out rows that don't apply to this condition key, and rows that don't
+* `[I]` Filter - `FilterToConditionKey` - Filter out rows that don't apply to this condition key, and rows that don't
 include an assigned algorithm
-* `SimplifyConditionalRulesetTable` - Select - Rename columns in the conditional ruleset table to match the
+* `[J]` Select - `SimplifyConditionalRulesetTable` - Rename columns in the conditional ruleset table to match the
 simplified ruleset table
-* `SimplifySimpleRulesetTable` - Select - Simplify the columns of the ruleset table for algorithms that are always
+* `[K]` Select - `SimplifySimpleRulesetTable` - Simplify the columns of the ruleset table for algorithms that are always
 applied
-* `UnionAllRules` - Union - Combining rows from conditional and non-conditional ruleset tables
-* `TypeMapping` - Data Source - Get the type mapping table from the metadata store at
+* `[L]` Union - `UnionAllRules` - Combining rows from conditional and non-conditional ruleset tables
+* `[M]` Data Source - `TypeMapping` - Get the type mapping table from the metadata store at
   `DF_METADATA_STORE`.`DF_METADATA_ADF_TYPE_MAPPING_TABLE`
-* `FilterToDataSourceType` - Filter - Filter type mapping table down to only the dataset in question
-* `RulesetWithTypes` - Join - Join the ruleset table with the type mapping table based on the type of the column
+* `[N]` Filter - `FilterToDataSourceType` - Filter type mapping table down to only the dataset in question
+* `[O]` Join - `RulesetWithTypes` - Join the ruleset table with the type mapping table based on the type of the column
   and the translation of that type to an ADF type
-* `RulesetWithAlgorithmTypeMapping` - Derived Column - Generate several columns:
+* `[P]` Derived Column - `RulesetWithAlgorithmTypeMapping` - Generate several columns:
   * `output_row` that always contains `1` (used later for Aggregate and Join operations)
   * `adf_type_conversion` that contains a string like `<column_name> as <adf_type>`
   * `column_width_estimate` that contains an integer that uses `DF_COLUMN_WIDTH_ESTIMATE` as the width for any column
     where `identified_column_max_length` is not positive, and `identified_column_max_length` plus some padding otherwise
-* `GenerateMaskParameters` - Aggregate - Grouped by `output_row` produce the following aggregates
+* `[Q]` Aggregate - `GenerateMaskParameters` - Grouped by `output_row` produce the following aggregates
   * `FieldAlgorithmAssignments` - a JSON string that maps a column name to its assigned algorithm
   * `ColumnsToMask` - a list of the column names that have an algorithm assigned
   * `DataFactoryTypeMapping` - a string that can be used by ADF to parse the output of a call to the Delphix masking
     endpoint, leveraging the `adf_type_conversion` column derived previously
   * `TrimLengths` - a list of the actual widths of the columns so that will be used by the masking data flow to trim
-    output before sinking (this may not be present)
-* `ParseMetadata` - Parse - Parse the content from the `metadata` column that contains JSON, specifically
+    output before sinking
+* `[R]` Parse - `ParseMetadata` - Parse the content from the `metadata` column that contains JSON, specifically
   handling parsing of known keys (i.e. `date_format` and conditional date formatting specifications)
-* `FlattenConditionalFormatting` - Flatten - Unroll the conditions from the conditional date_format assignment
-* `FilterUnmatchingAlias` - Filter - Filter down to only this filer alias, as necessary
-* `DateFormatString` - Derived Column - Derive columns as necessary for handling the parsed data (i.e. consume
+* `[S1]` - Flatten - Unroll the conditions from the conditional date_format assignment
+* `[S2]` - Filter - Filter down to only this filer alias, as necessary
+* `[T]` Derived Column - `DateFormatString` - Derive columns as necessary for handling the parsed data (i.e. consume
   `parsed_metadata.date_format` and put it in a column `date_format_string`), and add an `output_row` column that
   always contains `1` (used later for Aggregate and Join operations)
-* `SplitOnDateFormat` - Conditional Split - Split the data into two streams, data that contains a specified date
+* `[U]` Conditional Split - `SplitOnDateFormat` - Split the data into two streams, data that contains a specified date
   format, and data that does not
-  *  Conditional Split Stream - `ContainsDateFormat` - Stream of data that contains a date format
-  * Conditional Split Stream - `DoesNotContainDateFormat` - Stream of data that does not contain a date format
-* `DateFormatHeader` - Aggregate - Create DateFormatAssignment, grouped by output_row (which is always 1),
+  * `[U1]` Conditional Split Stream - `ContainsDateFormat` - Stream of data that contains a date format
+  * `[U2]` Conditional Split Stream - `DoesNotContainDateFormat` - Stream of data that does not contain a date format
+* `[V]` Aggregate - `DateFormatHeader` - Create DateFormatAssignment, grouped by output_row (which is always 1),
   generating a JSON string that maps a column to its specified date format
-* `NoFormatHeader` - Aggregate - Create NoFormatHeader, that generates a JSON string containing an empty map when
+* `[W]` Aggregate - `NoFormatHeader` - Create NoFormatHeader, that generates a JSON string containing an empty map when
   all values are null, grouped by output_row (which is always 1)
-* `JoinDateHeaders` - Join - Full outer join both `DateFormatHeader` and `NoFormatHeader` where `output_row` =
+* `[X]` Join - `JoinDateHeaders` - Full outer join both `DateFormatHeader` and `NoFormatHeader` where `output_row` =
   `output_row`
-* `DateFormatHeaderHandlingNulls` - Derived Column - Update column `DateFormatAssignments` to coalesce
+* `[Y]` Derived Column - `DateFormatHeaderHandlingNulls` - Update column `DateFormatAssignments` to coalesce
   `DateFormatAssignments`, and `NoFormatHeader` (i.e. if `DateFormatAssignments` is null, take `NoFormatHeader`, which
   won't be null), similarly with `output_row`
-* `RemoveUnnecessaryColumns` - Select - Remove intermediate columns
-* `AllMaskingParameters` - Join -Perform an inner join on `output_row` with the output of
+* `[Z]` Select -  `RemoveUnnecessaryColumns` - Remove intermediate columns
+* `[a]` Join - `AllMaskingParameters` - Perform an inner join on `output_row` with the output of
   `RemoveUnnecessaryColumns` - combining all computed masking parameters into the same output stream
-* `MaskingParameterOutput` - Sink - Sink results of computing masking parameters to activity output cache
+* `[b]` Sink - `MaskingParameterOutput` - Sink results of computing masking parameters to activity output cache

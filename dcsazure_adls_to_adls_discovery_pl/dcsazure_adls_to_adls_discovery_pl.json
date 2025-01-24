@@ -21,7 +21,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_discovery_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -47,7 +47,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds",
+                "referenceName": "dcsazure_adls_container_and_directory_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_CONTAINER": {
@@ -184,7 +184,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds",
+                      "referenceName": "dcsazure_adls_sub_directory_discovery_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
@@ -281,7 +281,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "pipeline": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                      "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                       "type": "PipelineReference"
                     },
                     "waitOnCompletion": true,
@@ -330,10 +330,6 @@
                       "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
                         "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
                         "type": "Expression"
-                      },
-                      "P_DATASET": {
-                        "value": "@variables('DATASET')",
-                        "type": "Expression"
                       }
                     }
                   }
@@ -355,7 +351,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "pipeline": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                      "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                       "type": "PipelineReference"
                     },
                     "waitOnCompletion": true,
@@ -404,10 +400,6 @@
                       "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
                         "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
                         "type": "Expression"
-                      },
-                      "P_DATASET": {
-                        "value": "@variables('DATASET')",
-                        "type": "Expression"
                       }
                     }
                   }
@@ -452,7 +444,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "pipeline": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                      "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                       "type": "PipelineReference"
                     },
                     "waitOnCompletion": true,
@@ -501,10 +493,6 @@
                       "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
                         "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
                         "type": "Expression"
-                      },
-                      "P_DATASET": {
-                        "value": "@variables('DATASET')",
-                        "type": "Expression"
                       }
                     }
                   }
@@ -548,7 +536,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_discovery_ds",
+                "referenceName": "dcsazure_adls_to_adls_metadata_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -604,7 +592,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "pipeline": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                            "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                             "type": "PipelineReference"
                           },
                           "waitOnCompletion": true,
@@ -660,10 +648,6 @@
                             "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
                               "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
                               "type": "Expression"
-                            },
-                            "P_DATASET": {
-                              "value": "@variables('DATASET')",
-                              "type": "Expression"
                             }
                           }
                         }
@@ -692,7 +676,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "pipeline": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                            "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                             "type": "PipelineReference"
                           },
                           "waitOnCompletion": true,
@@ -748,10 +732,6 @@
                             "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
                               "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
                               "type": "Expression"
-                            },
-                            "P_DATASET": {
-                              "value": "@variables('DATASET')",
-                              "type": "Expression"
                             }
                           }
                         }
@@ -780,7 +760,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "pipeline": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                            "referenceName": "dcsazure_adls_to_adls_file_schema_discovery_pl",
                             "type": "PipelineReference"
                           },
                           "waitOnCompletion": true,
@@ -835,10 +815,6 @@
                             },
                             "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
                               "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
-                              "type": "Expression"
-                            },
-                            "P_DATASET": {
-                              "value": "@variables('DATASET')",
                               "type": "Expression"
                             }
                           }
@@ -948,7 +924,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_data_discovery_df",
+                      "referenceName": "dcsazure_adls_to_adls_delimited_data_discovery_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -1033,7 +1009,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_metadata_discovery_ds",
+                      "referenceName": "dcsazure_adls_to_adls_metadata_discovery_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -1426,7 +1402,7 @@
           },
           "COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
             "type": "String",
-            "defaultValue": "get_columns_from_delimited_file_structure_sp"
+            "defaultValue": "get_columns_from_adls_file_structure_sp"
           },
           "HOMOGENEOUS_SCHEMAS_TO_CHECK": {
             "type": "Array",
@@ -1438,7 +1414,7 @@
           },
           "DATASET": {
             "type": "String",
-            "defaultValue": "ADLS-DELIMITED"
+            "defaultValue": "ADLS"
           },
           "METADATA_EVENT_PROCEDURE_NAME": {
             "type": "String",
@@ -1458,21 +1434,21 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-12-05T00:28:54Z"
+        "lastPublishTime": "2024-10-18T16:56:11Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_metadata_discovery_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds')]",
-        "[concat(variables('factoryId'), '/pipelines/dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_data_discovery_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_to_adls_metadata_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_sub_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_adls_to_adls_file_schema_discovery_pl')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_adls_to_adls_delimited_data_discovery_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_container_and_directory_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1489,7 +1465,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
         "type": "DelimitedText",
@@ -1519,7 +1495,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_metadata_discovery_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_metadata_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1536,7 +1512,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -1628,7 +1604,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_sub_directory_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1645,7 +1621,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
         "type": "DelimitedText",
@@ -1675,7 +1651,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_file_schema_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -1694,7 +1670,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds",
+                "referenceName": "dcsazure_adls_container_and_directory_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_CONTAINER": {
@@ -1806,7 +1782,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds",
+                      "referenceName": "dcsazure_adls_delimited_header_file_schema_discovery_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_STORAGE_CONTAINER": {
@@ -1932,13 +1908,6 @@
                           "type": "Expression"
                         },
                         "type": "String"
-                      },
-                      "dataset": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_DATASET",
-                          "type": "Expression"
-                        },
-                        "type": "String"
                       }
                     }
                   },
@@ -1993,29 +1962,26 @@
           },
           "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
             "type": "int"
-          },
-          "P_DATASET": {
-            "type": "string"
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
-        "lastPublishTime": "2024-12-05T00:28:53Z"
+        "lastPublishTime": "2024-09-03T21:36:47Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_container_and_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_adls_delimited_header_file_schema_discovery_ds')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_data_discovery_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_to_adls_delimited_data_discovery_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -2114,7 +2080,6 @@
             "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_DATASET as string (''),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_COLUMN_DELIMITER as string (''),",
             "     DF_QUOTE_CHARACTER as string ('\\\"'),",
@@ -2212,7 +2177,7 @@
             "     ),",
             "     skipDuplicateMapInputs: false,",
             "     skipDuplicateMapOutputs: false) ~> FlattenDetails",
-            "MetadataStoreRead filter(equalsIgnoreCase(dataset, $DF_DATASET)",
+            "MetadataStoreRead filter(equalsIgnoreCase(dataset, 'ADLS')",
             "&& equalsIgnoreCase(specified_database, $DF_SOURCE_CONTAINER)",
             "&& equalsIgnoreCase(specified_schema, $DF_SCHEMA)",
             "&& equalsIgnoreCase(identified_table, $DF_TABLE)) ~> FilterRowsToUpdate",
@@ -2281,7 +2246,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_adls_delimited_header_file_schema_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2313,7 +2278,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
+          "name": "dcsazure_adls_to_adls"
         },
         "annotations": [],
         "type": "DelimitedText",
