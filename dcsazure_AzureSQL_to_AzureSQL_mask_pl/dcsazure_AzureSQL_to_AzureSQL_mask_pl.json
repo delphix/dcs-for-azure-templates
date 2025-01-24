@@ -3464,7 +3464,7 @@
             }
           },
           {
-            "name": "Delete Masked Table Constraints",
+            "name": "Delete Irrelevant Table Constraints",
             "description": "Remove any additional constraints that were added in the previous Copy Data activity but were not dropped or created in this pipeline run",
             "type": "Script",
             "dependsOn": [
