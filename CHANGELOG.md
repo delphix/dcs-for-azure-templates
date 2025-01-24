@@ -1,5 +1,15 @@
 # CHANGELOG
 
+# 0.0.16
+* Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl` that causes the pipeline to fail when the metadata store schema is not present in the sink database.
+
+# 0.0.15
+* Add support for ADLS to ADLS Parquet discovery and masking pipelines
+* Update existing ADLS to ADLS discovery and masking pipelines to differentiate between new pipeline and existing
+  pipeline with focus on delimited files - including changing current references to `ADLS` to `ADLS-DELIMITED`
+* Update stored procedures for parsing metadata output to take the dataset as an argument and remove hard-coded
+  references to datasets in ADLS pipelines
+
 # 0.0.14
 * Add support for DCS for Azure SQL to Azure SQL Discovery Pipeline
 * Add support for DCS for Azure SQL to Azure SQL Masking Pipeline
