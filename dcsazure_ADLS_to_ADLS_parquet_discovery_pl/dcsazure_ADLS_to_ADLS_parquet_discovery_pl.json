@@ -765,7 +765,7 @@
           "name": "dcsazure_ADLS_to_ADLS_parquet"
         },
         "annotations": [],
-        "lastPublishTime": "2024-12-05T00:40:57Z"
+        "lastPublishTime": "2024-12-05T00:49:07Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_parquet_container_and_directory_discovery_ds')]",
@@ -1028,7 +1028,8 @@
               "description": "Filter $DF_ROWS rows using the DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID."
             },
             {
-              "name": "CreateItemsList"
+              "name": "CreateItemsList",
+              "description": "For every column that we didn't add collect it to produce a list of values, and encode the column name to avoid reserved characters"
             },
             {
               "name": "ParseAPIResponse",
@@ -1054,6 +1055,10 @@
             },
             {
               "name": "FilterOnlyNewlyProfiledRows"
+            },
+            {
+              "name": "ItemsListWithRenamedColumns",
+              "description": "Decode the encoded column name to restore it to the source column name"
             }
           ],
           "scriptLines": [
@@ -1085,7 +1090,7 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -1103,7 +1108,7 @@
             "     schemaName: ($DF_METADATA_SCHEMA),",
             "     tableName: ($DF_METADATA_RULESET_TABLE),",
             "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
-            "CreateItemsList call(mapColumn(",
+            "ItemsListWithRenamedColumns call(mapColumn(",
             "          each(match(true()))",
             "     ),",
             "     skipDuplicateMapInputs: false,",
@@ -1132,7 +1137,7 @@
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateFinalSelectionId",
             "CreateFinalSelectionId filter(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID < ($DF_NUM_ROWS_TO_PROFILE +1)) ~> GetRandomRows",
-            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), $$ = collect($$))) ~> CreateItemsList",
+            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), concat('x',hex(encode($$))) = collect($$))) ~> CreateItemsList",
             "CallDCSForAzureProfiling parse(body = body ? (timestamp as date,",
             "          status as string,",
             "          message as string,",
@@ -1167,6 +1172,12 @@
             "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
             "|| rowsConsidered != rows_profiled",
             "|| toDecimal(confidence) != toDecimal(confidence_score)) ~> FilterOnlyNewlyProfiledRows",
+            "CreateItemsList select(mapColumn(",
+            "          each(match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> ItemsListWithRenamedColumns",
             "ChecksBeforeSave sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     input(",
