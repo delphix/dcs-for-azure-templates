@@ -2,22 +2,11 @@
   "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "factoryName": {
-      "type": "string",
-      "metadata": "Data Factory name"
-    },
-    "Metadata Datastore": {
-      "type": "string"
-    },
-    "AzureSqlDatabase_Sink": {
-      "type": "string"
-    },
-    "AzureSqlDatabase_Source": {
-      "type": "string"
-    },
-    "ProdDCSForAzureService": {
-      "type": "string"
-    }
+    "factoryName": { "type": "string", "metadata": "Data Factory name" },
+    "azuresql_mask_metadata_store_db": { "type": "string" },
+    "azuresql_mask_sink_db": { "type": "string" },
+    "azuresql_mask_source_db": { "type": "string" },
+    "ProdDCSForAzureService": { "type": "string" }
   },
   "variables": {
     "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
@@ -36,9 +25,7 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Truncate",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -82,9 +69,7 @@
             "dependsOn": [
               {
                 "activity": "Configure Masked Status",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -168,9 +153,7 @@
                             "computeType": "General"
                           },
                           "traceLevel": "None",
-                          "cacheSinks": {
-                            "firstRowOnly": true
-                          }
+                          "cacheSinks": { "firstRowOnly": true }
                         }
                       },
                       {
@@ -180,9 +163,7 @@
                         "dependsOn": [
                           {
                             "activity": "Get Masking Parameters No Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -283,10 +264,7 @@
                                 "type": "Expression"
                               }
                             },
-                            "datasetParameters": {
-                              "Source": {},
-                              "Sink": {}
-                            }
+                            "datasetParameters": { "Source": {}, "Sink": {} }
                           },
                           "staging": {},
                           "compute": {
@@ -294,9 +272,7 @@
                             "computeType": "General"
                           },
                           "traceLevel": "None",
-                          "cacheSinks": {
-                            "firstRowOnly": true
-                          }
+                          "cacheSinks": { "firstRowOnly": true }
                         }
                       },
                       {
@@ -305,9 +281,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table No Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -349,10 +323,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -453,7 +424,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -463,9 +434,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table No Filter",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -510,10 +479,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -614,7 +580,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -624,9 +590,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Masked State No Filter Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -708,9 +672,7 @@
                             "computeType": "General"
                           },
                           "traceLevel": "None",
-                          "cacheSinks": {
-                            "firstRowOnly": true
-                          }
+                          "cacheSinks": { "firstRowOnly": true }
                         }
                       },
                       {
@@ -720,9 +682,7 @@
                         "dependsOn": [
                           {
                             "activity": "Get Masking Parameters With Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -827,10 +787,7 @@
                                 "type": "Expression"
                               }
                             },
-                            "datasetParameters": {
-                              "Source": {},
-                              "Sink": {}
-                            }
+                            "datasetParameters": { "Source": {}, "Sink": {} }
                           },
                           "staging": {},
                           "compute": {
@@ -846,9 +803,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table With Filter",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -1000,7 +955,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1010,9 +965,7 @@
                         "dependsOn": [
                           {
                             "activity": "Perform Masking Per Table With Filter",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -1167,7 +1120,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1177,9 +1130,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Masked State With Filter Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -1204,9 +1155,7 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Truncate",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -1250,9 +1199,7 @@
             "dependsOn": [
               {
                 "activity": "Select Tables Without Required Masking",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -1274,9 +1221,7 @@
             "dependsOn": [
               {
                 "activity": "Filter If Copy Unmasked Enabled",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -1370,9 +1315,7 @@
                         "dependsOn": [
                           {
                             "activity": "Copy Unmasked Data",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -1414,10 +1357,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -1518,7 +1458,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1528,9 +1468,7 @@
                         "dependsOn": [
                           {
                             "activity": "Copy Unmasked Data",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -1575,10 +1513,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -1679,7 +1614,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1689,9 +1624,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Copy Unmasked Data State Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -1763,9 +1696,7 @@
                         "dependsOn": [
                           {
                             "activity": "Call Copy Dataflow",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "policy": {
@@ -1807,10 +1738,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -1911,7 +1839,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1921,9 +1849,7 @@
                         "dependsOn": [
                           {
                             "activity": "Call Copy Dataflow",
-                            "dependencyConditions": [
-                              "Failed"
-                            ]
+                            "dependencyConditions": ["Failed"]
                           }
                         ],
                         "policy": {
@@ -1968,10 +1894,7 @@
                               },
                               "type": "DateTimeOffset"
                             },
-                            "filter_alias": {
-                              "value": null,
-                              "type": "String"
-                            },
+                            "filter_alias": { "value": null, "type": "String" },
                             "filter_condition": {
                               "value": null,
                               "type": "String"
@@ -2072,7 +1995,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2082,9 +2005,7 @@
                         "dependsOn": [
                           {
                             "activity": "Update Copy Dataflow State Failed",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
+                            "dependencyConditions": ["Succeeded"]
                           }
                         ],
                         "userProperties": [],
@@ -2134,28 +2055,18 @@
                   "DF_SINK_SCHEMA": "''",
                   "DF_SINK_TABLE": "''",
                   "DF_FIELD_ALGORITHM_ASSIGNMENT": "'{}'",
-                  "DF_COLUMNS_TO_MASK": [
-                    ""
-                  ],
+                  "DF_COLUMNS_TO_MASK": [""],
                   "DF_BODY_TYPE_MAPPING": "'(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'",
                   "DF_NUMBER_OF_BATCHES": "100",
-                  "DF_TRIM_LENGTHS": [
-                    1000
-                  ],
+                  "DF_TRIM_LENGTHS": [1000],
                   "DF_FAIL_ON_NONCONFORMANT_DATA": "true()",
                   "DF_FIELD_DATE_FORMAT": "'{}'",
                   "DF_FILTER_CONDITION": "true()"
                 },
-                "datasetParameters": {
-                  "Source": {},
-                  "Sink": {}
-                }
+                "datasetParameters": { "Source": {}, "Sink": {} }
               },
               "staging": {},
-              "compute": {
-                "coreCount": 8,
-                "computeType": "General"
-              },
+              "compute": { "coreCount": 8, "computeType": "General" },
               "traceLevel": "Fine"
             }
           },
@@ -2184,7 +2095,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2209,9 +2120,7 @@
             "dependsOn": [
               {
                 "activity": "Execute Drop Constraint Pipeline",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -2255,9 +2164,7 @@
             "dependsOn": [
               {
                 "activity": "Select Tables We Should Truncate",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -2280,7 +2187,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+                    "referenceName": "[parameters('azuresql_mask_sink_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2306,9 +2213,7 @@
             "dependsOn": [
               {
                 "activity": "Select Tables That Require Masking",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -2320,7 +2225,7 @@
             },
             "userProperties": [],
             "linkedServiceName": {
-              "referenceName": "[parameters('Metadata Datastore')]",
+              "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
               "type": "LinkedServiceReference"
             },
             "typeProperties": {
@@ -2342,14 +2247,10 @@
             "dependsOn": [
               {
                 "activity": "Check If We Should Reapply Mapping",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
-            "policy": {
-              "secureInput": false
-            },
+            "policy": { "secureInput": false },
             "userProperties": [],
             "typeProperties": {
               "pipeline": {
@@ -2397,6 +2298,10 @@
                 "P_PARENT_RUN_ID": {
                   "value": "@pipeline().RunId",
                   "type": "Expression"
+                },
+                "P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME": {
+                  "value": "@variables('METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME')",
+                  "type": "Expression"
                 }
               }
             }
@@ -2407,20 +2312,14 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Mask",
-                "dependencyConditions": [
-                  "Completed"
-                ]
+                "dependencyConditions": ["Completed"]
               },
               {
                 "activity": "For Each Table With No Masking",
-                "dependencyConditions": [
-                  "Completed"
-                ]
+                "dependencyConditions": ["Completed"]
               }
             ],
-            "policy": {
-              "secureInput": false
-            },
+            "policy": { "secureInput": false },
             "userProperties": [],
             "typeProperties": {
               "pipeline": {
@@ -2468,6 +2367,10 @@
                 "P_PARENT_RUN_ID": {
                   "value": "@pipeline().RunId",
                   "type": "Expression"
+                },
+                "METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
+                  "value": "@variables('METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME')",
+                  "type": "Expression"
                 }
               }
             }
@@ -2479,9 +2382,7 @@
             "dependsOn": [
               {
                 "activity": "Execute Create Constraint Pipeline",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -2514,21 +2415,14 @@
             "dependsOn": [
               {
                 "activity": "For Each Table To Mask",
-                "dependencyConditions": [
-                  "Failed"
-                ]
+                "dependencyConditions": ["Failed"]
               },
               {
                 "activity": "For Each Table With No Masking",
-                "dependencyConditions": [
-                  "Failed"
-                ]
+                "dependencyConditions": ["Failed"]
               }
             ],
-            "policy": {
-              "secureOutput": false,
-              "secureInput": false
-            },
+            "policy": { "secureOutput": false, "secureInput": false },
             "userProperties": [],
             "typeProperties": {
               "variableName": "PIPELINE_FAILED",
@@ -2536,48 +2430,26 @@
             }
           }
         ],
-        "policy": {
-          "elapsedTimeMetric": {}
-        },
+        "policy": { "elapsedTimeMetric": {} },
         "parameters": {
-          "P_COPY_UNMASKED_TABLES": {
-            "type": "bool",
-            "defaultValue": false
-          },
-          "P_USE_COPY_DATAFLOW": {
-            "type": "bool",
-            "defaultValue": false
-          },
+          "P_COPY_UNMASKED_TABLES": { "type": "bool", "defaultValue": false },
+          "P_USE_COPY_DATAFLOW": { "type": "bool", "defaultValue": false },
           "P_FAIL_ON_NONCONFORMANT_DATA": {
             "type": "bool",
             "defaultValue": true
           },
-          "P_SOURCE_DATABASE": {
-            "type": "string"
-          },
-          "P_SINK_DATABASE": {
-            "type": "string"
-          },
-          "P_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "P_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "P_REAPPLY_MAPPING": {
-            "type": "bool",
-            "defaultValue": true
-          },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SINK_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
+          "P_SINK_SCHEMA": { "type": "string" },
+          "P_REAPPLY_MAPPING": { "type": "bool", "defaultValue": true },
           "P_TRUNCATE_SINK_BEFORE_WRITE": {
             "type": "bool",
             "defaultValue": true
           }
         },
         "variables": {
-          "METADATA_SCHEMA": {
-            "type": "String",
-            "defaultValue": "dbo"
-          },
+          "METADATA_SCHEMA": { "type": "String", "defaultValue": "dbo" },
           "METADATA_RULESET_TABLE": {
             "type": "String",
             "defaultValue": "discovered_ruleset"
@@ -2594,10 +2466,7 @@
             "type": "String",
             "defaultValue": "staging-containter"
           },
-          "DATASET": {
-            "type": "String",
-            "defaultValue": "AZURESQL"
-          },
+          "DATASET": { "type": "String", "defaultValue": "AZURESQL" },
           "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
             "type": "String",
             "defaultValue": "%"
@@ -2606,24 +2475,24 @@
             "type": "String",
             "defaultValue": "insert_adf_masking_event"
           },
-          "TARGET_BATCH_SIZE": {
-            "type": "Integer",
-            "defaultValue": 2000
-          },
+          "TARGET_BATCH_SIZE": { "type": "Integer", "defaultValue": 2000 },
           "METADATA_CONSTRAINT_TABLE": {
             "type": "String",
             "defaultValue": "capture_constraints"
           },
-          "PIPELINE_FAILED": {
-            "type": "Boolean",
-            "defaultValue": false
+          "PIPELINE_FAILED": { "type": "Boolean", "defaultValue": false },
+          "METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "insert_constraints"
+          },
+          "METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "update_constraints_status"
           }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2025-01-14T02:33:30Z"
+        "lastPublishTime": "2025-01-30T11:53:56Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -2645,20 +2514,14 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Metadata Datastore')]",
+          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
-          "DS_METADATA_SCHEMA": {
-            "type": "string"
-          },
-          "DS_METADATA_TABLE": {
-            "type": "string"
-          }
+          "DS_METADATA_SCHEMA": { "type": "string" },
+          "DS_METADATA_TABLE": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [],
@@ -2680,15 +2543,13 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Source')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2698,7 +2559,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2772,9 +2633,7 @@
             "dependsOn": [
               {
                 "activity": "Select Discovered Constraints",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -2797,7 +2656,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+                    "referenceName": "[parameters('azuresql_mask_sink_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2820,9 +2679,7 @@
                   "dependsOn": [
                     {
                       "activity": "Update Masked State With Drop Constraint Error",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "policy": {
@@ -2834,7 +2691,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2857,9 +2714,7 @@
                   "dependsOn": [
                     {
                       "activity": "Update Drop Contraint Error",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "userProperties": [],
@@ -2878,9 +2733,7 @@
                   "dependsOn": [
                     {
                       "activity": "Drop Constraint",
-                      "dependencyConditions": [
-                        "Failed"
-                      ]
+                      "dependencyConditions": ["Failed"]
                     }
                   ],
                   "policy": {
@@ -2925,18 +2778,9 @@
                         },
                         "type": "DateTimeOffset"
                       },
-                      "filter_alias": {
-                        "value": null,
-                        "type": "String"
-                      },
-                      "filter_condition": {
-                        "value": null,
-                        "type": "String"
-                      },
-                      "input_parameters": {
-                        "value": null,
-                        "type": "String"
-                      },
+                      "filter_alias": { "value": null, "type": "String" },
+                      "filter_condition": { "value": null, "type": "String" },
+                      "input_parameters": { "value": null, "type": "String" },
                       "is_masking_activity": {
                         "value": "false",
                         "type": "Boolean"
@@ -2973,10 +2817,7 @@
                         },
                         "type": "String"
                       },
-                      "sink_metadata": {
-                        "value": null,
-                        "type": "String"
-                      },
+                      "sink_metadata": { "value": null, "type": "String" },
                       "sink_schema": {
                         "value": {
                           "value": "@pipeline().parameters.P_SINK_SCHEMA",
@@ -3005,10 +2846,7 @@
                         },
                         "type": "String"
                       },
-                      "source_metadata": {
-                        "value": null,
-                        "type": "String"
-                      },
+                      "source_metadata": { "value": null, "type": "String" },
                       "source_schema": {
                         "value": {
                           "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
@@ -3026,7 +2864,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   }
                 }
@@ -3049,7 +2887,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "WITH constraints AS (\n    SELECT \n        '@{pipeline().parameters.P_PARENT_RUN_ID}' AS pipeline_run_id,\n        '@{pipeline().parameters.P_DATASET}' AS dataset, \n        '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n        '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n        parent_table.name AS identified_parent_table, \n        child_table.name AS child_table, \n        fk.name AS constraint_name, \n        STUFF(\n            (\n                SELECT ',' + parent_col.name \n                FROM sys.foreign_key_columns AS fk_col \n                INNER JOIN sys.columns AS parent_col \n                    ON fk_col.parent_object_id = parent_col.object_id \n                    AND fk_col.parent_column_id = parent_col.column_id \n                WHERE fk_col.parent_object_id = fk.parent_object_id \n                    AND fk_col.constraint_object_id = fk.object_id \n                FOR XML PATH(''), TYPE\n            ).value('.', 'NVARCHAR(MAX)'), \n            1, 1, ''\n        ) AS children_columns, \n        STUFF(\n            (\n                SELECT ',' + child_col.name \n                FROM sys.foreign_key_columns AS fk_col \n                INNER JOIN sys.columns AS child_col \n                    ON fk_col.referenced_object_id = child_col.object_id \n                    AND fk_col.referenced_column_id = child_col.column_id \n                WHERE fk_col.parent_object_id = fk.parent_object_id \n                    AND fk_col.constraint_object_id = fk.object_id \n                FOR XML PATH(''), TYPE\n            ).value('.', 'NVARCHAR(MAX)'), \n            1, 1, ''\n        ) AS parent_columns, \n        CASE \n            WHEN fk.is_disabled = 0 THEN 'Enabled' \n            ELSE 'Disabled' \n        END AS pre_drop_status, \n        GETDATE() AS drop_timestamp, \n        'N/A' AS post_create_status,\n        ROW_NUMBER() OVER (PARTITION BY child_table.name, fk.name ORDER BY fk.name) AS row_num \n    FROM sys.foreign_keys AS fk \n    INNER JOIN sys.tables AS child_table \n        ON fk.parent_object_id = child_table.object_id \n    INNER JOIN sys.tables AS parent_table \n        ON fk.referenced_object_id = parent_table.object_id \n)\nSELECT \n    pipeline_run_id,\n    dataset,\n    specified_database,\n    specified_schema,\n    identified_parent_table,\n    child_table,\n    constraint_name,\n    children_columns,\n    parent_columns,\n    pre_drop_status,\n    drop_timestamp,\n    post_create_status\nFROM constraints\nWHERE row_num = 1",
+                  "value": "SELECT \n    '@{pipeline().parameters.P_PARENT_RUN_ID}' AS pipeline_run_id,\n    '@{pipeline().parameters.P_DATASET}' AS dataset, \n    '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n    '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n    parent_table.name AS identified_parent_table, \n    child_table.name AS child_table, \n    fk.name AS constraint_name, \n    STUFF(\n        (\n            SELECT ',' + parent_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS parent_col \n                ON fk_col.parent_object_id = parent_col.object_id \n                AND fk_col.parent_column_id = parent_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS children_columns, \n    STUFF(\n        (\n            SELECT ',' + child_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS child_col \n                ON fk_col.referenced_object_id = child_col.object_id \n                AND fk_col.referenced_column_id = child_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS parent_columns, \n    CASE \n        WHEN fk.is_disabled = 0 THEN 'Enabled' \n        ELSE 'Disabled' \n    END AS pre_drop_status, \n    GETDATE() AS drop_timestamp, \n    'N/A' AS post_create_status\nFROM sys.foreign_keys AS fk \nINNER JOIN sys.tables AS child_table \n    ON fk.parent_object_id = child_table.object_id \nINNER JOIN sys.tables AS parent_table \n    ON fk.referenced_object_id = parent_table.object_id \nWHERE\n    LOWER(SCHEMA_NAME(parent_table.schema_id)) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}') ",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -3057,8 +2895,12 @@
               },
               "sink": {
                 "type": "AzureSqlSink",
-                "writeBehavior": "insert",
-                "sqlWriterUseTableLock": false,
+                "sqlWriterStoredProcedureName": {
+                  "value": "@pipeline().parameters.P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME",
+                  "type": "Expression"
+                },
+                "sqlWriterTableType": "sink_drop_constraint_type",
+                "storedProcedureTableTypeParameterName": "source",
                 "disableMetricsCollection": false
               },
               "enableStaging": false,
@@ -3073,8 +2915,8 @@
                     },
                     "sink": {
                       "name": "pipeline_run_id",
-                      "type": "Guid",
-                      "physicalType": "uniqueidentifier"
+                      "type": "String",
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3086,7 +2928,7 @@
                     "sink": {
                       "name": "dataset",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3098,7 +2940,7 @@
                     "sink": {
                       "name": "specified_database",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3110,7 +2952,7 @@
                     "sink": {
                       "name": "specified_schema",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3122,7 +2964,7 @@
                     "sink": {
                       "name": "identified_parent_table",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3134,7 +2976,7 @@
                     "sink": {
                       "name": "child_table",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3146,19 +2988,7 @@
                     "sink": {
                       "name": "constraint_name",
                       "type": "String",
-                      "physicalType": "varchar"
-                    }
-                  },
-                  {
-                    "source": {
-                      "name": "parent_columns",
-                      "type": "String",
                       "physicalType": "nvarchar"
-                    },
-                    "sink": {
-                      "name": "parent_columns",
-                      "type": "String",
-                      "physicalType": "varchar"
                     }
                   },
                   {
@@ -3170,7 +3000,19 @@
                     "sink": {
                       "name": "children_columns",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "parent_columns",
+                      "type": "String",
+                      "physicalType": "nvarchar"
+                    },
+                    "sink": {
+                      "name": "parent_columns",
+                      "type": "String",
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3182,7 +3024,7 @@
                     "sink": {
                       "name": "pre_drop_status",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3206,7 +3048,7 @@
                     "sink": {
                       "name": "post_create_status",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   }
                 ],
@@ -3221,10 +3063,7 @@
               {
                 "referenceName": "dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds",
                 "type": "DatasetReference",
-                "parameters": {
-                  "DS_SINK_SCHEMA": "-",
-                  "DS_SINK_TABLE": "-"
-                }
+                "parameters": { "DS_SINK_SCHEMA": "-", "DS_SINK_TABLE": "-" }
               }
             ],
             "outputs": [
@@ -3249,10 +3088,8 @@
             "type": "Lookup",
             "dependsOn": [
               {
-                "activity": "Delete Masked Table Constraints",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "activity": "Capture Referential Constraints",
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "policy": {
@@ -3289,72 +3126,20 @@
               },
               "firstRowOnly": false
             }
-          },
-          {
-            "name": "Delete Masked Table Constraints",
-            "type": "Script",
-            "dependsOn": [
-              {
-                "activity": "Capture Referential Constraints",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "linkedServiceName": {
-              "referenceName": "[parameters('Metadata Datastore')]",
-              "type": "LinkedServiceReference"
-            },
-            "typeProperties": {
-              "scripts": [
-                {
-                  "type": "Query",
-                  "text": {
-                    "value": "WITH unmasked_tables AS (\n    SELECT \n        sink_table\n    FROM @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE}\n    WHERE \n        sink_dataset = '@{pipeline().parameters.P_DATASET}'\n        AND sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n        AND sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n        AND mapping_complete = 0\n)\nDELETE FROM capture_constraints\nWHERE \n    dataset = '@{pipeline().parameters.P_DATASET}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND NOT (\n        identified_parent_table IN (SELECT sink_table FROM unmasked_tables)\n        OR child_table IN (SELECT sink_table FROM unmasked_tables)\n    )\n    AND pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'",
-                    "type": "Expression"
-                  }
-                }
-              ],
-              "scriptBlockExecutionTimeout": "02:00:00"
-            }
           }
         ],
-        "policy": {
-          "elapsedTimeMetric": {}
-        },
+        "policy": { "elapsedTimeMetric": {} },
         "parameters": {
-          "P_SOURCE_DATABASE": {
-            "type": "string"
-          },
-          "P_SINK_DATABASE": {
-            "type": "string"
-          },
-          "P_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "P_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "P_DATASET": {
-            "type": "string",
-            "defaultValue": "AZURESQL"
-          },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SINK_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
+          "P_SINK_SCHEMA": { "type": "string" },
+          "P_DATASET": { "type": "string", "defaultValue": "AZURESQL" },
           "P_METADATA_CONSTRAINT_TABLE": {
             "type": "string",
             "defaultValue": "capture_constraints"
           },
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
+          "P_METADATA_SCHEMA": { "type": "string", "defaultValue": "dbo" },
           "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
             "type": "string",
             "defaultValue": "adf_data_mapping"
@@ -3363,15 +3148,15 @@
             "type": "string",
             "defaultValue": "insert_adf_masking_event"
           },
-          "P_PARENT_RUN_ID": {
-            "type": "string"
+          "P_PARENT_RUN_ID": { "type": "string" },
+          "P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME": {
+            "type": "string",
+            "defaultValue": "insert_constraints"
           }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2025-01-17T00:01:37Z"
+        "lastPublishTime": "2025-01-30T12:24:29Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3391,9 +3176,7 @@
             "dependsOn": [
               {
                 "activity": "Select Discovered Constraints",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
+                "dependencyConditions": ["Succeeded"]
               }
             ],
             "userProperties": [],
@@ -3416,7 +3199,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+                    "referenceName": "[parameters('azuresql_mask_sink_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3439,9 +3222,7 @@
                   "dependsOn": [
                     {
                       "activity": "Create Constraint",
-                      "dependencyConditions": [
-                        "Failed"
-                      ]
+                      "dependencyConditions": ["Failed"]
                     }
                   ],
                   "policy": {
@@ -3453,7 +3234,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3476,9 +3257,7 @@
                   "dependsOn": [
                     {
                       "activity": "Update Create Constraint error",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
+                      "dependencyConditions": ["Succeeded"]
                     }
                   ],
                   "userProperties": [],
@@ -3499,9 +3278,7 @@
             "dependsOn": [
               {
                 "activity": "For Each Constraint to Create",
-                "dependencyConditions": [
-                  "Completed"
-                ]
+                "dependencyConditions": ["Completed"]
               }
             ],
             "policy": {
@@ -3516,7 +3293,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "WITH constraints AS (\n    SELECT \n        '@{pipeline().parameters.P_PARENT_RUN_ID}' AS pipeline_run_id,\n        '@{pipeline().parameters.P_DATASET}' AS dataset, \n        '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n        '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n        parent_table.name AS identified_parent_table, \n        child_table.name AS child_table, \n        fk.name AS constraint_name, \n        STUFF(\n            (\n                SELECT ',' + parent_col.name \n                FROM sys.foreign_key_columns AS fk_col \n                INNER JOIN sys.columns AS parent_col \n                    ON fk_col.parent_object_id = parent_col.object_id \n                    AND fk_col.parent_column_id = parent_col.column_id \n                WHERE fk_col.parent_object_id = fk.parent_object_id \n                    AND fk_col.constraint_object_id = fk.object_id \n                FOR XML PATH(''), TYPE\n            ).value('.', 'NVARCHAR(MAX)'), \n            1, 1, ''\n        ) AS children_columns, \n        STUFF(\n            (\n                SELECT ',' + child_col.name \n                FROM sys.foreign_key_columns AS fk_col \n                INNER JOIN sys.columns AS child_col \n                    ON fk_col.referenced_object_id = child_col.object_id \n                    AND fk_col.referenced_column_id = child_col.column_id \n                WHERE fk_col.parent_object_id = fk.parent_object_id \n                    AND fk_col.constraint_object_id = fk.object_id \n                FOR XML PATH(''), TYPE\n            ).value('.', 'NVARCHAR(MAX)'), \n            1, 1, ''\n        ) AS parent_columns, \n        CASE \n            WHEN fk.is_disabled = 0 THEN 'Enabled' \n            ELSE 'Disabled' \n        END AS post_create_status, \n        GETDATE() AS create_timestamp,\n        ROW_NUMBER() OVER (PARTITION BY child_table.name, fk.name ORDER BY fk.name) AS row_num \n    FROM sys.foreign_keys AS fk \n    INNER JOIN sys.tables AS child_table \n        ON fk.parent_object_id = child_table.object_id \n    INNER JOIN sys.tables AS parent_table \n        ON fk.referenced_object_id = parent_table.object_id \n    WHERE\n        LOWER(SCHEMA_NAME(parent_table.schema_id)) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}') \n)\nSELECT \n    pipeline_run_id,\n    dataset,\n    specified_database,\n    specified_schema,\n    identified_parent_table,\n    child_table,\n    constraint_name,\n    children_columns,\n    parent_columns,\n    post_create_status,\n    create_timestamp,\n    'N/A' as pre_drop_status\nFROM constraints\nWHERE row_num = 1",
+                  "value": "SELECT \n    '@{pipeline().parameters.P_PARENT_RUN_ID}' AS pipeline_run_id,\n    '@{pipeline().parameters.P_DATASET}' AS dataset, \n    '@{pipeline().parameters.P_SINK_DATABASE}' AS specified_database, \n    '@{pipeline().parameters.P_SINK_SCHEMA}' AS specified_schema, \n    parent_table.name AS identified_parent_table, \n    child_table.name AS child_table, \n    fk.name AS constraint_name, \n    STUFF(\n        (\n            SELECT ',' + parent_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS parent_col \n                ON fk_col.parent_object_id = parent_col.object_id \n                AND fk_col.parent_column_id = parent_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS children_columns, \n    STUFF(\n        (\n            SELECT ',' + child_col.name \n            FROM sys.foreign_key_columns AS fk_col \n            INNER JOIN sys.columns AS child_col \n                ON fk_col.referenced_object_id = child_col.object_id \n                AND fk_col.referenced_column_id = child_col.column_id \n            WHERE fk_col.parent_object_id = fk.parent_object_id \n                AND fk_col.constraint_object_id = fk.object_id \n            FOR XML PATH(''), TYPE\n        ).value('.', 'NVARCHAR(MAX)'), \n        1, 1, ''\n    ) AS parent_columns, \n    CASE \n        WHEN fk.is_disabled = 0 THEN 'Enabled' \n        ELSE 'Disabled' \n    END AS post_create_status, \n    GETDATE() AS create_timestamp\nFROM sys.foreign_keys AS fk \nINNER JOIN sys.tables AS child_table \n    ON fk.parent_object_id = child_table.object_id \nINNER JOIN sys.tables AS parent_table \n    ON fk.referenced_object_id = parent_table.object_id \nWHERE\n    LOWER(SCHEMA_NAME(parent_table.schema_id)) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}') ",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -3524,20 +3301,12 @@
               },
               "sink": {
                 "type": "AzureSqlSink",
-                "writeBehavior": "upsert",
-                "upsertSettings": {
-                  "useTempDB": true,
-                  "keys": [
-                    "dataset",
-                    "specified_database",
-                    "specified_schema",
-                    "identified_parent_table",
-                    "child_table",
-                    "constraint_name",
-                    "pipeline_run_id"
-                  ]
+                "sqlWriterStoredProcedureName": {
+                  "value": "@pipeline().parameters.METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME",
+                  "type": "Expression"
                 },
-                "sqlWriterUseTableLock": false,
+                "sqlWriterTableType": "sink_create_constraint_type",
+                "storedProcedureTableTypeParameterName": "source",
                 "disableMetricsCollection": false
               },
               "enableStaging": false,
@@ -3552,8 +3321,8 @@
                     },
                     "sink": {
                       "name": "pipeline_run_id",
-                      "type": "Guid",
-                      "physicalType": "uniqueidentifier"
+                      "type": "String",
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3565,7 +3334,7 @@
                     "sink": {
                       "name": "dataset",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3577,7 +3346,7 @@
                     "sink": {
                       "name": "specified_database",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3589,7 +3358,7 @@
                     "sink": {
                       "name": "specified_schema",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3601,7 +3370,7 @@
                     "sink": {
                       "name": "identified_parent_table",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3613,7 +3382,7 @@
                     "sink": {
                       "name": "child_table",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3625,19 +3394,7 @@
                     "sink": {
                       "name": "constraint_name",
                       "type": "String",
-                      "physicalType": "varchar"
-                    }
-                  },
-                  {
-                    "source": {
-                      "name": "parent_columns",
-                      "type": "String",
                       "physicalType": "nvarchar"
-                    },
-                    "sink": {
-                      "name": "parent_columns",
-                      "type": "String",
-                      "physicalType": "varchar"
                     }
                   },
                   {
@@ -3649,7 +3406,19 @@
                     "sink": {
                       "name": "children_columns",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
+                    }
+                  },
+                  {
+                    "source": {
+                      "name": "parent_columns",
+                      "type": "String",
+                      "physicalType": "nvarchar"
+                    },
+                    "sink": {
+                      "name": "parent_columns",
+                      "type": "String",
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3661,7 +3430,7 @@
                     "sink": {
                       "name": "post_create_status",
                       "type": "String",
-                      "physicalType": "varchar"
+                      "physicalType": "nvarchar"
                     }
                   },
                   {
@@ -3688,10 +3457,7 @@
               {
                 "referenceName": "dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds",
                 "type": "DatasetReference",
-                "parameters": {
-                  "DS_SINK_SCHEMA": "-",
-                  "DS_SINK_TABLE": "-"
-                }
+                "parameters": { "DS_SINK_SCHEMA": "-", "DS_SINK_TABLE": "-" }
               }
             ],
             "outputs": [
@@ -3749,71 +3515,20 @@
               },
               "firstRowOnly": false
             }
-          },
-          {
-            "name": "Delete Irrelevant Table Constraints",
-            "description": "Remove any additional constraints that were added in the previous Copy Data activity but were not dropped or created in this pipeline run",
-            "type": "Script",
-            "dependsOn": [
-              {
-                "activity": "Capture Referential Constraints Status",
-                "dependencyConditions": ["Succeeded"]
-              }
-            ],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "linkedServiceName": {
-              "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
-              "type": "LinkedServiceReference"
-            },
-            "typeProperties": {
-              "scripts": [
-                {
-                  "type": "Query",
-                  "text": {
-                    "value": "DELETE FROM capture_constraints\nWHERE \n    dataset = '@{pipeline().parameters.P_DATASET}'\n    AND specified_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND specified_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND pre_drop_status = 'N/A'\n    AND drop_timestamp IS NULL\n    AND pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'",
-                    "type": "Expression"
-                  }
-                }
-              ],
-              "scriptBlockExecutionTimeout": "02:00:00"
-            }
           }
         ],
-        "policy": {
-          "elapsedTimeMetric": {}
-        },
+        "policy": { "elapsedTimeMetric": {} },
         "parameters": {
-          "P_SOURCE_DATABASE": {
-            "type": "string"
-          },
-          "P_SINK_DATABASE": {
-            "type": "string"
-          },
-          "P_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "P_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "P_METADATA_SCHEMA": {
-            "type": "string",
-            "defaultValue": "dbo"
-          },
+          "P_SOURCE_DATABASE": { "type": "string" },
+          "P_SINK_DATABASE": { "type": "string" },
+          "P_SOURCE_SCHEMA": { "type": "string" },
+          "P_SINK_SCHEMA": { "type": "string" },
+          "P_METADATA_SCHEMA": { "type": "string", "defaultValue": "dbo" },
           "P_METADATA_CONSTRAINT_TABLE": {
             "type": "string",
             "defaultValue": "capture_constraints"
           },
-          "P_DATASET": {
-            "type": "string",
-            "defaultValue": "AZURESQL"
-          },
+          "P_DATASET": { "type": "string", "defaultValue": "AZURESQL" },
           "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
             "type": "string",
             "defaultValue": "adf_data_mapping"
@@ -3822,15 +3537,15 @@
             "type": "string",
             "defaultValue": "insert_adf_masking_event"
           },
-          "P_PARENT_RUN_ID": {
-            "type": "string"
+          "P_PARENT_RUN_ID": { "type": "string" },
+          "METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
+            "type": "string",
+            "defaultValue": "update_constraints_status"
           }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
-        "lastPublishTime": "2025-01-07T22:23:06Z"
+        "lastPublishTime": "2025-01-30T12:24:29Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3843,20 +3558,14 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+          "referenceName": "[parameters('azuresql_mask_sink_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
-          "DS_SINK_SCHEMA": {
-            "type": "string"
-          },
-          "DS_SINK_TABLE": {
-            "type": "string"
-          }
+          "DS_SINK_SCHEMA": { "type": "string" },
+          "DS_SINK_TABLE": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [],
@@ -3865,10 +3574,7 @@
             "value": "@dataset().DS_SINK_SCHEMA",
             "type": "Expression"
           },
-          "table": {
-            "value": "@dataset().DS_SINK_TABLE",
-            "type": "Expression"
-          }
+          "table": { "value": "@dataset().DS_SINK_TABLE", "type": "Expression" }
         }
       },
       "dependsOn": []
@@ -3878,15 +3584,13 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -3894,7 +3598,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -3940,9 +3644,7 @@
               "name": "StringCastingWithAdfType",
               "description": "Join columns that need to be cast to string and the type mapping table, so we can determine casting requirements"
             },
-            {
-              "name": "CreateColumnsToCastBackTo"
-            },
+            { "name": "CreateColumnsToCastBackTo" },
             {
               "name": "CreateColumnsToCastBackParameters",
               "description": "Create ColumnsToCastBackTo* by taking only relevant rows and setting the value to null otherwise, so that it can be aggregated"
@@ -4183,15 +3885,13 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Source')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -4201,7 +3901,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -4396,15 +4096,13 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Generate masking parameters when conditional algorithms are defined",
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -4412,7 +4110,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -4858,15 +4556,13 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Source')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -4876,7 +4572,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -5077,20 +4773,14 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSqlDatabase_Source')]",
+          "referenceName": "[parameters('azuresql_mask_source_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
-          "DS_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "DS_SOURCE_TABLE": {
-            "type": "string"
-          }
+          "DS_SOURCE_SCHEMA": { "type": "string" },
+          "DS_SOURCE_TABLE": { "type": "string" }
         },
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "annotations": [],
         "type": "AzureSqlTable",
         "schema": [],
@@ -5112,15 +4802,13 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "folder": {
-          "name": "dcsazure_AzureSQL_to_AzureSQL"
-        },
+        "folder": { "name": "dcsazure_AzureSQL_to_AzureSQL" },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Source')]",
+                "referenceName": "[parameters('azuresql_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
@@ -5130,7 +4818,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Sink')]",
+                "referenceName": "[parameters('azuresql_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",
