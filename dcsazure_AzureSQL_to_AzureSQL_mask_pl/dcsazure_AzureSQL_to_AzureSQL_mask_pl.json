@@ -2473,7 +2473,7 @@
                   "value": "@pipeline().RunId",
                   "type": "Expression"
                 },
-                "METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
+                "P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
                   "value": "@variables('METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME')",
                   "type": "Expression"
                 }
@@ -3513,7 +3513,7 @@
               "sink": {
                 "type": "AzureSqlSink",
                 "sqlWriterStoredProcedureName": {
-                  "value": "@pipeline().parameters.METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME",
+                  "value": "@pipeline().parameters.P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME",
                   "type": "Expression"
                 },
                 "sqlWriterTableType": "sink_create_constraint_type",
@@ -3770,7 +3770,7 @@
           "P_PARENT_RUN_ID": {
             "type": "string"
           },
-          "METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
+          "P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
             "type": "string",
             "defaultValue": "update_constraints_status"
           }
