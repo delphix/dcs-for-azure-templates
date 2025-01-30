@@ -302,7 +302,7 @@
                       ]
                     },
                     {
-                      "activity": "Get Table Details",
+                      "activity": "Get Table Metadata",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -318,14 +318,7 @@
                       {
                         "name": "Update Undiscoverable Table",
                         "type": "ExecuteDataFlow",
-                        "dependsOn": [
-                          {
-                            "activity": "Get Unprofiled Table Metadata",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
+                        "dependsOn": [],
                         "policy": {
                           "timeout": "0.12:00:00",
                           "retry": 0,
@@ -364,7 +357,7 @@
                                 "type": "Expression"
                               },
                               "DF_METADATA": {
-                                "value": "'@{json(activity('Get Unprofiled Table Metadata').output.firstRow.metadata)}'",
+                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.source_metadata)}'",
                                 "type": "Expression"
                               },
                               "DF_DATASET": {
@@ -383,44 +376,6 @@
                             "computeType": "General"
                           },
                           "traceLevel": "Fine"
-                        }
-                      },
-                      {
-                        "name": "Get Unprofiled Table Metadata",
-                        "type": "Lookup",
-                        "dependsOn": [],
-                        "policy": {
-                          "timeout": "0.12:00:00",
-                          "retry": 0,
-                          "retryIntervalInSeconds": 30,
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "source": {
-                            "type": "AzureSqlSource",
-                            "sqlReaderQuery": {
-                              "value": "SELECT JSON_OBJECT(\n'metadata_version': 2,\n'minReaderVersion': @{activity('Get Table Details').output.firstRow.minReaderVersion},\n'container_name': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}', 9, CHARINDEX('@','@{activity('Get Table Details').output.firstRow.location}')-9),\n'table_location': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}',  CHARINDEX('__unitystorage/','@{activity('Get Table Details').output.firstRow.location}'), len('@{activity('Get Table Details').output.firstRow.location}'))\n) as metadata;",
-                              "type": "Expression"
-                            },
-                            "queryTimeout": "02:00:00",
-                            "partitionOption": "None"
-                          },
-                          "dataset": {
-                            "referenceName": "dcsazure_Databricks_to_Databricks_discovery_metadata_ds",
-                            "type": "DatasetReference",
-                            "parameters": {
-                              "DS_METADATA_SCHEMA": {
-                                "value": "@variables('METADATA_SCHEMA')",
-                                "type": "Expression"
-                              },
-                              "DS_METADATA_TABLE": {
-                                "value": "@variables('METADATA_RULESET_TABLE')",
-                                "type": "Expression"
-                              }
-                            }
-                          }
                         }
                       },
                       {
@@ -534,7 +489,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Unprofiled Table Metadata').output.firstRow.metadata",
+                                "value": "@activity('Get Table Metadata').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -651,7 +606,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Unprofiled Table Metadata').output.firstRow.metadata",
+                                "value": "@activity('Get Table Metadata').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -682,14 +637,7 @@
                       {
                         "name": "Discover Sensitive Data",
                         "type": "ExecuteDataFlow",
-                        "dependsOn": [
-                          {
-                            "activity": "Get Table Metadata",
-                            "dependencyConditions": [
-                              "Succeeded"
-                            ]
-                          }
-                        ],
+                        "dependsOn": [],
                         "policy": {
                           "timeout": "0.12:00:00",
                           "retry": 0,
@@ -708,14 +656,17 @@
                                 "type": "Expression"
                               },
                               "DF_SOURCE_CONTAINER": {
-                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.metadata).container_name}'",
+                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.source_metadata).container_name}'",
                                 "type": "Expression"
                               },
                               "DF_SOURCE_DELTAPATH": {
-                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.metadata).table_location\n\n}'",
+                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.source_metadata).table_location\n\n}'",
                                 "type": "Expression"
                               },
-                              "DF_NUM_ROWS_TO_PROFILE": "1000",
+                              "DF_NUM_ROWS_TO_PROFILE": {
+                                "value": "@variables('NUMBER_OF_ROWS_TO_PROFILE')",
+                                "type": "Expression"
+                              },
                               "DF_METADATA_SCHEMA": {
                                 "value": "'@{variables('METADATA_SCHEMA')}'",
                                 "type": "Expression"
@@ -741,7 +692,7 @@
                                 "type": "Expression"
                               },
                               "DF_METADATA": {
-                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.metadata)\n\n}'",
+                                "value": "'@{json(activity('Get Table Metadata').output.firstRow.source_metadata)}'",
                                 "type": "Expression"
                               },
                               "DF_DATASET": {
@@ -763,44 +714,6 @@
                           "traceLevel": "None",
                           "cacheSinks": {
                             "firstRowOnly": true
-                          }
-                        }
-                      },
-                      {
-                        "name": "Get Table Metadata",
-                        "type": "Lookup",
-                        "dependsOn": [],
-                        "policy": {
-                          "timeout": "0.12:00:00",
-                          "retry": 0,
-                          "retryIntervalInSeconds": 30,
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "source": {
-                            "type": "AzureSqlSource",
-                            "sqlReaderQuery": {
-                              "value": "SELECT JSON_OBJECT(\n'metadata_version': 2,\n'minReaderVersion': @{activity('Get Table Details').output.firstRow.minReaderVersion},\n'container_name': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}', 9, CHARINDEX('@','@{activity('Get Table Details').output.firstRow.location}')-9),\n'table_location': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}',  CHARINDEX('__unitystorage/','@{activity('Get Table Details').output.firstRow.location}'), len('@{activity('Get Table Details').output.firstRow.location}'))\n) as metadata;",
-                              "type": "Expression"
-                            },
-                            "queryTimeout": "02:00:00",
-                            "partitionOption": "None"
-                          },
-                          "dataset": {
-                            "referenceName": "dcsazure_Databricks_to_Databricks_discovery_metadata_ds",
-                            "type": "DatasetReference",
-                            "parameters": {
-                              "DS_METADATA_SCHEMA": {
-                                "value": "@variables('METADATA_SCHEMA')",
-                                "type": "Expression"
-                              },
-                              "DS_METADATA_TABLE": {
-                                "value": "@variables('METADATA_RULESET_TABLE')",
-                                "type": "Expression"
-                              }
-                            }
                           }
                         }
                       },
@@ -856,7 +769,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_SOURCE_CONTAINER\": \"@{activity('Get Table Metadata').output.firstRow.metadata.container_name}\",\n    \"DF_SOURCE_DELTAPATH\": \"@{activity('Get Table Metadata').output.firstRow.metadata.table_location}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": 1000,\n    \"DF_TABLE_ROW_COUNT\": @{activity('Get Table Row Count').output.firstRow.row_count},\n}",
+                                "value": "{\n    \"DF_SOURCE_CONTAINER\": \"@{json(activity('Get Table Metadata').output.firstRow.source_metadata).container_name}\",\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Table Metadata').output.firstRow.source_metadata).table_location}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')},\n    \"DF_TABLE_ROW_COUNT\": @{activity('Get Table Row Count').output.firstRow.row_count},\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -895,7 +808,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Table Metadata').output.firstRow.metadata",
+                                "value": "@activity('Get Table Metadata').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -976,7 +889,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_SOURCE_CONTAINER\": \"@{activity('Get Table Metadata').output.firstRow.metadata.container_name}\",\n    \"DF_SOURCE_DELTAPATH\": \"@{activity('Get Table Metadata').output.firstRow.metadata.table_location}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": 1000,\n    \"DF_TABLE_ROW_COUNT\": @{activity('Get Table Row Count').output.firstRow.row_count},\n}",
+                                "value": "{\n    \"DF_SOURCE_CONTAINER\": \"@{json(activity('Get Table Metadata').output.firstRow.source_metadata).container_name}\",\n    \"DF_SOURCE_DELTAPATH\": \"@{json(activity('Get Table Metadata').output.firstRow.source_metadata).table_location}\",\n    \"DF_NUM_ROWS_TO_PROFILE\": @{variables('NUMBER_OF_ROWS_TO_PROFILE')},\n    \"DF_TABLE_ROW_COUNT\": @{activity('Get Table Row Count').output.firstRow.row_count},\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1015,7 +928,7 @@
                             },
                             "source_metadata": {
                               "value": {
-                                "value": "@activity('Get Table Metadata').output.firstRow.metadata",
+                                "value": "@activity('Get Table Metadata').output.firstRow.source_metadata",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1088,6 +1001,51 @@
                       "referenceName": "dcsazure_Databricks_to_Databricks_discovery_ds",
                       "type": "DatasetReference",
                       "parameters": {}
+                    }
+                  }
+                },
+                {
+                  "name": "Get Table Metadata",
+                  "type": "Lookup",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Table Details",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "source": {
+                      "type": "AzureSqlSource",
+                      "sqlReaderQuery": {
+                        "value": "SELECT JSON_OBJECT(\n'metadata_version': 2,\n'minReaderVersion': @{activity('Get Table Details').output.firstRow.minReaderVersion},\n'container_name': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}', 9, CHARINDEX('@','@{activity('Get Table Details').output.firstRow.location}')-9),\n'table_location': SUBSTRING('@{activity('Get Table Details').output.firstRow.location}',  CHARINDEX('__unitystorage/','@{activity('Get Table Details').output.firstRow.location}'), len('@{activity('Get Table Details').output.firstRow.location}'))\n) as source_metadata;",
+                        "type": "Expression"
+                      },
+                      "queryTimeout": "02:00:00",
+                      "partitionOption": "None"
+                    },
+                    "dataset": {
+                      "referenceName": "dcsazure_Databricks_to_Databricks_discovery_metadata_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_METADATA_SCHEMA": {
+                          "value": "@variables('METADATA_SCHEMA')",
+                          "type": "Expression"
+                        },
+                        "DS_METADATA_TABLE": {
+                          "value": "@variables('METADATA_RULESET_TABLE')",
+                          "type": "Expression"
+                        }
+                      }
                     }
                   }
                 }
@@ -1188,7 +1146,7 @@
           "name": "dcsazure_Databricks_to_Databricks"
         },
         "annotations": [],
-        "lastPublishTime": "2024-10-23T00:17:34Z"
+        "lastPublishTime": "2025-01-15T00:23:45Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Databricks_to_Databricks_discovery_ds')]",
@@ -1346,13 +1304,18 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          is_profiled as string,",
+            "          last_update_pipeline_id as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: false,",
             "     validateSchema: false,",
@@ -1368,7 +1331,7 @@
             "UpdateProfiledColumns alterRow(updateIf(true())) ~> ChecksBeforeSave",
             "FilterRowsToUpdate derive(last_profiled_updated_timestamp = currentTimestamp(),",
             "          row_count = 0,",
-            "          metadata = $DF_METADATA) ~> UpdateProfiledColumns",
+            "          source_metadata = $DF_METADATA) ~> UpdateProfiledColumns",
             "ChecksBeforeSave sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     input(",
@@ -1381,13 +1344,18 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          is_profiled as string,",
+            "          last_update_pipeline_id as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     format: 'table',",
             "     store: 'sqlserver',",
@@ -1418,7 +1386,7 @@
             "          rows_profiled,",
             "          assigned_algorithm,",
             "          last_profiled_updated_timestamp,",
-            "          metadata",
+            "          source_metadata",
             "     )) ~> WriteToMetadataStore"
           ]
         }
@@ -1489,7 +1457,7 @@
             },
             {
               "name": "CreateItemsList",
-              "description": "For every column that we didn't add collect it to produce a list of values"
+              "description": "For every column that we didn't add collect it to produce a list of values, and encode the column name to avoid reserved characters"
             },
             {
               "name": "ParseAPIResponse",
@@ -1522,6 +1490,13 @@
             {
               "name": "FilterOnlyNewlyProfiledRows",
               "description": "Filter rows where the profiling results are different from previous dataflow executions (i.e. the profiled_domain, profiled_algorithm, rows_profiled, confidence_score or row_count have changed)"
+            },
+            {
+              "name": "ItemsListWithRenamedColumns",
+              "description": "Decode the encoded column name to restore it to the source column name"
+            },
+            {
+              "name": "DeriveColumnsBasedOnInputParams"
             }
           ],
           "scriptLines": [
@@ -1556,15 +1531,19 @@
             "          identified_column_type as string,",
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
-            "          container_name as string,",
-            "          delta_path as string,",
             "          row_count as long,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          is_profiled as string,",
+            "          last_update_pipeline_id as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: false,",
             "     validateSchema: false,",
@@ -1573,7 +1552,7 @@
             "     schemaName: ($DF_METADATA_SCHEMA),",
             "     tableName: ($DF_METADATA_RULESET_TABLE),",
             "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
-            "CreateItemsList call(mapColumn(",
+            "ItemsListWithRenamedColumns call(mapColumn(",
             "          each(match(true()))",
             "     ),",
             "     skipDuplicateMapInputs: false,",
@@ -1602,7 +1581,7 @@
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateFinalSelectionId",
             "CreateFinalSelectionId filter(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID < ($DF_NUM_ROWS_TO_PROFILE +1)) ~> GetRandomRows",
-            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), $$ = collect($$))) ~> CreateItemsList",
+            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), concat('x',hex(encode($$))) = collect($$))) ~> CreateItemsList",
             "CallDCSForAzureProfiling parse(body = body ? (timestamp as date,",
             "          status as string,",
             "          message as string,",
@@ -1626,7 +1605,7 @@
             "&& equalsIgnoreCase(specified_database, $DF_SOURCE_DB)",
             "&& equalsIgnoreCase(specified_schema, $DF_SOURCE_SCHEMA)",
             "&& equalsIgnoreCase(identified_table, $DF_SOURCE_TABLE)) ~> FilterRowsToUpdate",
-            "FlattenDetails, FilterRowsToUpdate join(columnName <=> identified_column,",
+            "FlattenDetails, DeriveColumnsBasedOnInputParams join(columnName == identified_column,",
             "     joinType:'inner',",
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
@@ -1634,12 +1613,20 @@
             "UpdateProfiledColumns alterRow(updateIf(true())) ~> ChecksBeforeSave",
             "FilterOnlyNewlyProfiledRows derive(last_profiled_updated_timestamp = currentTimestamp(),",
             "          row_count = $DF_TABLE_ROW_COUNT,",
-            "          metadata = $DF_METADATA) ~> UpdateProfiledColumns",
+            "          source_metadata = $DF_METADATA) ~> UpdateProfiledColumns",
             "JoinDetailsAndMetadata filter(!equalsIgnoreCase(domain, profiled_domain)",
             "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
             "|| rowsConsidered != rows_profiled",
             "|| toDecimal(confidence) != toDecimal(confidence_score)",
             "|| $DF_TABLE_ROW_COUNT != row_count) ~> FilterOnlyNewlyProfiledRows",
+            "CreateItemsList select(mapColumn(",
+            "          each(match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> ItemsListWithRenamedColumns",
+            "FilterRowsToUpdate derive(row_count = $DF_TABLE_ROW_COUNT,",
+            "          source_metadata = $DF_METADATA) ~> DeriveColumnsBasedOnInputParams",
             "ChecksBeforeSave sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     input(",
@@ -1652,13 +1639,18 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          is_profiled as string,",
+            "          last_update_pipeline_id as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     format: 'table',",
             "     store: 'sqlserver',",
@@ -1683,12 +1675,13 @@
             "          identified_column_max_length,",
             "          ordinal_position,",
             "          row_count,",
+            "          source_metadata,",
             "          profiled_domain = domain,",
             "          profiled_algorithm = algorithm,",
             "          confidence_score = confidence,",
             "          rows_profiled = rowsConsidered,",
-            "          last_profiled_updated_timestamp,",
-            "          metadata",
+            "          assigned_algorithm,",
+            "          last_profiled_updated_timestamp",
             "     )) ~> WriteToMetadataStore"
           ]
         }

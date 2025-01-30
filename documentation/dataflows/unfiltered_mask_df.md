@@ -16,7 +16,9 @@ flowchart LR
     Source --> 
     AddSortKey -->
     SortBySortKey -->
-    CreateSurrogateKey --> WrapValuesInArray
+    CreateSurrogateKey -->
+    CastRequiredColumnsAsStrings -->
+    WrapValuesInArray
     CreateSurrogateKey --> SelectColumnsUnmasked
     WrapValuesInArray -->
     AggregateColumnsByBatch -->
@@ -24,6 +26,7 @@ flowchart LR
     DCSForAzureAPI -->
     AssertNoFailures -->
     FlattenAggregateData -->
+    CastColumnsBackAsRequired -->
     TrimMaskedStrings --> JoinMaskedAndUnmaskedData
     SelectColumnsUnmasked -->
     JoinMaskedAndUnmaskedData --> Sink
@@ -36,8 +39,10 @@ data across all columns in the table - every row will have this value and it can
 table to be in a particular order before we apply a surrogate key
 * `CreateSurrogateKey` - Surrogate Key - Add a `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID` column that
 increments by `1` and starts at `1` after applying the sorting
-* `WrapValuesInArray` - Derived Column - For each column we wish to mask, convert the value into an array, this
-is needed to preserve `null` values as `null` when using `collect`, as `null` values become `[]`
+* `CastRequiredColumnsAsStrings` - Derived Column - For columns that require casting to string, cast them to string
+* `WrapValuesInArray` - Derived Column - For each column we wish to mask, convert the value into an array, this is
+needed to preserve `null` values as `null` when using `collect`, as `null` values become `[]`, and encode the column
+names to handle body type mapping changes
 * `AggregateColumnsByBatch` - Aggregate - For each column we wish to mask, aggregate to a list using `collect`,
 grouped by `DELPHIX_COMPLIANCE_SERVICE_BATCH_ID` modulo `DF_NUMBER_OF_BATCHES` - so there will be
 `DF_NUMBER_OF_BATCHES` total such aggregations, name the group as `DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP`
@@ -54,7 +59,9 @@ included in the request:
   * `'Field-Date-Format'` - Defines the date format to apply to which field, defined in `DF_FIELD_DATE_FORMAT`
 The format of the response is defined in `DF_BODY_TYPE_MAPPING`
 * `AssertNoFailures` - Assert - Confirm that we received a `200` response status from the API request
-* `FlattenAggregateData` - Flatten - Unroll the API response body into named columns
+* `FlattenAggregateData` - Flatten - Unroll the API response body into decoded named columns
+* `CastColumnsBackAsRequired` - Derived Column - For columns that need to be cast back to a compatible type, cast them
+back
 * `TrimMaskedStrings` - Derived Column - For each column with a string type, trim the string to length based on
 the value in `DF_TRIM_LENGTHS` - this is needed as masking a string may produce a longer string that exceeds the column
 width in the sink
