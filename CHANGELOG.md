@@ -1,7 +1,27 @@
 # CHANGELOG
 
+# 0.0.17
+* Support casting columns to strings and back in masking pipelines
+  * Supports casting from source data type to String and then back to the following ADF types:
+    Binary, Boolean, Date, Double, Float, Integer, Long, and Timestamp
+  * Added to the following pipelines:
+    * `dcsazure_ADLS_to_ADLS_parquet_mask_pl`
+    * `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+    * `dcsazure_Databricks_to_Databricks_mask_pl`
+    * `dcsazure_Snowflake_to_Snowflake_mask_pl`
+  * Note: this support is not added to `dcsazure_ADLS_to_ADLS_parquet_mask_pl` because all underlying types are string
+* Separate algorithm metadata and source metadata to reduce errors when modifying masking configurations
+  * A new column, `algorithm_metadata` has been added
+  * Migrate previously set algorithm configurations to the `algorithm_metadata` column from the `metadata` column, this
+    includes `date_format`, `key_column`, and `conditions`
+  * Rename `metadata` column to `source_metadata`
+* Allow multi-line input in ADLS to ADLS delimited files for discovery masking and copying
+* Address #32
+* Address #33
+
 # 0.0.16
-* Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl` that causes the pipeline to fail when the metadata store schema is not present in the sink database.
+* Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl` that causes the pipeline to fail when the metadata store schema
+  is not present in the sink database.
 
 # 0.0.15
 * Add support for ADLS to ADLS Parquet discovery and masking pipelines

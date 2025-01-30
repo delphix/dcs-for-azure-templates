@@ -10,23 +10,23 @@ sensitive data discovery are then persisted to the metadata store.
 The general flow of the data in the dataflow is as follows:
 ```mermaid
 flowchart LR
-    SourceData1MillRowDataSampling --> 
+    SourceData1MillRowDataSampling -->
     CreateRandomIdColumn -->
     SortByRandomId -->
-    CreateFinalSelectionId --> 
-    GetRandomRows --> 
-    CreateItemsList --> 
+    CreateFinalSelectionId -->
+    GetRandomRows -->
+    CreateItemsList -->
+    ItemsListWithRenamedColumns -->
     CallDCSForAzureProfiling -->
     ParseAPIResponse -->
-    AssertNoFailures --> 
+    AssertNoFailures -->
     FlattenDetails --> JoinDetailsAndMetadata
-    MetadataStoreRead --> 
+    MetadataStoreRead -->
     FilterRowsToUpdate -->
     JoinDetailsAndMetadata -->
     FilterOnlyNewlyProfiledRows -->
     UpdateProfiledColumns -->
-    ChecksBeforeSave -->
-    WriteToMetadataStore
+    ChecksBeforeSave --> WriteToMetadataStore
 ```
 
 * `SourceData1MillRowDataSampling` - Data Source - Import the first million rows of unmasked data from the
@@ -40,7 +40,10 @@ increments by `1` and starts at `1`. It is incremented in order of the `DELPHIX_
 previously, making it so that the surrogate key is in order of the randomly assigned value, creating a shuffled set of
 rows
 * `GetRandomRows` - Filter - Take the first `DF_NUM_ROWS_TO_PROFILE` from the shuffled row set 
-* `CreateItemsList` - Aggregate - For every column that we didn't add `collect` it to produce a list of values
+* `CreateItemsList` - Aggregate - For every column that we didn't add collect it to produce a list of values, and encode
+the column name to avoid reserved characters
+* `ItemsListWithRenamedColumns` - Derived Column - Decode the encoded column name to restore it to the source column
+name
 * `CallDCSForAzureProfiling` - External Call - Call DCS for Azure services, using `/v1/discovery/profileByColumn`,
 where the data from the `CreateItemsList` is included in the request body and the format of the response is specified
 * `ParseAPIResponse` - Parse - Parse the API response from profiling call

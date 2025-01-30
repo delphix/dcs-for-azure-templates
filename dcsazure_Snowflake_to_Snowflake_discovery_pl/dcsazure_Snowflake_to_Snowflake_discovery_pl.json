@@ -244,7 +244,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT identified_table FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   dataset = '@{variables('DATASET')}'\n   AND UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n   AND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
+                  "value": "SELECT DISTINCT specified_database, specified_schema, identified_table FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\n   dataset = '@{variables('DATASET')}'\n   AND UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n   AND UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n   AND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -718,7 +718,7 @@
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2024-10-17T20:59:15Z"
+        "lastPublishTime": "2024-12-11T18:11:29Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_discovery_source_ds')]",
@@ -914,7 +914,7 @@
             },
             {
               "name": "CreateItemsList",
-              "description": "For every column that we didn't add collect it to produce a list of values"
+              "description": "For every column that we didn't add collect it to produce a list of values, and encode the column name to avoid reserved characters"
             },
             {
               "name": "ParseAPIResponse",
@@ -947,6 +947,10 @@
             {
               "name": "FilterOnlyNewlyProfiledRows",
               "description": "Filter rows where the profiling results are different from previous dataflow executions (i.e. the profiled_domain, profiled_algorithm, rows_profiled, confidence_score or row_count have changed)"
+            },
+            {
+              "name": "ItemsListWithRenamedColumns",
+              "description": "Decode the encoded column name to restore it to the source column name"
             }
           ],
           "scriptLines": [
@@ -978,12 +982,16 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: false,",
             "     validateSchema: false,",
@@ -992,7 +1000,7 @@
             "     schemaName: ($DF_METADATA_SCHEMA),",
             "     tableName: ($DF_METADATA_RULESET_TABLE),",
             "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
-            "CreateItemsList call(mapColumn(",
+            "ItemsListWithRenamedColumns call(mapColumn(",
             "          each(match(true()))",
             "     ),",
             "     skipDuplicateMapInputs: false,",
@@ -1021,7 +1029,7 @@
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateFinalSelectionId",
             "CreateFinalSelectionId filter(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID < ($DF_NUM_ROWS_TO_PROFILE +1)) ~> GetRandomRows",
-            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), $$ = collect($$))) ~> CreateItemsList",
+            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), concat('x',hex(encode($$))) = collect($$))) ~> CreateItemsList",
             "CallDCSForAzureProfiling parse(body = body ? (timestamp as date,",
             "          status as string,",
             "          message as string,",
@@ -1056,6 +1064,12 @@
             "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
             "|| rowsConsidered != rows_profiled",
             "|| toDecimal(confidence) != toDecimal(confidence_score)) ~> FilterOnlyNewlyProfiledRows",
+            "CreateItemsList select(mapColumn(",
+            "          each(match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> ItemsListWithRenamedColumns",
             "ChecksBeforeSave sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     input(",

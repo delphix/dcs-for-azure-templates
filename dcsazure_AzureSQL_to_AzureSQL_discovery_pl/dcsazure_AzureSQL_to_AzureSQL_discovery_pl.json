@@ -6,10 +6,10 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "azuresql_discovery_metadata_store_db": {
+    "Metadata Datastore": {
       "type": "string"
     },
-    "azuresql_discovery_source_db": {
+    "AzureSqlDatabase_Source": {
       "type": "string"
     },
     "ProdDCSForAzureService": {
@@ -33,7 +33,9 @@
             "dependsOn": [
               {
                 "activity": "Check If We Should Rediscover Data",
-                "dependencyConditions": ["Succeeded"]
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
               }
             ],
             "policy": {
@@ -220,7 +222,9 @@
             "dependsOn": [
               {
                 "activity": "Schema Discovery From AzureSQL",
-                "dependencyConditions": ["Succeeded"]
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
               }
             ],
             "policy": {
@@ -264,7 +268,9 @@
             "dependsOn": [
               {
                 "activity": "Select Discovered Tables",
-                "dependencyConditions": ["Succeeded"]
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
               }
             ],
             "userProperties": [],
@@ -344,7 +350,9 @@
                   "dependsOn": [
                     {
                       "activity": "Discover Sensitive Data",
-                      "dependencyConditions": ["Succeeded"]
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
                     }
                   ],
                   "policy": {
@@ -446,7 +454,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -456,7 +464,9 @@
                   "dependsOn": [
                     {
                       "activity": "Discover Sensitive Data",
-                      "dependencyConditions": ["Failed"]
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
                     }
                   ],
                   "policy": {
@@ -561,7 +571,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -571,7 +581,9 @@
                   "dependsOn": [
                     {
                       "activity": "Update Discovery State Failed",
-                      "dependencyConditions": ["Succeeded"]
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
                     }
                   ],
                   "userProperties": [],
@@ -611,7 +623,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -672,7 +684,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2024-12-16T18:00:25Z"
+        "lastPublishTime": "2025-01-07T22:23:06Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds')]",
@@ -687,7 +699,7 @@
       "properties": {
         "description": "DCSAzure - Azure SQL to AzureSQL Discovery Query Dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_discovery_source_db')]",
+          "referenceName": "[parameters('AzureSqlDatabase_Source')]",
           "type": "LinkedServiceReference"
         },
         "folder": {
@@ -724,7 +736,7 @@
       "properties": {
         "description": "DCS Azure - AzureSQL to AzureSQL Discovery metadata dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
+          "referenceName": "[parameters('Metadata Datastore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -768,7 +780,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_discovery_source_db')]",
+                "referenceName": "[parameters('AzureSqlDatabase_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source1MillRowDataSampling",
@@ -776,7 +788,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead",
@@ -786,7 +798,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_discovery_metadata_store_db')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",
@@ -819,7 +831,7 @@
             },
             {
               "name": "CreateItemsList",
-              "description": "For every column that we didn't add collect it to produce a list of values"
+              "description": "For every column that we didn't add collect it to produce a list of values, and encode the column name to avoid reserved characters"
             },
             {
               "name": "ParseAPIResponse",
@@ -852,6 +864,10 @@
             {
               "name": "FilterOnlyNewlyProfiledRows",
               "description": "Filter rows where the profiling results are different from previous dataflow executions (i.e. the profiled_domain, profiled_algorithm, rows_profiled, confidence_score or row_count have changed)"
+            },
+            {
+              "name": "ItemsListWithRenamedColumns",
+              "description": "Decode the encoded column name to restore it to the source column name"
             }
           ],
           "scriptLines": [
@@ -883,15 +899,17 @@
             "          identified_column_type as string,",
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
-            "          container_name as string,",
-            "          delta_path as string,",
             "          row_count as long,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     allowSchemaDrift: false,",
             "     validateSchema: false,",
@@ -900,7 +918,7 @@
             "     schemaName: ($DF_METADATA_SCHEMA),",
             "     tableName: ($DF_METADATA_RULESET_TABLE),",
             "     isolationLevel: 'READ_UNCOMMITTED') ~> MetadataStoreRead",
-            "CreateItemsList call(mapColumn(",
+            "ItemsListWithRenamedColumns call(mapColumn(",
             "          each(match(true()))",
             "     ),",
             "     skipDuplicateMapInputs: false,",
@@ -929,7 +947,7 @@
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateFinalSelectionId",
             "CreateFinalSelectionId filter(DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID < ($DF_NUM_ROWS_TO_PROFILE +1)) ~> GetRandomRows",
-            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), $$ = collect($$))) ~> CreateItemsList",
+            "GetRandomRows aggregate(each(match(name!='DELPHIX_COMPLIANCE_SERVICE_FINAL_SELECTION_ID'&&name!='DELPHIX_COMPLIANCE_SERVICE_RANDOM_ID'), concat('x',hex(encode($$))) = collect($$))) ~> CreateItemsList",
             "CallDCSForAzureDiscovery parse(body = body ? (timestamp as date,",
             "          status as string,",
             "          message as string,",
@@ -964,6 +982,12 @@
             "|| !equalsIgnoreCase(algorithm, profiled_algorithm)",
             "|| rowsConsidered != rows_profiled",
             "|| toDecimal(confidence) != toDecimal(confidence_score)) ~> FilterOnlyNewlyProfiledRows",
+            "CreateItemsList select(mapColumn(",
+            "          each(match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> ItemsListWithRenamedColumns",
             "ChecksBeforeSave sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     input(",
