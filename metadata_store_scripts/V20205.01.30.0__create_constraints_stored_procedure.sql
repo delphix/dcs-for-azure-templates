@@ -23,7 +23,7 @@ CREATE PROCEDURE insert_constraints
     @source sink_drop_constraint_type READONLY
 AS
 BEGIN
-    MERGE [dbo].[capture_constraints] AS ct
+    MERGE capture_constraints AS ct
     USING (
         SELECT 
             sc.pipeline_run_id,
@@ -71,7 +71,6 @@ BEGIN
         AND ct.child_table = sink_constraints.child_table
         AND ct.identified_parent_table = sink_constraints.identified_parent_table
         AND ct.constraint_name = sink_constraints.constraint_name
-        AND sink_constraints.row_num = 1
     )
     WHEN NOT MATCHED AND sink_constraints.row_num = 1 THEN
         INSERT (
@@ -127,7 +126,7 @@ CREATE PROCEDURE update_constraints_status
     @source sink_create_constraint_type READONLY
 AS
 BEGIN
-    MERGE @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE} AS ct
+    MERGE capture_constraints AS ct
     USING @source AS sink_constraints
     ON
     (
