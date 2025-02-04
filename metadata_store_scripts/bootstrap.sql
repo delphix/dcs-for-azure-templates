@@ -8,7 +8,7 @@
 -- * V2024.12.13.0__create_create_constraints_table
 -- * V2024.12.26.0__add_adls_to_adls_parquet_support
 -- * V20205.01.15.0__separate_algorithm_and_source_metadata
--- * V20205.01.30.0__create_constraints_stored_procedure
+-- * V2025.01.30.0__create_constraints_stored_procedure
 -- The contents of each of those files follows
 
 
@@ -1037,7 +1037,7 @@ BEGIN
         END
 END;
 
--- source: V20205.01.30.0__create_constraints_stored_procedure
+-- source: V2025.01.30.0__create_constraints_stored_procedure
 
 -- Create a table type to store constraint information
 -- before dropping the constraints
