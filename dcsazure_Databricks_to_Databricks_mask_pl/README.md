@@ -5,7 +5,7 @@ This pipeline will perform masking of data from your Databricks Delta Lake from 
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.10.24.0`+).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.15.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage service associated with your Databricks source data.
 1. Configure the Azure Data Lake Storage service associated with your Databricks sink data (if required).

@@ -7,7 +7,7 @@
 -- * V2024.12.02.0__add_azuresql_to_azuresql_support
 -- * V2024.12.13.0__create_create_constraints_table
 -- * V2024.12.26.0__add_adls_to_adls_parquet_support
--- * V20205.01.15.0__separate_algorithm_and_source_metadata
+-- * V2025.01.15.0__separate_algorithm_and_source_metadata
 -- * V2025.01.30.0__create_constraints_stored_procedure
 -- The contents of each of those files follows
 
@@ -836,25 +836,25 @@ WHERE sink_dataset = 'ADLS';
 -- END: Rename the ADLS dataset to ADLS-DELIMITED to avoid confusion
 
 
--- source: V20205.01.15.0__separate_algorithm_and_source_metadata
-ALTER TABLE [dbo].[discovered_ruleset] ADD algorithm_metadata NVARCHAR(MAX);
+-- source: V2025.01.15.0__separate_algorithm_and_source_metadata
+ALTER TABLE discovered_ruleset ADD algorithm_metadata NVARCHAR(MAX);
 
 -- Move the `date_format` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.date_format', JSON_VALUE(metadata, '$.date_format')),
     metadata = JSON_MODIFY(metadata, '$.date_format', NULL)
 WHERE
     JSON_VALUE(metadata, '$.date_format') IS NOT NULL;
 -- Move the `key_column` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.key_column', JSON_VALUE(metadata, '$.key_column')),
     metadata = JSON_MODIFY(metadata, '$.key_column', NULL)
 WHERE
     JSON_VALUE(metadata, '$.key_column') IS NOT NULL;
 -- Move the `conditions` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.conditions', JSON_VALUE(metadata, '$.conditions')),
     metadata = JSON_MODIFY(metadata, '$.conditions', NULL)
@@ -862,7 +862,7 @@ WHERE
     JSON_VALUE(metadata, '$.conditions') IS NOT NULL;
 
 -- Rename the `metadata` column to `source_metadata` for clarity
-EXEC sp_rename 'dbo.discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
+EXEC sp_rename 'discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
 
 -- Update stored procedures to use new source_metadata column
 ALTER PROCEDURE get_columns_from_parquet_file_structure_sp
@@ -1091,7 +1091,7 @@ BEGIN
                     sc.constraint_name
             ) AS row_num 
         FROM @source sc
-        INNER JOIN [dbo].[adf_data_mapping] dm
+        INNER JOIN adf_data_mapping dm
         ON (
             sc.dataset = dm.sink_dataset 
             AND sc.specified_database = dm.sink_database 

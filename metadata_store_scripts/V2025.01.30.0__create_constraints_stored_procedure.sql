@@ -51,7 +51,7 @@ BEGIN
                     sc.constraint_name
             ) AS row_num 
         FROM @source sc
-        INNER JOIN [dbo].[adf_data_mapping] dm
+        INNER JOIN adf_data_mapping dm
         ON (
             sc.dataset = dm.sink_dataset 
             AND sc.specified_database = dm.sink_database 
