@@ -5,7 +5,7 @@ This pipeline will perform masking of your delimited data from your Azure Data L
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2024.12.06.0`+).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.15.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage service associated with your ADLS source data.
 1. Configure the Azure Data Lake Storage service associated with your ADLS sink data.

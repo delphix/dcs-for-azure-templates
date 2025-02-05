@@ -1,21 +1,21 @@
-ALTER TABLE [dbo].[discovered_ruleset] ADD algorithm_metadata NVARCHAR(MAX);
+ALTER TABLE discovered_ruleset ADD algorithm_metadata NVARCHAR(MAX);
 
 -- Move the `date_format` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.date_format', JSON_VALUE(metadata, '$.date_format')),
     metadata = JSON_MODIFY(metadata, '$.date_format', NULL)
 WHERE
     JSON_VALUE(metadata, '$.date_format') IS NOT NULL;
 -- Move the `key_column` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.key_column', JSON_VALUE(metadata, '$.key_column')),
     metadata = JSON_MODIFY(metadata, '$.key_column', NULL)
 WHERE
     JSON_VALUE(metadata, '$.key_column') IS NOT NULL;
 -- Move the `conditions` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.conditions', JSON_VALUE(metadata, '$.conditions')),
     metadata = JSON_MODIFY(metadata, '$.conditions', NULL)
@@ -23,7 +23,7 @@ WHERE
     JSON_VALUE(metadata, '$.conditions') IS NOT NULL;
 
 -- Rename the `metadata` column to `source_metadata` for clarity
-EXEC sp_rename 'dbo.discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
+EXEC sp_rename 'discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
 
 -- Update stored procedures to use new source_metadata column
 ALTER PROCEDURE get_columns_from_parquet_file_structure_sp
