@@ -697,6 +697,7 @@
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
+        "description": "DCSAzure - Azure MI to Azure MI Discovery Query Dataset",
         "linkedServiceName": {
           "referenceName": "[parameters('azuremi_discovery_source_db')]",
           "type": "LinkedServiceReference"
@@ -733,6 +734,7 @@
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
+        "description": "DCS Azure - AzureMI to AzureMI Discovery metadata dataset",
         "linkedServiceName": {
           "referenceName": "[parameters('azuremi_discovery_metadata_store_db')]",
           "type": "LinkedServiceReference"
@@ -877,7 +879,7 @@
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_SOURCE_DATABASE as string,",
-            "     DF_SOURCE_DATASET as string ('AZURESQL')",
+            "     DF_SOURCE_DATASET as string ('AZUREMI')",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",

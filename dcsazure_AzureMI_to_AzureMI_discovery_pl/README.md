@@ -37,7 +37,7 @@ steps:
 * Check If We Should Rediscover Data
   * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables have not had their sensitive data discovered
 * Schema Discovery From AzureMI
-  * Query metadata from Azure SQL `information_schema` to identify tables and columns in the Azure SQL instance
+  * Query metadata from Azure MI `information_schema` to identify tables and columns in the Azure MI instance
 * Select Discovered Tables
   * After persisting the metadata to the metadata store, collect the list of discovered tables
 * For Each Discovered Table

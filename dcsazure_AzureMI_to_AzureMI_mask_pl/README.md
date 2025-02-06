@@ -15,21 +15,21 @@ There are several linked services that will need to be selected in order to perf
 
 These linked services types are needed for the following steps:
 
-`Azure SQL` (source) - Linked service associated with AzureMI source data. This will be used for the
+`Azure MI` (source) - Linked service associated with AzureMI source data. This will be used for the
 following steps:
 * dcsazure_AzureMI_to_AzureMI_filter_test_utility_df/Source (dataFlow)
 * dcsazure_AzureMI_to_AzureMI_unfiltered_mask_df/Source (dataFlow)
 * dcsazure_AzureMI_to_AzureMI_filtered_mask_df/Source (dataFlow)
-* dcsazure_AzureMI_to_AzureMI_mask_source_ds (Azure SQL Database dataset)
+* dcsazure_AzureMI_to_AzureMI_mask_source_ds (Azure MI Database dataset)
 * dcsazure_AzureMI_to_AzureMI_copy_df/SourceData (dataFlow)
 
-`Azure SQL` (sink) - Linked service associated with AzureMI sink data. This will be used for the
+`Azure MI` (sink) - Linked service associated with AzureMI sink data. This will be used for the
 following steps:
 * Truncate Selected Table (Script activity)
 * dcsazure_AzureMI_to_AzureMI_filter_test_utility_df/Sink (dataFlow)
 * dcsazure_AzureMI_to_AzureMI_unfiltered_mask_df/Sink (dataFlow)
 * dcsazure_AzureMI_to_AzureMI_filtered_mask_df/Sink (dataFlow)
-* dcsazure_AzureMI_to_AzureMI_mask_sink_ds (Azure SQL Database dataset)
+* dcsazure_AzureMI_to_AzureMI_mask_sink_ds (Azure MI Database dataset)
 * dcsazure_AzureMI_to_AzureMI_copy_df/SinkData (dataFlow)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
@@ -121,7 +121,7 @@ have customized your metadata store, then these variables may need editing.
 exists, but no algorithms have been defined (default `false`)
 * `P_FAIL_ON_NONCONFORMANT_DATA` - Bool - This will fail the pipeline if non-conformant data is encountered (default
 `true`)
-* `P_SOURCE_DATABASE` - String - This is the source database in AzureSQL that contains the unmasked data
-* `P_SINK_DATABASE` - String - This is the sink database in AzureSQL that will serve as a destination for masked data
+* `P_SOURCE_DATABASE` - String - This is the source database in AzureMI that contains the unmasked data
+* `P_SINK_DATABASE` - String - This is the sink database in AzureMI that will serve as a destination for masked data
 * `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that we will mask
 * `P_SINK_SCHEMA` - String - This is the schema within the above sink database where we will place masked data
