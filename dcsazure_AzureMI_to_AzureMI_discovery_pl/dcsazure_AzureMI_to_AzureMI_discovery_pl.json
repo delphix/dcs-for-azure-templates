@@ -25,10 +25,10 @@
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - AzureSQL to AzureSQL Discovery Pipeline",
+        "description": "DCSAzure - AzureMI to AzureMI Discovery Pipeline",
         "activities": [
           {
-            "name": "Schema Discovery From AzureSQL",
+            "name": "Schema Discovery From AzureMI",
             "type": "Copy",
             "dependsOn": [
               {
@@ -220,7 +220,7 @@
             "type": "Lookup",
             "dependsOn": [
               {
-                "activity": "Schema Discovery From AzureSQL",
+                "activity": "Schema Discovery From AzureMI",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -669,7 +669,7 @@
           },
           "DATASET": {
             "type": "String",
-            "defaultValue": "AZURESQL"
+            "defaultValue": "AZUREMI"
           },
           "METADATA_EVENT_PROCEDURE_NAME": {
             "type": "String",
@@ -769,7 +769,7 @@
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - AzureSQL to AzureSQL Discovery Dataflow",
+        "description": "DCSAzure - AzureMI to AzureMI Discovery Dataflow",
         "folder": {
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
