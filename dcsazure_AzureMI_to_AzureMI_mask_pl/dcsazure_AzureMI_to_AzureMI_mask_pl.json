@@ -2610,7 +2610,7 @@
           },
           "DATASET": {
             "type": "String",
-            "defaultValue": "AZURESQL"
+            "defaultValue": "AZUREMI"
           },
           "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
             "type": "String",
