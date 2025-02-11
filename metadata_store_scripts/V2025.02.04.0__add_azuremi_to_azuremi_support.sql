@@ -1,32 +1,15 @@
+
+-- Update ADF type mappings of decimal, numeric, smallmoney and money to double for AzureSQL dataset
+UPDATE adf_type_mapping
+SET adf_type = 'double'
+WHERE dataset = 'AZURESQL' AND dataset_type IN ('decimal', 'numeric', 'money');
+
+UPDATE adf_type_mapping
+SET adf_type = 'float'
+WHERE dataset = 'AZURESQL' AND dataset_type = 'smallmoney';
+
+-- Copy ADF type mapping from AzureSQL to AzureMI
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
-   VALUES
-('AZUREMI', 'tinyint', 'integer'),
-('AZUREMI', 'smallint', 'short'),
-('AZUREMI', 'int', 'integer'),
-('AZUREMI', 'bigint', 'long'),
-('AZUREMI', 'bit', 'boolean'),
-('AZUREMI', 'decimal', 'decimal'),
-('AZUREMI', 'numeric', 'decimal'),
-('AZUREMI', 'money', 'decimal'),
-('AZUREMI', 'smallmoney', 'decimal'),
-('AZUREMI', 'float', 'double'),
-('AZUREMI', 'real', 'float'),
-('AZUREMI', 'date', 'date'),
-('AZUREMI', 'time', 'timestamp'),
-('AZUREMI', 'datetime2', 'timestamp'),
-('AZUREMI', 'datetimeoffset', 'string'),
-('AZUREMI', 'datetime', 'timestamp'),
-('AZUREMI', 'smalldatetime', 'timestamp'),
-('AZUREMI', 'char', 'string'),
-('AZUREMI', 'varchar', 'string'),
-('AZUREMI', 'text', 'string'),
-('AZUREMI', 'nchar', 'string'),
-('AZUREMI', 'nvarchar', 'string'),
-('AZUREMI', 'ntext', 'string'),
-('AZUREMI', 'binary', 'binary'),
-('AZUREMI', 'varbinary', 'binary'),
-('AZUREMI', 'image', 'binary'),
-('AZUREMI', 'json', 'string'),
-('AZUREMI', 'uniqueidentifier', 'string'),
-('AZUREMI', 'xml', 'string')
-;
+SELECT 'AZUREMI', dataset_type, adf_type
+FROM adf_type_mapping
+WHERE dataset = 'AZURESQL';
