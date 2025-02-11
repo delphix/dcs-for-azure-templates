@@ -1,9 +1,10 @@
 
--- Update ADF type mappings of decimal, numeric, smallmoney and money to double for AzureSQL dataset
+-- Update ADF type mappings of decimal, numeric and money to double for AzureSQL dataset
 UPDATE adf_type_mapping
 SET adf_type = 'double'
 WHERE dataset = 'AZURESQL' AND dataset_type IN ('decimal', 'numeric', 'money');
 
+-- Update ADF type mapping of smallmoney to float for AzureSQL dataset
 UPDATE adf_type_mapping
 SET adf_type = 'float'
 WHERE dataset = 'AZURESQL' AND dataset_type = 'smallmoney';
