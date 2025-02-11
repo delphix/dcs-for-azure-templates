@@ -57,7 +57,7 @@
                 "partitionOption": "None"
               },
               "sink": {
-                "type": "SqlMISink",
+                "type": "AzureSqlSink",
                 "writeBehavior": "upsert",
                 "upsertSettings": {
                   "useTempDB": true,
@@ -69,7 +69,8 @@
                     "identified_column"
                   ]
                 },
-                "sqlWriterUseTableLock": false
+                "sqlWriterUseTableLock": false,
+                "disableMetricsCollection": false
               },
               "enableStaging": false,
               "translator": {
@@ -236,7 +237,7 @@
             "userProperties": [],
             "typeProperties": {
               "source": {
-                "type": "SqlMISource",
+                "type": "AzureSqlSource",
                 "sqlReaderQuery": {
                   "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table  \nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE UPPER(specified_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nAND UPPER(specified_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\nAND dataset = '@{variables('DATASET')}'\nAND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
                   "type": "Expression"
@@ -333,8 +334,7 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
-                      },
-                      "linkedServiceParameters": {}
+                      }
                     },
                     "staging": {},
                     "compute": {
@@ -684,7 +684,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-07T22:23:06Z"
+        "lastPublishTime": "2025-02-11T10:50:12Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_discovery_source_ds')]",
@@ -751,7 +751,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "type": "AzureSqlMITable",
+        "type": "AzureSqlTable",
         "schema": [],
         "typeProperties": {
           "schema": {
@@ -1000,13 +1000,16 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
             "          rows_profiled as long,",
             "          assigned_algorithm as string,",
-            "          last_profiled_updated_timestamp as timestamp",
+            "          last_profiled_updated_timestamp as timestamp,",
+            "          discovery_complete as boolean,",
+            "          latest_event as string,",
+            "          algorithm_metadata as string",
             "     ),",
             "     format: 'table',",
             "     store: 'sqlserver',",

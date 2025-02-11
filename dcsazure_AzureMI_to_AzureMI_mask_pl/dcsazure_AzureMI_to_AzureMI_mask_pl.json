@@ -51,7 +51,7 @@
             "userProperties": [],
             "typeProperties": {
               "source": {
-                "type": "SqlMISource",
+                "type": "AzureSqlSource",
                 "sqlReaderQuery": {
                   "value": "WITH\ntables_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE ISJSON(assigned_algorithm) = 1\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\ntables_not_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE assigned_algorithm IS NOT NULL\n\tAND assigned_algorithm != ''\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n\tEXCEPT\n\tSELECT dataset, specified_database, specified_schema, identified_table\n\tFROM tables_requiring_filters\n\tWHERE dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\nall_filters AS\n(\n\tSELECT DISTINCT\n\t\tJSON_VALUE(kc.value, '$.alias') as filter_alias,\n\t\treplace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n),\ndefault_filters AS\n(\n\tSELECT DISTINCT\n\t\t'default' as filter_alias,\n\t\tSTRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n\tGROUP BY d.identified_table\n),\nsources_and_filters AS (\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN default_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN all_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tdataset,\n\t\tspecified_database,\n\t\tspecified_schema,\n\t\tidentified_table,\n\t\t'',\n\t\t''\n\tFROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0  OR dm.masked_status IS NULL)\nUNION\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tCROSS APPLY OPENJSON(dm.masked_status) kc\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND ISJSON(dm.masked_status) = 1\n\tAND kc.[key] = rs.filter_alias\n\tAND kc.[value] = 'false'\n\tAND (\n\t\t(filter_alias = 'default' AND  \n\t\t\tidentified_table IN (\n\t\t\t\tSELECT DISTINCT\n\t\t\t\t\tidentified_table\n\t\t\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n\t\t\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\t\t\tWHERE\n\t\t\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\t\t\tAND JSON_VALUE(kc.value, '$.alias') = 'default'\n\t\t\t)\n\t\t)\n\t\tOR\n\t\t(filter_alias != 'default')\n\t)\n",
                   "type": "Expression"
@@ -160,8 +160,7 @@
                               "Ruleset": {},
                               "TypeMapping": {},
                               "MaskingParameterOutput": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -287,8 +286,7 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -702,8 +700,7 @@
                               "Ruleset": {},
                               "TypeMapping": {},
                               "MaskingParameterOutput": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -770,7 +767,7 @@
                                 "type": "Expression"
                               },
                               "DF_BODY_TYPE_MAPPING": {
-                                "value": "'@{activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping}'",
+                                "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].DataFactoryTypeMapping",
                                 "type": "Expression"
                               },
                               "DF_NUMBER_OF_ROWS_PER_BATCH": {
@@ -833,8 +830,7 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -1223,7 +1219,7 @@
             "userProperties": [],
             "typeProperties": {
               "source": {
-                "type": "SqlMISource",
+                "type": "AzureSqlSource",
                 "sqlReaderQuery": {
                   "value": "SELECT DISTINCT\n\tsource_database,\n\tsource_schema,\n\tsource_table,\n\tsink_schema,\n\tsink_database,\n\tsink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\nWHERE\nUPPER(source_dataset) = UPPER('@{variables('DATASET')}')\nAND UPPER(sink_dataset) = UPPER('@{variables('DATASET')}')\nAND UPPER(source_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\nAND UPPER(sink_database) = UPPER('@{pipeline().parameters.P_SINK_DATABASE}')\nAND UPPER(source_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\nAND UPPER(sink_schema) = UPPER('@{pipeline().parameters.P_SINK_SCHEMA}')\nAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\nEXCEPT\nSELECT DISTINCT\n\tsource_database,\n\tsource_schema,\n\tsource_table,\n\tsink_schema,\n\tsink_database,\n\tsink_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} dd\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\nON (\n\tUPPER(dm.source_database) = UPPER(dd.specified_database)\n\tAND UPPER(dm.source_schema) = UPPER(dd.specified_schema)\n\tAND UPPER(dm.source_table) = UPPER(dd.identified_table)\n)\nWHERE\n\tUPPER(dd.dataset) = UPPER('@{variables('DATASET')}')\n\tAND UPPER(dm.source_dataset) = UPPER('@{variables('DATASET')}')\n\tAND UPPER(dm.sink_dataset) = UPPER('@{variables('DATASET')}')\n\tAND dd.assigned_algorithm IS NOT NULL\n\tAND dd.assigned_algorithm != ''\n\tAND UPPER(dm.source_database) = UPPER('@{pipeline().parameters.P_SOURCE_DATABASE}')\n\tAND UPPER(dm.sink_database) = UPPER('@{pipeline().parameters.P_SINK_DATABASE}')\n\tAND UPPER(dm.source_schema) = UPPER('@{pipeline().parameters.P_SOURCE_SCHEMA}')\n\tAND UPPER(dm.sink_schema) = UPPER('@{pipeline().parameters.P_SINK_SCHEMA}');\n",
                   "type": "Expression"
@@ -1751,8 +1747,7 @@
                             "datasetParameters": {
                               "SourceData": {},
                               "SinkData": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -2154,8 +2149,7 @@
                 "datasetParameters": {
                   "Source": {},
                   "Sink": {}
-                },
-                "linkedServiceParameters": {}
+                }
               },
               "staging": {},
               "compute": {
@@ -2230,7 +2224,7 @@
             "userProperties": [],
             "typeProperties": {
               "source": {
-                "type": "SqlMISource",
+                "type": "AzureSqlSource",
                 "sqlReaderQuery": {
                   "value": "SELECT DISTINCT\n    dm.sink_dataset,\n    dm.sink_database,\n    dm.sink_schema,\n    dm.sink_table\nFROM\n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\nWHERE\n    dm.source_dataset = '@{variables('DATASET')}'\n    AND dm.source_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n    AND dm.source_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    AND dm.sink_dataset = '@{variables('DATASET')}'\n    AND dm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}'\n    AND dm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n    AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n    AND LOWER('@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}') = 'true'\n",
                   "type": "Expression"
@@ -2645,7 +2639,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T11:53:56Z"
+        "lastPublishTime": "2025-02-11T11:31:23Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_metadata_ds')]",
@@ -2682,7 +2676,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "type": "AzureSqlMITable",
+        "type": "AzureSqlTable",
         "schema": [],
         "typeProperties": {
           "schema": {
@@ -3078,7 +3072,7 @@
                 "partitionOption": "None"
               },
               "sink": {
-                "type": "SqlMISink",
+                "type": "AzureSqlSink",
                 "sqlWriterStoredProcedureName": {
                   "value": "@concat(pipeline().parameters.P_METADATA_SCHEMA, '.', pipeline().parameters.P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME)",
                   "type": "Expression"
@@ -3291,7 +3285,7 @@
             "userProperties": [],
             "typeProperties": {
               "source": {
-                "type": "SqlMISource",
+                "type": "AzureSqlSource",
                 "sqlReaderQuery": {
                   "value": "WITH discovered_constraints AS (    \n    SELECT  \n        ct.specified_database AS specified_database, \n        ct.specified_schema AS specified_schema, \n        ct.identified_parent_table AS identified_parent_table, \n        ct.child_table AS child_table, \n        ct.constraint_name AS constraint_name, \n        ct.parent_columns AS parent_columns, \n        ct.children_columns AS children_columns, \n        ct.pre_drop_status AS pre_drop_status,\n        dm.source_table AS source_table,\n        dm.sink_table AS sink_table,\n        ROW_NUMBER() OVER (PARTITION BY ct.constraint_name ORDER BY dm.source_table) AS row_num\n    FROM \n        @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE} ct\n    JOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} dm\n    ON \n        ct.dataset = dm.sink_dataset \n        AND ct.specified_database = dm.sink_database \n        AND ct.specified_schema = dm.sink_schema \n        AND (\n            ct.identified_parent_table = dm.sink_table OR\n            ct.child_table = dm.sink_table \n        )\n    WHERE\n        pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n        AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n        AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n        AND dataset = '@{pipeline().parameters.P_DATASET}'\n        AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n        AND (ISJSON(dm.masked_status) = 0 OR dm.masked_status IS NULL)\n)\nSELECT \n    specified_database, \n    specified_schema, \n    identified_parent_table, \n    child_table, \n    constraint_name, \n    parent_columns, \n    children_columns, \n    pre_drop_status,\n    source_table,\n    sink_table\nFROM \n    discovered_constraints\nWHERE\n    row_num = 1",
                   "type": "Expression"
@@ -3365,7 +3359,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T12:24:29Z"
+        "lastPublishTime": "2025-02-11T10:50:11Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
@@ -3517,7 +3511,7 @@
                 "partitionOption": "None"
               },
               "sink": {
-                "type": "SqlMISink",
+                "type": "AzureSqlSink",
                 "sqlWriterStoredProcedureName": {
                   "value": "@concat(pipeline().parameters.P_METADATA_SCHEMA, '.', pipeline().parameters.P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME)",
                   "type": "Expression"
@@ -3711,7 +3705,7 @@
             "userProperties": [],
             "typeProperties": {
               "source": {
-                "type": "SqlMISource",
+                "type": "AzureSqlSource",
                 "sqlReaderQuery": {
                   "value": "WITH discovered_constraints AS (\n    SELECT  \n        ct.specified_database AS specified_database, \n        ct.specified_schema AS specified_schema, \n        ct.identified_parent_table AS identified_parent_table, \n        ct.child_table AS child_table, \n        ct.constraint_name AS constraint_name, \n        ct.parent_columns AS parent_columns, \n        ct.children_columns AS children_columns, \n        ct.pre_drop_status AS pre_drop_status,\n        dm.source_table AS source_table,\n        dm.sink_table AS sink_table,\n        ROW_NUMBER() OVER (PARTITION BY ct.constraint_name ORDER BY dm.source_table) AS row_num\n    FROM \n        @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_CONSTRAINT_TABLE} ct\n    JOIN @{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE} dm\n    ON \n        ct.dataset = dm.sink_dataset \n        AND ct.specified_database = dm.sink_database \n        AND ct.specified_schema = dm.sink_schema \n        AND (\n            ct.identified_parent_table = dm.sink_table OR\n            ct.child_table = dm.sink_table \n        )\n    WHERE\n        pipeline_run_id = '@{pipeline().parameters.P_PARENT_RUN_ID}'\n        AND LOWER(ct.specified_database) = LOWER('@{pipeline().parameters.P_SINK_DATABASE}')\n        AND LOWER(ct.specified_schema) = LOWER('@{pipeline().parameters.P_SINK_SCHEMA}')\n        AND dataset = '@{pipeline().parameters.P_DATASET}'\n)\nSELECT\n    specified_database,\n    specified_schema,\n    identified_parent_table, \n    child_table, \n    constraint_name, \n    parent_columns, \n    children_columns, \n    pre_drop_status,\n    source_table,\n    sink_table\nFROM \n    discovered_constraints\nWHERE\n    row_num = 1",
                   "type": "Expression"
@@ -3785,7 +3779,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T12:24:29Z"
+        "lastPublishTime": "2025-02-11T11:15:09Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
