@@ -2639,7 +2639,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "lastPublishTime": "2025-02-11T11:31:23Z"
+        "lastPublishTime": "2025-02-12T11:24:00Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_metadata_ds')]",
@@ -3359,7 +3359,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "lastPublishTime": "2025-02-11T10:50:11Z"
+        "lastPublishTime": "2025-02-12T11:23:59Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
@@ -3779,7 +3779,7 @@
           "name": "dcsazure_AzureMI_to_AzureMI"
         },
         "annotations": [],
-        "lastPublishTime": "2025-02-11T11:15:09Z"
+        "lastPublishTime": "2025-02-12T11:23:59Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
@@ -4304,7 +4304,7 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = iif(greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), toString($$)))) ~> TrimMaskedStrings",
             "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN,#item==name)), $$ = toBoolean($$)),",
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DATE,#item==name)), $$ = toDate(toString($$))),",
