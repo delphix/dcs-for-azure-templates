@@ -4983,7 +4983,7 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = iif(greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), toString($$)))) ~> TrimMaskedStrings",
             "Source filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
             "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_CAST_AS_STRINGS,#item==name)), $$ = toString($$))) ~> CastRequiredColumnsAsStrings",
             "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
