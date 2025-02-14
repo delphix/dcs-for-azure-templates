@@ -1,7 +1,7 @@
 # CHANGELOG
 
 # 0.0.19
-* Add support for Azure Managed Instances (MI) to Azure MI Discovery and Masking Pipelines
+* Add support for AzureSQL Managed Instances (MI) to Azure MI Discovery and Masking Pipelines
 
 # 0.0.18
 * Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl` that causes the Create Constraints pipeline to fail when the metadata store schema is not present in the sink database.
