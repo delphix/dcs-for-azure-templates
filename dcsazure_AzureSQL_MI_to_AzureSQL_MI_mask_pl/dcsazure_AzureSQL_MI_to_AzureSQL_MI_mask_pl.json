@@ -6,13 +6,13 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "azuremi_mask_metadata_store_db": {
+    "azuresql_mi_mask_metadata_store_db": {
       "type": "string"
     },
-    "azuremi_mask_sink_db": {
+    "azuresql_mi_mask_sink_db": {
       "type": "string"
     },
-    "azuremi_mask_source_db": {
+    "azuresql_mi_mask_source_db": {
       "type": "string"
     },
     "ProdDCSForAzureService": {
@@ -24,7 +24,7 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_mask_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -60,7 +60,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -122,7 +122,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_AzureMI_to_AzureMI_unfiltered_mask_params_df",
+                            "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_unfiltered_mask_params_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -195,7 +195,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_AzureMI_to_AzureMI_unfiltered_mask_df",
+                            "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_unfiltered_mask_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -453,7 +453,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -614,7 +614,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -655,7 +655,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_AzureMI_to_AzureMI_filtered_params_df",
+                            "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_filtered_params_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -735,7 +735,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_AzureMI_to_AzureMI_filtered_mask_df",
+                            "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_filtered_mask_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -1000,7 +1000,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1167,7 +1167,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1228,7 +1228,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -1333,7 +1333,7 @@
                         },
                         "inputs": [
                           {
-                            "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_source_ds",
+                            "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_source_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_SOURCE_SCHEMA": {
@@ -1349,7 +1349,7 @@
                         ],
                         "outputs": [
                           {
-                            "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_sink_ds",
+                            "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_sink_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_SINK_SCHEMA": {
@@ -1518,7 +1518,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1679,7 +1679,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1720,7 +1720,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_AzureMI_to_AzureMI_copy_df",
+                            "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_copy_df",
                             "type": "DataFlowReference",
                             "parameters": {
                               "runId": {
@@ -1911,7 +1911,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2072,7 +2072,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2119,7 +2119,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataflow": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_filter_test_utility_df",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_filter_test_utility_df",
                 "type": "DataFlowReference",
                 "parameters": {
                   "runId": {
@@ -2184,7 +2184,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2233,7 +2233,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -2280,7 +2280,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_mask_sink_db')]",
+                    "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2320,7 +2320,7 @@
             },
             "userProperties": [],
             "linkedServiceName": {
-              "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+              "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
               "type": "LinkedServiceReference"
             },
             "typeProperties": {
@@ -2353,7 +2353,7 @@
             "userProperties": [],
             "typeProperties": {
               "pipeline": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_drop_constraint_pl",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_drop_constraint_pl",
                 "type": "PipelineReference"
               },
               "waitOnCompletion": true,
@@ -2428,7 +2428,7 @@
             "userProperties": [],
             "typeProperties": {
               "pipeline": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_create_constraint_pl",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_create_constraint_pl",
                 "type": "PipelineReference"
               },
               "waitOnCompletion": true,
@@ -2636,32 +2636,32 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "lastPublishTime": "2025-02-12T11:24:00Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_metadata_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureMI_to_AzureMI_filter_test_utility_df')]",
-        "[concat(variables('factoryId'), '/pipelines/dcsazure_AzureMI_to_AzureMI_mask_drop_constraint_pl')]",
-        "[concat(variables('factoryId'), '/pipelines/dcsazure_AzureMI_to_AzureMI_mask_create_constraint_pl')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureMI_to_AzureMI_unfiltered_mask_params_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureMI_to_AzureMI_unfiltered_mask_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureMI_to_AzureMI_filtered_params_df')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureMI_to_AzureMI_filtered_mask_df')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_source_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureMI_to_AzureMI_copy_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_MI_to_AzureSQL_MI_filter_test_utility_df')]",
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_drop_constraint_pl')]",
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_create_constraint_pl')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_MI_to_AzureSQL_MI_unfiltered_mask_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_MI_to_AzureSQL_MI_unfiltered_mask_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_MI_to_AzureSQL_MI_filtered_params_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_MI_to_AzureSQL_MI_filtered_mask_df')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_source_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_sink_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_MI_to_AzureSQL_MI_copy_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_mask_metadata_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -2673,7 +2673,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -2692,19 +2692,19 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_filter_test_utility_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_filter_test_utility_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_source_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2714,7 +2714,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_sink_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2776,7 +2776,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_mask_drop_constraint_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_drop_constraint_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2813,7 +2813,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_mask_sink_db')]",
+                    "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2850,7 +2850,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3042,7 +3042,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   }
                 }
@@ -3239,7 +3239,7 @@
             },
             "inputs": [
               {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_sink_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_sink_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
@@ -3249,7 +3249,7 @@
             ],
             "outputs": [
               {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -3294,7 +3294,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -3356,18 +3356,18 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "lastPublishTime": "2025-02-12T11:23:59Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_metadata_ds')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_sink_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_mask_create_constraint_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_create_constraint_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -3404,7 +3404,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_mask_sink_db')]",
+                    "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3441,7 +3441,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3666,7 +3666,7 @@
             },
             "inputs": [
               {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_sink_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_sink_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
@@ -3676,7 +3676,7 @@
             ],
             "outputs": [
               {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -3714,7 +3714,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_mask_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -3776,23 +3776,23 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "lastPublishTime": "2025-02-12T11:23:59Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_mask_metadata_ds')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_sink_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_metadata_ds')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_mask_sink_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_sink_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuremi_mask_sink_db')]",
+          "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -3804,7 +3804,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "type": "AzureSqlMITable",
@@ -3823,19 +3823,19 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_unfiltered_mask_params_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_unfiltered_mask_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -3843,7 +3843,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -4128,19 +4128,19 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_unfiltered_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_unfiltered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_source_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -4150,7 +4150,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_sink_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -4340,20 +4340,20 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_filtered_params_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_filtered_params_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "Generate masking parameters when conditional algorithms are defined",
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -4361,7 +4361,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_metadata_store_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -4803,19 +4803,19 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_filtered_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_filtered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_source_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -4825,7 +4825,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_sink_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -5021,12 +5021,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_mask_source_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_source_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuremi_mask_source_db')]",
+          "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -5038,7 +5038,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "type": "AzureSqlMITable",
@@ -5057,19 +5057,19 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_copy_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_copy_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_source_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
@@ -5079,7 +5079,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_mask_sink_db')]",
+                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",
