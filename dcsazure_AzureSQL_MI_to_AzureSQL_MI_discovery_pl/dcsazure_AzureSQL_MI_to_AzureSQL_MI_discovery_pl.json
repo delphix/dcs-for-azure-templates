@@ -6,10 +6,10 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "azuremi_discovery_metadata_store_db": {
+    "azuresql_mi_discovery_metadata_store_db": {
       "type": "string"
     },
-    "azuremi_discovery_source_db": {
+    "azuresql_mi_discovery_source_db": {
       "type": "string"
     },
     "ProdDCSForAzureService": {
@@ -21,14 +21,14 @@
   },
   "resources": [
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_discovery_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - AzureMI to AzureMI Discovery Pipeline",
+        "description": "DCSAzure - Azure SQL MI to Azure SQL MI Discovery Pipeline",
         "activities": [
           {
-            "name": "Schema Discovery From AzureMI",
+            "name": "Schema Discovery From Azure SQL MI",
             "type": "Copy",
             "dependsOn": [
               {
@@ -194,14 +194,14 @@
             },
             "inputs": [
               {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_discovery_source_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_source_ds",
                 "type": "DatasetReference",
                 "parameters": {}
               }
             ],
             "outputs": [
               {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_discovery_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -221,7 +221,7 @@
             "type": "Lookup",
             "dependsOn": [
               {
-                "activity": "Schema Discovery From AzureMI",
+                "activity": "Schema Discovery From Azure SQL MI",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -246,7 +246,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_AzureMI_to_AzureMI_discovery_metadata_ds",
+                "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_metadata_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -294,7 +294,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_AzureMI_to_AzureMI_discovery_df",
+                      "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -454,7 +454,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -571,7 +571,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -623,7 +623,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuremi_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -681,29 +681,29 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "lastPublishTime": "2025-02-12T12:31:40Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_discovery_source_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureMI_to_AzureMI_discovery_metadata_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureMI_to_AzureMI_discovery_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_source_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_discovery_source_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_source_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
         "description": "DCSAzure - Azure MI to Azure MI Discovery Query Dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuremi_discovery_source_db')]",
+          "referenceName": "[parameters('azuresql_mi_discovery_source_db')]",
           "type": "LinkedServiceReference"
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "type": "AzureSqlMITable",
@@ -730,13 +730,13 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_discovery_metadata_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_metadata_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCS Azure - AzureMI to AzureMI Discovery metadata dataset",
+        "description": "DCS Azure - Azure SQL MI to Azure SQL MI Discovery metadata dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuremi_discovery_metadata_store_db')]",
+          "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -748,7 +748,7 @@
           }
         },
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "annotations": [],
         "type": "AzureSqlTable",
@@ -767,20 +767,20 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureMI_to_AzureMI_discovery_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - AzureMI to AzureMI Discovery Dataflow",
+        "description": "DCSAzure - Azure SQL MI to Azure SQL MI Discovery Dataflow",
         "folder": {
-          "name": "dcsazure_AzureMI_to_AzureMI"
+          "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_discovery_source_db')]",
+                "referenceName": "[parameters('azuresql_mi_discovery_source_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source1MillRowDataSampling",
@@ -788,7 +788,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_discovery_metadata_store_db')]",
+                "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead",
@@ -798,7 +798,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuremi_discovery_metadata_store_db')]",
+                "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",
