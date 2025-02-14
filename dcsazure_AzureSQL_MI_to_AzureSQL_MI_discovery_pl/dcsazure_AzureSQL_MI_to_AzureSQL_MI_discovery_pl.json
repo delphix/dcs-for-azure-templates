@@ -669,7 +669,7 @@
           },
           "DATASET": {
             "type": "String",
-            "defaultValue": "AZUREMI"
+            "defaultValue": "AZURESQL-MI"
           },
           "METADATA_EVENT_PROCEDURE_NAME": {
             "type": "String",
@@ -879,7 +879,7 @@
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
             "     DF_SOURCE_DATABASE as string,",
-            "     DF_SOURCE_DATASET as string ('AZUREMI')",
+            "     DF_SOURCE_DATASET as string ('AZURESQL-MI')",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",

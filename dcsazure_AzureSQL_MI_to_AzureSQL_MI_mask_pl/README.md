@@ -99,14 +99,14 @@ have customized your metadata store, then these variables may need editing.
   associated datatype required in ADF as needed for the pipeline (default `adf_type_mapping`)
 * `BLOB_STORE_STAGING_STORAGE_PATH` - This is a path that specifies where we should stage data as it moves through the
   pipeline and should reference a storage container in a storage account (default `staging-container`)
-* `DATASET` - This is the way this data set is referred to in the metadata store (default `ADLS`)
+* `DATASET` - This is the way this data set is referred to in the metadata store (default `AZURESQL-MI`)
 * `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
   when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
   ADF syntax for referencing the key column (default `%`)
 * `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`)
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the metadata data store and sets the masked and mapping states on the items processed during execution (default `insert_adf_masking_event`).
-* `METADATA_CONSTRAINT_TABLE` - This table is used to store the foreign key constraints for each table in the sink schema that are required for masking. The table is queried to drop and recreate those constraints back.
-* `PIPELINE_FAILED` - This variable is used internally to set the correct pipeline status. It is important to note that, this variable should not be modified when running the pipeline. The default value is `false`
+* `METADATA_CONSTRAINT_TABLE` - This table is used to store the foreign key constraints for each table in the sink schema that are required for masking. The table is queried to drop and recreate those constraints back (default `capture_constraints`).
+* `PIPELINE_FAILED` - This variable is used internally to set the correct pipeline status. It is important to note that, this variable should not be modified when running the pipeline (default `false`).
 
 ### Parameters
 

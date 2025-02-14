@@ -154,7 +154,7 @@
                                 "type": "Expression"
                               },
                               "DF_COLUMN_WIDTH_ESTIMATE": "1000",
-                              "DF_DATASET": "'AZUREMI'"
+                              "DF_DATASET": "'AZURESQL-MI'"
                             },
                             "datasetParameters": {
                               "Ruleset": {},
@@ -2604,7 +2604,7 @@
           },
           "DATASET": {
             "type": "String",
-            "defaultValue": "AZUREMI"
+            "defaultValue": "AZURESQL-MI"
           },
           "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
             "type": "String",
@@ -3329,7 +3329,7 @@
           },
           "P_DATASET": {
             "type": "string",
-            "defaultValue": "AZUREMI"
+            "defaultValue": "AZURESQL-MI"
           },
           "P_METADATA_CONSTRAINT_TABLE": {
             "type": "string",
@@ -3757,7 +3757,7 @@
           },
           "P_DATASET": {
             "type": "string",
-            "defaultValue": "AZUREMI"
+            "defaultValue": "AZURESQL-MI"
           },
           "P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
             "type": "string",
@@ -3967,7 +3967,7 @@
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
-            "     DF_DATASET as string ('AZUREMI')",
+            "     DF_DATASET as string ('AZURESQL-MI')",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -4535,7 +4535,7 @@
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
             "     DF_FILTER_KEY as string (''),",
-            "     DF_DATASET as string ('AZUREMI')",
+            "     DF_DATASET as string ('AZURESQL-MI')",
             "}",
             "source(output(",
             "          dataset as string,",
