@@ -52,7 +52,7 @@ have customized your metadata store, then these variables may need editing.
   (default `dbo`)
 * `METADATA_RULESET_TABLE` - This is the table to be used for storing the discovered ruleset
   (default `discovered_ruleset`)
-* `DATASET` - This is used to identify data that belongs to this pipeline in the metadata store (default `AzureSQL_MI`)
+* `DATASET` - This is used to identify data that belongs to this pipeline in the metadata store (default `AZURESQL-MI`)
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the metadata data store and sets the discovery state on the items discovered during execution (default `insert_adf_discovery_event`).
 * `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value could cause requests to fail (default `1000`).
 
