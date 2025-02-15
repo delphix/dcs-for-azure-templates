@@ -697,7 +697,7 @@
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "DCSAzure - Azure MI to Azure MI Discovery Query Dataset",
+        "description": "DCSAzure - Azure SQL MI to Azure SQL MI Discovery Query Dataset",
         "linkedServiceName": {
           "referenceName": "[parameters('azuresql_mi_discovery_source_db')]",
           "type": "LinkedServiceReference"
