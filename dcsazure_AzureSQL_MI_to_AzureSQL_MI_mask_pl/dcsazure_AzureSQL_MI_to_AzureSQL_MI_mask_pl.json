@@ -3074,7 +3074,7 @@
               "sink": {
                 "type": "AzureSqlSink",
                 "sqlWriterStoredProcedureName": {
-                  "value": "@concat(pipeline().parameters.P_METADATA_SCHEMA, '.', pipeline().parameters.P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME)",
+                  "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME}",
                   "type": "Expression"
                 },
                 "sqlWriterTableType": "sink_drop_constraint_type",
@@ -3513,7 +3513,7 @@
               "sink": {
                 "type": "AzureSqlSink",
                 "sqlWriterStoredProcedureName": {
-                  "value": "@concat(pipeline().parameters.P_METADATA_SCHEMA, '.', pipeline().parameters.P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME)",
+                  "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME}",
                   "type": "Expression"
                 },
                 "sqlWriterTableType": "sink_create_constraint_type",
