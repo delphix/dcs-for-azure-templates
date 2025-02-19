@@ -1,5 +1,10 @@
 # CHANGELOG
 
+# 0.0.20
+* Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+   * To use the new column name introduced by V2025.01.15.0 migration script.
+   * To use the appropriate expression in TrimMaskedStrings that prevents the masking pipeline from failing when masking JSON, XML, and UUID values.
+
 # 0.0.19
 * Add support for AzureSQL Managed Instances (MI) to AzureSQL MI Discovery and Masking Pipelines
 
