@@ -1184,3 +1184,55 @@ BEGIN
             ct.post_create_status = sink_constraints.post_create_status,
             ct.create_timestamp = sink_constraints.create_timestamp;
 END;
+
+
+-- Update ADF type mappings of decimal, numeric and money to double for AzureSQL dataset
+UPDATE adf_type_mapping
+SET adf_type = 'double'
+WHERE dataset = 'AZURESQL' AND dataset_type IN ('decimal', 'numeric', 'money');
+
+-- Update ADF type mapping of smallmoney to float for AzureSQL dataset
+UPDATE adf_type_mapping
+SET adf_type = 'float'
+WHERE dataset = 'AZURESQL' AND dataset_type = 'smallmoney';
+
+-- Copy ADF type mapping from AzureSQL to AzureSQL_MI
+INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
+SELECT 'AZURESQL-MI', dataset_type, adf_type
+FROM adf_type_mapping
+WHERE dataset = 'AZURESQL';
+
+DELETE from adf_type_mapping where dataset = 'AZURESQL-MI';
+
+INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
+   VALUES
+('AZURESQL-MI', 'tinyint', 'integer'),
+('AZURESQL-MI', 'smallint', 'short'),
+('AZURESQL-MI', 'int', 'integer'),
+('AZURESQL-MI', 'bigint', 'long'),
+('AZURESQL-MI', 'bit', 'boolean'),
+('AZURESQL-MI', 'decimal', 'double'),
+('AZURESQL-MI', 'numeric', 'double'),
+('AZURESQL-MI', 'money', 'double'),
+('AZURESQL-MI', 'smallmoney', 'float'),
+('AZURESQL-MI', 'float', 'double'),
+('AZURESQL-MI', 'real', 'float'),
+('AZURESQL-MI', 'date', 'date'),
+('AZURESQL-MI', 'time', 'timestamp'),
+('AZURESQL-MI', 'datetime2', 'timestamp'),
+('AZURESQL-MI', 'datetimeoffset', 'string'),
+('AZURESQL-MI', 'datetime', 'timestamp'),
+('AZURESQL-MI', 'smalldatetime', 'timestamp'),
+('AZURESQL-MI', 'char', 'string'),
+('AZURESQL-MI', 'varchar', 'string'),
+('AZURESQL-MI', 'text', 'string'),
+('AZURESQL-MI', 'nchar', 'string'),
+('AZURESQL-MI', 'nvarchar', 'string'),
+('AZURESQL-MI', 'ntext', 'string'),
+('AZURESQL-MI', 'binary', 'binary'),
+('AZURESQL-MI', 'varbinary', 'binary'),
+('AZURESQL-MI', 'image', 'binary'),
+('AZURESQL-MI', 'json', 'string'),
+('AZURESQL-MI', 'uniqueidentifier', 'string'),
+('AZURESQL-MI', 'xml', 'string')
+;
