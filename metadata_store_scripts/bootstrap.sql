@@ -9,6 +9,8 @@
 -- * V2024.12.26.0__add_adls_to_adls_parquet_support
 -- * V2025.01.15.0__separate_algorithm_and_source_metadata
 -- * V2025.01.30.0__create_constraints_stored_procedure
+-- * V2025.02.04.0__add_azuremi_to_azuremi_support
+-- * V2025.02.24.0__add_azuremi_adf_type_mapping
 -- The contents of each of those files follows
 
 
@@ -1185,6 +1187,7 @@ BEGIN
             ct.create_timestamp = sink_constraints.create_timestamp;
 END;
 
+-- source: V2025.02.04.0__add_azuremi_to_azuremi_support
 
 -- Update ADF type mappings of decimal, numeric and money to double for AzureSQL dataset
 UPDATE adf_type_mapping
@@ -1201,6 +1204,9 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
 SELECT 'AZURESQL-MI', dataset_type, adf_type
 FROM adf_type_mapping
 WHERE dataset = 'AZURESQL';
+
+
+-- source: V2025.02.24.0__add_azuremi_adf_type_mapping
 
 DELETE from adf_type_mapping where dataset = 'AZURESQL-MI';
 
@@ -1236,3 +1242,4 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
 ('AZURESQL-MI', 'uniqueidentifier', 'string'),
 ('AZURESQL-MI', 'xml', 'string')
 ;
+
