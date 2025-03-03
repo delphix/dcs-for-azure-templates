@@ -6,16 +6,16 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "azuresql_mask_metadata_store_db": {
+    "Azure_SQL_Metadata_DB": {
       "type": "string"
     },
-    "azuresql_mask_sink_db": {
+    "Azure_SQL_Sink_DB": {
       "type": "string"
     },
-    "azuresql_mask_source_db": {
+    "Azure_SQL_Source_DB": {
       "type": "string"
     },
-    "ProdDCSForAzureService": {
+    "RestServiceSharad": {
       "type": "string"
     }
   },
@@ -154,7 +154,11 @@
                                 "type": "Expression"
                               },
                               "DF_COLUMN_WIDTH_ESTIMATE": "1000",
-                              "DF_DATASET": "'AZURESQL'"
+                              "DF_DATASET": "'AZURESQL'",
+                              "P_SINK_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SINK_DATABASE}'",
+                                "type": "Expression"
+                              }
                             },
                             "datasetParameters": {
                               "Ruleset": {},
@@ -281,11 +285,37 @@
                               "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
                                 "value": "@activity('Get Masking Parameters No Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
+                              },
+                              "P_SINK_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SINK_DATABASE}'",
+                                "type": "Expression"
+                              },
+                              "P_SOURCE_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SOURCE_DATABASE}'",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "P_SOURCE_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "P_SINK_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -453,7 +483,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -614,7 +644,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -693,6 +723,10 @@
                               },
                               "DF_DATASET": {
                                 "value": "'@{item().source_dataset}'",
+                                "type": "Expression"
+                              },
+                              "P_SINK_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SINK_DATABASE}'",
                                 "type": "Expression"
                               }
                             },
@@ -825,11 +859,37 @@
                               "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
                                 "value": "@activity('Get Masking Parameters With Filter').output.runStatus.output.MaskingParameterOutput.value[0].ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
+                              },
+                              "P_SINK_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SINK_DATABASE}'",
+                                "type": "Expression"
+                              },
+                              "P_SOURCE_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SOURCE_DATABASE}'",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "P_SOURCE_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "P_SINK_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -1000,7 +1060,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1167,7 +1227,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1343,6 +1403,10 @@
                               "DS_SOURCE_TABLE": {
                                 "value": "@item().source_table",
                                 "type": "Expression"
+                              },
+                              "P_SOURCE_DATABASE": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
                               }
                             }
                           }
@@ -1358,6 +1422,10 @@
                               },
                               "DS_SINK_TABLE": {
                                 "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "P_SINK_DATABASE": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
                                 "type": "Expression"
                               }
                             }
@@ -1518,7 +1586,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1679,7 +1747,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1742,11 +1810,37 @@
                               "DF_SINK_TABLE": {
                                 "value": "'@{item().sink_table}'",
                                 "type": "Expression"
+                              },
+                              "P_SINK_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SINK_DATABASE}'",
+                                "type": "Expression"
+                              },
+                              "P_SOURCE_DATABASE": {
+                                "value": "'@{pipeline().parameters.P_SOURCE_DATABASE}'",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
                               "SourceData": {},
                               "SinkData": {}
+                            },
+                            "linkedServiceParameters": {
+                              "SourceData": {
+                                "linkedService": {
+                                  "P_SOURCE_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "SinkData": {
+                                "linkedService": {
+                                  "P_SINK_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -1911,7 +2005,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2072,7 +2166,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2144,11 +2238,37 @@
                   ],
                   "DF_FAIL_ON_NONCONFORMANT_DATA": "true()",
                   "DF_FIELD_DATE_FORMAT": "'{}'",
-                  "DF_FILTER_CONDITION": "true()"
+                  "DF_FILTER_CONDITION": "true()",
+                  "P_SINK_DATABASE": {
+                    "value": "'@{pipeline().parameters.P_SINK_DATABASE}'",
+                    "type": "Expression"
+                  },
+                  "P_SOURCE_DATABASE": {
+                    "value": "'@{pipeline().parameters.P_SOURCE_DATABASE}'",
+                    "type": "Expression"
+                  }
                 },
                 "datasetParameters": {
                   "Source": {},
                   "Sink": {}
+                },
+                "linkedServiceParameters": {
+                  "Source": {
+                    "linkedService": {
+                      "P_SOURCE_DATABASE": {
+                        "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  },
+                  "Sink": {
+                    "linkedService": {
+                      "P_SINK_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  }
                 }
               },
               "staging": {},
@@ -2184,7 +2304,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2280,8 +2400,14 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mask_sink_db')]",
-                    "type": "LinkedServiceReference"
+                    "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "P_SINK_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -2320,7 +2446,7 @@
             },
             "userProperties": [],
             "linkedServiceName": {
-              "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+              "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
               "type": "LinkedServiceReference"
             },
             "typeProperties": {
@@ -2639,7 +2765,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T11:53:56Z"
+        "lastPublishTime": "2025-02-27T12:50:19Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -2661,7 +2787,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -2704,7 +2830,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_source_db')]",
+                "referenceName": "[parameters('Azure_SQL_Source_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2714,7 +2840,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_sink_db')]",
+                "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2741,7 +2867,9 @@
             "     DF_TRIM_LENGTHS as integer[] ([1000]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
-            "     DF_FILTER_CONDITION as boolean (true())",
+            "     DF_FILTER_CONDITION as boolean (true()),",
+            "     P_SINK_DATABASE as string,",
+            "     P_SOURCE_DATABASE as string",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -2813,8 +2941,14 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mask_sink_db')]",
-                    "type": "LinkedServiceReference"
+                    "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "P_SINK_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -2850,7 +2984,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3042,7 +3176,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                     "type": "LinkedServiceReference"
                   }
                 }
@@ -3243,7 +3377,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
-                  "DS_SINK_TABLE": "-"
+                  "DS_SINK_TABLE": "-",
+                  "P_SINK_DATABASE": {
+                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                    "type": "Expression"
+                  }
                 }
               }
             ],
@@ -3359,7 +3497,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T12:24:29Z"
+        "lastPublishTime": "2025-02-27T12:02:45Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3404,8 +3542,14 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mask_sink_db')]",
-                    "type": "LinkedServiceReference"
+                    "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "P_SINK_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -3441,7 +3585,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3670,7 +3814,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
-                  "DS_SINK_TABLE": "-"
+                  "DS_SINK_TABLE": "-",
+                  "P_SINK_DATABASE": {
+                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                    "type": "Expression"
+                  }
                 }
               }
             ],
@@ -3779,7 +3927,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T12:24:29Z"
+        "lastPublishTime": "2025-02-27T12:00:23Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3792,14 +3940,23 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mask_sink_db')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "P_SINK_DATABASE": {
+              "value": "@dataset().P_SINK_DATABASE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SINK_SCHEMA": {
             "type": "string"
           },
           "DS_SINK_TABLE": {
+            "type": "string"
+          },
+          "P_SINK_DATABASE": {
             "type": "string"
           }
         },
@@ -3835,7 +3992,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -3843,7 +4000,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -3967,7 +4124,8 @@
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
-            "     DF_DATASET as string ('AZURESQL')",
+            "     DF_DATASET as string ('AZURESQL'),",
+            "     P_SINK_DATABASE as string",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -3979,7 +4137,7 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -4140,7 +4298,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_source_db')]",
+                "referenceName": "[parameters('Azure_SQL_Source_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -4150,7 +4308,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_sink_db')]",
+                "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -4161,7 +4319,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('RestServiceSharad')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -4240,7 +4398,9 @@
             "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
-            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"])",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
+            "     P_SINK_DATABASE as string,",
+            "     P_SOURCE_DATABASE as string",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -4267,7 +4427,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     entity: '/maaas-sharad01/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -4304,7 +4464,7 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = iif(greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), toString($$)))) ~> TrimMaskedStrings",
             "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN,#item==name)), $$ = toBoolean($$)),",
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DATE,#item==name)), $$ = toDate(toString($$))),",
@@ -4353,7 +4513,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Ruleset",
@@ -4361,7 +4521,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_metadata_store_db')]",
+                "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "TypeMapping",
@@ -4535,7 +4695,8 @@
             "     DF_SOURCE_TABLE as string (''),",
             "     DF_COLUMN_WIDTH_ESTIMATE as integer (1000),",
             "     DF_FILTER_KEY as string (''),",
-            "     DF_DATASET as string ('AZURESQL')",
+            "     DF_DATASET as string ('AZURESQL'),",
+            "     P_SINK_DATABASE as string",
             "}",
             "source(output(",
             "          dataset as string,",
@@ -4547,7 +4708,7 @@
             "          identified_column_max_length as integer,",
             "          ordinal_position as integer,",
             "          row_count as long,",
-            "          metadata as string,",
+            "          source_metadata as string,",
             "          profiled_domain as string,",
             "          profiled_algorithm as string,",
             "          confidence_score as decimal(6,5),",
@@ -4603,7 +4764,7 @@
             "TypeMapping filter(equalsIgnoreCase(dataset, $DF_DATASET)) ~> FilterToDataSourceType",
             "FilterToSingleTable parse(parsed_metadata = algorithm_metadata ? (date_format as string,",
             "          treat_as_string as boolean),",
-            "          conditional_formatting = metadata ? (key_column as string,",
+            "          conditional_formatting = algorithm_metadata ? (key_column as string,",
             "          conditions as (alias as string, date_format as string)[]),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseMetadata",
@@ -4685,7 +4846,7 @@
             "     disjoint: false) ~> HandleCompositeAlgorithms@(KeyColumn, ConditionalAlgorithm, StandardAlgorithm)",
             "HandleCompositeAlgorithms@ConditionalAlgorithm parse(conditional_algorithm = assigned_algorithm ? (key_column as string,",
             "          conditions as (alias as string, algorithm as string)[]),",
-            "          conditional_formatting = metadata ? (key_column as string,",
+            "          conditional_formatting = algorithm_metadata ? (key_column as string,",
             "          conditions as (alias as string, date_format as string)[]),",
             "     format: 'json',",
             "     documentForm: 'singleDocument') ~> ParseAlgorithm",
@@ -4767,7 +4928,7 @@
             "          identified_column_max_length,",
             "          ordinal_position,",
             "          row_count,",
-            "          metadata,",
+            "          source_metadata,",
             "          profiled_domain,",
             "          profiled_algorithm,",
             "          confidence_score,",
@@ -4815,7 +4976,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_source_db')]",
+                "referenceName": "[parameters('Azure_SQL_Source_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -4825,7 +4986,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_sink_db')]",
+                "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -4836,7 +4997,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('RestServiceSharad')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -4920,7 +5081,9 @@
             "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
-            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"])",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
+            "     P_SINK_DATABASE as string,",
+            "     P_SOURCE_DATABASE as string",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -4947,7 +5110,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     entity: '/maaas-sharad01/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -4983,7 +5146,7 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'off')~> JoinMaskedAndUnmaskedData",
-            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]))) ~> TrimMaskedStrings",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = iif(greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), toString($$)))) ~> TrimMaskedStrings",
             "Source filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
             "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_CAST_AS_STRINGS,#item==name)), $$ = toString($$))) ~> CastRequiredColumnsAsStrings",
             "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
@@ -5026,14 +5189,23 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mask_source_db')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Azure_SQL_Source_DB')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "P_SOURCE_DATABASE": {
+              "value": "@dataset().P_SOURCE_DATABASE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SOURCE_SCHEMA": {
             "type": "string"
           },
           "DS_SOURCE_TABLE": {
+            "type": "string"
+          },
+          "P_SOURCE_DATABASE": {
             "type": "string"
           }
         },
@@ -5069,7 +5241,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_source_db')]",
+                "referenceName": "[parameters('Azure_SQL_Source_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
@@ -5079,7 +5251,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mask_sink_db')]",
+                "referenceName": "[parameters('Azure_SQL_Sink_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",
@@ -5093,7 +5265,9 @@
             "     DF_SOURCE_SCHEMA as string (''),",
             "     DF_SINK_SCHEMA as string (''),",
             "     DF_SOURCE_TABLE as string (''),",
-            "     DF_SINK_TABLE as string ('')",
+            "     DF_SINK_TABLE as string (''),",
+            "     P_SINK_DATABASE as string,",
+            "     P_SOURCE_DATABASE as string",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
