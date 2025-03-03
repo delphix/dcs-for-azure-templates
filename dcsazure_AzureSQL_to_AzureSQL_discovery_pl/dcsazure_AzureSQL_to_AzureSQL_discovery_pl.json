@@ -6,13 +6,13 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "Metadata Datastore": {
+    "Azure_SQL_Metadata_DB": {
       "type": "string"
     },
-    "AzureSqlDatabase_Source": {
+    "Azure_SQL_Source_DB": {
       "type": "string"
     },
-    "ProdDCSForAzureService": {
+    "RestServiceSharad": {
       "type": "string"
     }
   },
@@ -196,7 +196,12 @@
               {
                 "referenceName": "dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds",
                 "type": "DatasetReference",
-                "parameters": {}
+                "parameters": {
+                  "P_SOURCE_DATABASE": {
+                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                    "type": "Expression"
+                  }
+                }
               }
             ],
             "outputs": [
@@ -334,6 +339,16 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
+                      },
+                      "linkedServiceParameters": {
+                        "Source1MillRowDataSampling": {
+                          "linkedService": {
+                            "P_SOURCE_DATABASE": {
+                              "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                              "type": "Expression"
+                            }
+                          }
+                        }
                       }
                     },
                     "staging": {},
@@ -454,7 +469,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -571,7 +586,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -623,7 +638,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -684,7 +699,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-07T22:23:06Z"
+        "lastPublishTime": "2025-02-27T11:20:58Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds')]",
@@ -699,8 +714,19 @@
       "properties": {
         "description": "DCSAzure - Azure SQL to AzureSQL Discovery Query Dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSqlDatabase_Source')]",
-          "type": "LinkedServiceReference"
+          "referenceName": "[parameters('Azure_SQL_Source_DB')]",
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "P_SOURCE_DATABASE": {
+              "value": "@dataset().P_SOURCE_DATABASE",
+              "type": "Expression"
+            }
+          }
+        },
+        "parameters": {
+          "P_SOURCE_DATABASE": {
+            "type": "string"
+          }
         },
         "folder": {
           "name": "dcsazure_AzureSQL_to_AzureSQL"
@@ -736,7 +762,7 @@
       "properties": {
         "description": "DCS Azure - AzureSQL to AzureSQL Discovery metadata dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('Metadata Datastore')]",
+          "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -780,7 +806,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase_Source')]",
+                "referenceName": "[parameters('Azure_SQL_Source_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source1MillRowDataSampling",
@@ -788,7 +814,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead",
@@ -798,7 +824,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata Datastore')]",
+                "referenceName": "[parameters('Azure_SQL_Metadata_DB')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",
@@ -809,7 +835,7 @@
             {
               "name": "CallDCSForAzureDiscovery",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('RestServiceSharad')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -935,7 +961,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId],",
             "     httpMethod: 'POST',",
-            "     entity: '/v1/discovery/profileByColumn',",
+            "     entity: '/maaas-sharad01/v1/discovery/profileByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
