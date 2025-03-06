@@ -196,7 +196,12 @@
               {
                 "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_source_ds",
                 "type": "DatasetReference",
-                "parameters": {}
+                "parameters": {
+                  "P_SOURCE_DATABASE": {
+                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                    "type": "Expression"
+                  }
+                }
               }
             ],
             "outputs": [
@@ -334,6 +339,16 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
+                      },
+                      "linkedServiceParameters": {
+                        "Source1MillRowDataSampling": {
+                          "linkedService": {
+                            "LS_DATABASE": {
+                              "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                              "type": "Expression"
+                            }
+                          }
+                        }
                       }
                     },
                     "staging": {},
@@ -700,7 +715,18 @@
         "description": "DCSAzure - Azure SQL MI to Azure SQL MI Discovery Query Dataset",
         "linkedServiceName": {
           "referenceName": "[parameters('azuresql_mi_discovery_source_db')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": {
+              "value": "@dataset().P_SOURCE_DATABASE",
+              "type": "Expression"
+            }
+          }
+        },
+        "parameters": {
+          "P_SOURCE_DATABASE": {
+            "type": "string"
+          }
         },
         "folder": {
           "name": "dcsazure_AzureSQL_MI_to_AzureSQL_MI"
