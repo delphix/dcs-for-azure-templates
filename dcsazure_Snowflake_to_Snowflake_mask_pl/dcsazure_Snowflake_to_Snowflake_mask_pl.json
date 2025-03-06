@@ -296,32 +296,16 @@
                             "linkedServiceParameters": {
                               "Source": {
                                 "linkedService": {
-                                  "LS_DATABASE": {
+                                  "P_SOURCE_DATABASE": {
                                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
-                                    "type": "Expression"
-                                  },
-                                  "LS_WAREHOUSE": {
-                                    "value": "@variables('SOURCE_SNOWFLAKE_WAREHOUSE')",
-                                    "type": "Expression"
-                                  },
-                                  "LS_ROLE": {
-                                    "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
                                     "type": "Expression"
                                   }
                                 }
                               },
                               "Sink": {
                                 "linkedService": {
-                                  "LS_DATABASE": {
+                                  "P_SINK_DATABASE": {
                                     "value": "@pipeline().parameters.P_SINK_DATABASE",
-                                    "type": "Expression"
-                                  },
-                                  "LS_WAREHOUSE": {
-                                    "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
-                                    "type": "Expression"
-                                  },
-                                  "LS_ROLE": {
-                                    "value": "@variables('SINK_SNOWFLAKE_ROLE')",
                                     "type": "Expression"
                                   }
                                 }
@@ -875,32 +859,16 @@
                             "linkedServiceParameters": {
                               "Source": {
                                 "linkedService": {
-                                  "LS_DATABASE": {
+                                  "P_SOURCE_DATABASE": {
                                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
-                                    "type": "Expression"
-                                  },
-                                  "LS_WAREHOUSE": {
-                                    "value": "@variables('SOURCE_SNOWFLAKE_WAREHOUSE')",
-                                    "type": "Expression"
-                                  },
-                                  "LS_ROLE": {
-                                    "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
                                     "type": "Expression"
                                   }
                                 }
                               },
                               "Sink": {
                                 "linkedService": {
-                                  "LS_DATABASE": {
+                                  "P_SINK_DATABASE": {
                                     "value": "@pipeline().parameters.P_SINK_DATABASE",
-                                    "type": "Expression"
-                                  },
-                                  "LS_WAREHOUSE": {
-                                    "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
-                                    "type": "Expression"
-                                  },
-                                  "LS_ROLE": {
-                                    "value": "@variables('SINK_SNOWFLAKE_ROLE')",
                                     "type": "Expression"
                                   }
                                 }
@@ -1427,6 +1395,10 @@
                               "DS_ROLE": {
                                 "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
                                 "type": "Expression"
+                              },
+                              "P_SOURCE_DATABASE": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
                               }
                             }
                           }
@@ -1448,6 +1420,10 @@
                               },
                               "DS_ROLE": {
                                 "value": "@variables('SINK_SNOWFLAKE_ROLE')",
+                                "type": "Expression"
+                              },
+                              "P_SINK_DATABASE": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
                                 "type": "Expression"
                               }
                             }
@@ -1840,32 +1816,16 @@
                             "linkedServiceParameters": {
                               "SourceData": {
                                 "linkedService": {
-                                  "LS_DATABASE": {
+                                  "P_SOURCE_DATABASE": {
                                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
-                                    "type": "Expression"
-                                  },
-                                  "LS_WAREHOUSE": {
-                                    "value": "@variables('SOURCE_SNOWFLAKE_WAREHOUSE')",
-                                    "type": "Expression"
-                                  },
-                                  "LS_ROLE": {
-                                    "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
                                     "type": "Expression"
                                   }
                                 }
                               },
                               "SinkData": {
                                 "linkedService": {
-                                  "LS_DATABASE": {
+                                  "P_SINK_DATABASE": {
                                     "value": "@pipeline().parameters.P_SINK_DATABASE",
-                                    "type": "Expression"
-                                  },
-                                  "LS_WAREHOUSE": {
-                                    "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
-                                    "type": "Expression"
-                                  },
-                                  "LS_ROLE": {
-                                    "value": "@variables('SINK_SNOWFLAKE_ROLE')",
                                     "type": "Expression"
                                   }
                                 }
@@ -2256,6 +2216,24 @@
                 "datasetParameters": {
                   "SourceData": {},
                   "SinkData": {}
+                },
+                "linkedServiceParameters": {
+                  "SourceData": {
+                    "linkedService": {
+                      "P_SOURCE_DATABASE": {
+                        "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  },
+                  "SinkData": {
+                    "linkedService": {
+                      "P_SINK_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  }
                 }
               },
               "staging": {},
@@ -2426,16 +2404,8 @@
                     "referenceName": "[parameters('Snowflake_Sink_New')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
-                      "LS_DATABASE": {
+                      "P_SINK_DATABASE": {
                         "value": "@pipeline().parameters.P_SINK_DATABASE",
-                        "type": "Expression"
-                      },
-                      "LS_WAREHOUSE": {
-                        "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
-                        "type": "Expression"
-                      },
-                      "LS_ROLE": {
-                        "value": "@variables('SINK_SNOWFLAKE_ROLE')",
                         "type": "Expression"
                       }
                     }
@@ -3902,16 +3872,8 @@
           "referenceName": "[parameters('Snowflake_Source_New')]",
           "type": "LinkedServiceReference",
           "parameters": {
-            "LS_DATABASE": {
-              "value": "@dataset().DS_DATABASE",
-              "type": "Expression"
-            },
-            "LS_WAREHOUSE": {
-              "value": "@dataset().DS_WAREHOUSE",
-              "type": "Expression"
-            },
-            "LS_ROLE": {
-              "value": "@dataset().DS_ROLE",
+            "P_SOURCE_DATABASE": {
+              "value": "@dataset().P_SOURCE_DATABASE",
               "type": "Expression"
             }
           }
@@ -3930,6 +3892,9 @@
             "type": "string"
           },
           "DS_ROLE": {
+            "type": "string"
+          },
+          "P_SOURCE_DATABASE": {
             "type": "string"
           }
         },
@@ -3961,16 +3926,8 @@
           "referenceName": "[parameters('Snowflake_Sink_New')]",
           "type": "LinkedServiceReference",
           "parameters": {
-            "LS_DATABASE": {
-              "value": "@dataset().DS_DATABASE",
-              "type": "Expression"
-            },
-            "LS_WAREHOUSE": {
-              "value": "@dataset().DS_WAREHOUSE",
-              "type": "Expression"
-            },
-            "LS_ROLE": {
-              "value": "@dataset().DS_ROLE",
+            "P_SINK_DATABASE": {
+              "value": "@dataset().P_SINK_DATABASE",
               "type": "Expression"
             }
           }
@@ -3989,6 +3946,9 @@
             "type": "string"
           },
           "DS_ROLE": {
+            "type": "string"
+          },
+          "P_SINK_DATABASE": {
             "type": "string"
           }
         },
