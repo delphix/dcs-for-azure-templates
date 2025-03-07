@@ -38,6 +38,15 @@ The migration scripts do not specify a schema, as you are free to create these s
 needs. However, this means before running the script, you will need to specify the schema you are working in (unless you
 choose to leverage the default `dbo` schema).
 
+To change the schema, run the following command:
+```sql
+ALTER USER <UserName> WITH DEFAULT_SCHEMA = <SchemaName>;
+```
+
+**Note:** Ensure the following requirements are met before running the migration scripts:
+* The user has the necessary permissions to access the schema and execute the statement.
+* The user is **not** a member of the `sysadmin` fixed server role, as this will cause the `DEFAULT_SCHEMA` value to be ignored, defaulting to the `dbo` schema.
+
 The metadata store consists of the following tables that all must be in the same schema:
 * `discovered_ruleset` - This table is used to define a ruleset. The ruleset uniquely identifies columns and the
 algorithms that should be applied to those columns. This table is populated in one of two ways:
