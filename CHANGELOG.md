@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.22
+* Add support for parameterized linked services in the `dcsazure_AzureSQL_to_AzureSQL_discovery_pl` and `dcsazure_AzureSQL_to_AzureSQL_mask_pl` pipelines.
+
 # 0.0.21
 * Fix bugs in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
   * Add the metadata schema to constraint pipelines in SQL where it was missing.
