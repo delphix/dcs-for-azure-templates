@@ -7,7 +7,9 @@ This pipeline will perform masking of your AzureSQL Instance.
 
 1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.30.0`+).
 1. Configure the DCS for Azure REST service.
-1. Configure the AzureSQL linked service.
+1. Configure the AzureSQL linked service. 
+   * It is helpful for the linked service to be parameterized with the following parameter:
+      * `LS_DATABASE` - database name in the linked service
 
 
 ### Importing
