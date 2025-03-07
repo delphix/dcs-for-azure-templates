@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.22
+* Add support for parameterized linked services in the `dcsazure_AzureSQL_to_AzureSQL_discovery_pl` and `dcsazure_AzureSQL_to_AzureSQL_mask_pl` pipelines.
+
 # 0.0.20
 * Fix bugs in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
    * Correct the schema for the Ruleset source table to reflect metadata store version `V2025.01.15.0`.
