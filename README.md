@@ -2,26 +2,29 @@
 Azure Data Factory supports 100+ connectors, including those for SaaS applications and PaaS databases. Data that resides
 in disparate locations often needs masking in order to be leveraged by engineers for feature development or issue
 triage and debugging. These things must never be done in production as the risk to data exposure is too great. Data
-protection is alo required in accordance with regulations such as GDPR, FINRA, CCPA, HIPAA, and PCI DSS. For these
+protection is also required in accordance with regulations such as GDPR, FINRA, CCPA, HIPAA, and PCI DSS. For these
 reasons, it is essential that it's possible to identify and mask sensitive data from production into lower environments.
 
-Delphix provides a capability to leverage Microsoft's Azure Data Factory in order to perform automated sensitive data
-discovery, assign masking algorithms, and mask sensitive data such that it maintains referential integrity.
+Delphix provides several APIs that perform data discovery and data masking. Microsoft's Azure Data Factory provides a
+framework for processing data using those APIs, making it possible to perform automated sensitive data discovery, assign
+masking algorithms, and mask sensitive data such that it maintains referential integrity.
 
 ## What Is This Code For?
 
-This repository contains a collection of templates that can be used to leverage Delphix Compliance Services in Azure
-for these purposes.
+This repository contains a collection of templates that combine the power of Delphix Compliance Services in Azure and
+Azure Data Factory to perform data discovery on a collection of sources and mask data that has been found to be
+sensitive, producing production-quality data without data exposure, which can then be made available to downstream teams
+without compromising data security.
 
-To leverage these templates you will need a Delphix Compliance Services account, for that more information can be found
+To use these templates you will need a Delphix Compliance Services account, for that more information can be found
 here: https://www.perforce.com/products/delphix/compliance-services
 
 Don't see a data source you're hoping to profile and mask? If you feel compelled, you can use these provided templates
 as a jumping off point and create a new template to discover and mask sensitive data using the Delphix compliance
-services APIs. Such [contributions](./README.md#Contribution) are more than welcome and if you would like engineering
-support for your particular use case, such contributions will allow our engineering team to help should any issues
-occur. If you don't know where to start but uncover a need, please file a feature request under the `Issues` tab of
-this repository, which can be found [here](https://github.com/delphix/dcs-for-azure-templates/issues).
+services APIs. [Contributions](./README.md#Contribution) are highly appreciated, and if you need engineering support
+tailored to your specific use case, contributing templates back to this repository will enable our engineering team to
+assist when issues arise. If you don't know where to start but uncover a need, please file a feature request under the
+[Issues](https://github.com/delphix/dcs-for-azure-templates/issues) tab of this repository.
 
 ## Setup
 To use Delphix Compliance Services for Azure, and specifically to leverage these pipelines you will need to have the
