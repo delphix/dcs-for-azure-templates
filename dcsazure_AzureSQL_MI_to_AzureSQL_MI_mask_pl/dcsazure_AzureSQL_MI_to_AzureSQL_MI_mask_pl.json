@@ -3077,7 +3077,7 @@
                   "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME}",
                   "type": "Expression"
                 },
-                "sqlWriterTableType": "sink_drop_constraint_type",
+                "sqlWriterTableType": "@{pipeline().parameters.P_METADATA_SCHEMA}.sink_drop_constraint_type",
                 "storedProcedureTableTypeParameterName": "source",
                 "disableMetricsCollection": false
               },
@@ -3516,7 +3516,7 @@
                   "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME}",
                   "type": "Expression"
                 },
-                "sqlWriterTableType": "sink_create_constraint_type",
+                "sqlWriterTableType": "@{pipeline().parameters.P_METADATA_SCHEMA}.sink_create_constraint_type",
                 "storedProcedureTableTypeParameterName": "source",
                 "disableMetricsCollection": false
               },
