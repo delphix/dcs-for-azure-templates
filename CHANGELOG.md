@@ -1,5 +1,19 @@
 # CHANGELOG
 
+# 0.0.21
+* Fix bugs in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
+  * Add the metadata schema to constraint pipelines in SQL where it was missing.
+  * Metadata store fixes for Azure SQL MI.
+  * Update `docker-compose.yaml` to include Azure SQL MI templates.
+
+# 0.0.20
+* Fix bugs in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+   * Correct the schema for the Ruleset source table to reflect metadata store version `V2025.01.15.0`.
+   * Fix an issue in dataflow logic that prevents the masking pipeline from masking JSON, XML, and UUID column types in both filtered and unfiltered masking dataflows.
+
+# 0.0.19
+* Add support for AzureSQL Managed Instances (MI) to AzureSQL MI Discovery and Masking Pipelines
+
 # 0.0.18
 * Fix a bug in `dcsazure_AzureSQL_to_AzureSQL_mask_pl` that causes the Create Constraints pipeline to fail when the metadata store schema is not present in the sink database.
 

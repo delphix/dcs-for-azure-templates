@@ -416,6 +416,8 @@ WHERE
   * [dcsazure_adls_to_adls_discovery_pl](./documentation/pipelines/dcsazure_adls_to_adls_discovery_pl.md)
   * [dcsazure_AzureSQL_to_AzureSQL_discovery_pl](./dcsazure_AzureSQL_to_AzureSQL_discovery_pl/README.md)
   * [dcsazure_AzureSQL_to_AzureSQL_mask_pl](./dcsazure_AzureSQL_to_AzureSQL_mask_pl/README.md)
+  * [dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl](./dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl/README.md)
+  * [dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl](./dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/README.md)
 
 
 ## Contribution

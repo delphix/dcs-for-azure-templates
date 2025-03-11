@@ -7,8 +7,10 @@
 -- * V2024.12.02.0__add_azuresql_to_azuresql_support
 -- * V2024.12.13.0__create_create_constraints_table
 -- * V2024.12.26.0__add_adls_to_adls_parquet_support
--- * V20205.01.15.0__separate_algorithm_and_source_metadata
+-- * V2025.01.15.0__separate_algorithm_and_source_metadata
 -- * V2025.01.30.0__create_constraints_stored_procedure
+-- * V2025.02.04.0__add_azuremi_to_azuremi_support
+-- * V2025.02.24.0__add_azuremi_adf_type_mapping
 -- The contents of each of those files follows
 
 
@@ -836,25 +838,25 @@ WHERE sink_dataset = 'ADLS';
 -- END: Rename the ADLS dataset to ADLS-DELIMITED to avoid confusion
 
 
--- source: V20205.01.15.0__separate_algorithm_and_source_metadata
-ALTER TABLE [dbo].[discovered_ruleset] ADD algorithm_metadata NVARCHAR(MAX);
+-- source: V2025.01.15.0__separate_algorithm_and_source_metadata
+ALTER TABLE discovered_ruleset ADD algorithm_metadata NVARCHAR(MAX);
 
 -- Move the `date_format` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.date_format', JSON_VALUE(metadata, '$.date_format')),
     metadata = JSON_MODIFY(metadata, '$.date_format', NULL)
 WHERE
     JSON_VALUE(metadata, '$.date_format') IS NOT NULL;
 -- Move the `key_column` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.key_column', JSON_VALUE(metadata, '$.key_column')),
     metadata = JSON_MODIFY(metadata, '$.key_column', NULL)
 WHERE
     JSON_VALUE(metadata, '$.key_column') IS NOT NULL;
 -- Move the `conditions` key/value pair out of the metadata column and into the `algorithm_metadata` column
-UPDATE [dbo].[discovered_ruleset]
+UPDATE discovered_ruleset
 SET
     algorithm_metadata = JSON_MODIFY(COALESCE(algorithm_metadata,'{}'), '$.conditions', JSON_VALUE(metadata, '$.conditions')),
     metadata = JSON_MODIFY(metadata, '$.conditions', NULL)
@@ -862,7 +864,7 @@ WHERE
     JSON_VALUE(metadata, '$.conditions') IS NOT NULL;
 
 -- Rename the `metadata` column to `source_metadata` for clarity
-EXEC sp_rename 'dbo.discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
+EXEC sp_rename 'discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
 
 -- Update stored procedures to use new source_metadata column
 ALTER PROCEDURE get_columns_from_parquet_file_structure_sp
@@ -1091,7 +1093,7 @@ BEGIN
                     sc.constraint_name
             ) AS row_num 
         FROM @source sc
-        INNER JOIN [dbo].[adf_data_mapping] dm
+        INNER JOIN adf_data_mapping dm
         ON (
             sc.dataset = dm.sink_dataset 
             AND sc.specified_database = dm.sink_database 
@@ -1184,3 +1186,59 @@ BEGIN
             ct.post_create_status = sink_constraints.post_create_status,
             ct.create_timestamp = sink_constraints.create_timestamp;
 END;
+
+-- source: V2025.02.04.0__add_azuremi_to_azuremi_support
+
+-- Update ADF type mappings of decimal, numeric and money to double for AzureSQL dataset
+UPDATE adf_type_mapping
+SET adf_type = 'double'
+WHERE dataset = 'AZURESQL' AND dataset_type IN ('decimal', 'numeric', 'money');
+
+-- Update ADF type mapping of smallmoney to float for AzureSQL dataset
+UPDATE adf_type_mapping
+SET adf_type = 'float'
+WHERE dataset = 'AZURESQL' AND dataset_type = 'smallmoney';
+
+-- Copy ADF type mapping from AzureSQL to AzureSQL_MI
+INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
+SELECT 'AZURESQL-MI', dataset_type, adf_type
+FROM adf_type_mapping
+WHERE dataset = 'AZURESQL';
+
+
+-- source: V2025.02.24.0__add_azuremi_adf_type_mapping
+DELETE from adf_type_mapping where dataset = 'AZURESQL-MI';
+
+INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
+   VALUES
+('AZURESQL-MI', 'tinyint', 'integer'),
+('AZURESQL-MI', 'smallint', 'short'),
+('AZURESQL-MI', 'int', 'integer'),
+('AZURESQL-MI', 'bigint', 'long'),
+('AZURESQL-MI', 'bit', 'boolean'),
+('AZURESQL-MI', 'decimal', 'double'),
+('AZURESQL-MI', 'numeric', 'double'),
+('AZURESQL-MI', 'money', 'double'),
+('AZURESQL-MI', 'smallmoney', 'float'),
+('AZURESQL-MI', 'float', 'double'),
+('AZURESQL-MI', 'real', 'float'),
+('AZURESQL-MI', 'date', 'date'),
+('AZURESQL-MI', 'time', 'timestamp'),
+('AZURESQL-MI', 'datetime2', 'timestamp'),
+('AZURESQL-MI', 'datetimeoffset', 'string'),
+('AZURESQL-MI', 'datetime', 'timestamp'),
+('AZURESQL-MI', 'smalldatetime', 'timestamp'),
+('AZURESQL-MI', 'char', 'string'),
+('AZURESQL-MI', 'varchar', 'string'),
+('AZURESQL-MI', 'text', 'string'),
+('AZURESQL-MI', 'nchar', 'string'),
+('AZURESQL-MI', 'nvarchar', 'string'),
+('AZURESQL-MI', 'ntext', 'string'),
+('AZURESQL-MI', 'binary', 'binary'),
+('AZURESQL-MI', 'varbinary', 'binary'),
+('AZURESQL-MI', 'image', 'binary'),
+('AZURESQL-MI', 'json', 'string'),
+('AZURESQL-MI', 'uniqueidentifier', 'string'),
+('AZURESQL-MI', 'xml', 'string')
+;
+
