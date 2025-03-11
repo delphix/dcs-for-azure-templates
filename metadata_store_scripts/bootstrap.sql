@@ -1207,7 +1207,6 @@ WHERE dataset = 'AZURESQL';
 
 
 -- source: V2025.02.24.0__add_azuremi_adf_type_mapping
-
 DELETE from adf_type_mapping where dataset = 'AZURESQL-MI';
 
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)

@@ -2,10 +2,9 @@
 
 # 0.0.21
 * Fix bugs in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
-  * Add the schema name in Capture Referential Constraints Activity in Create and Drop Constraint pipelines.
-  * Add a new INSERT statement to add the Azure SQL MI type mappings to the metadata store.
-  * Add missing SQL statements to bootstrap.sql file.
-  * Updated the docker-compose.yaml to build Azure MI templates
+  * Add the metadata schema to constraint pipelines in SQL where it was missing.
+  * Metadata store fixes for Azure SQL MI.
+  * Update `docker-compose.yaml` to include Azure SQL MI templates.
 
 # 0.0.20
 * Fix bugs in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
