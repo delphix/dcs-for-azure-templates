@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.22
+* Fix bugs in `dcsazure_Databricks_to_Databricks_mask_pl` that could cause incorrect table selections in mask and copy
+
 # 0.0.21
 * Fix bugs in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
   * Add the metadata schema to constraint pipelines in SQL where it was missing.
