@@ -1,5 +1,30 @@
-# dcs-for-azure-templates
-A collection of templates that can be used to leverage Delphix Compliance Services in Azure.
+## Purpose
+Azure Data Factory supports 100+ connectors, including those for SaaS applications and PaaS databases. Data that resides
+in disparate locations often needs masking in order to be leveraged by engineers for feature development or issue
+triage and debugging. These things must never be done in production as the risk to data exposure is too great. Data
+protection is also required in accordance with regulations such as GDPR, FINRA, CCPA, HIPAA, and PCI DSS. For these
+reasons, it is essential that it's possible to identify and mask sensitive data from production into lower environments.
+
+Delphix provides several APIs that perform data discovery and data masking. Microsoft's Azure Data Factory provides a
+framework for processing data using those APIs, making it possible to perform automated sensitive data discovery, assign
+masking algorithms, and mask sensitive data such that it maintains referential integrity.
+
+## What Is This Code For?
+
+This repository contains a collection of templates that combine the power of Delphix Compliance Services in Azure and
+Azure Data Factory to perform data discovery on a collection of sources and mask data that has been found to be
+sensitive, producing production-quality data without data exposure, which can then be made available to downstream teams
+without compromising data security.
+
+To use these templates you will need a Delphix Compliance Services account, for that more information can be found
+here: https://www.perforce.com/products/delphix/compliance-services
+
+Don't see a data source you're hoping to profile and mask? If you feel compelled, you can use these provided templates
+as a jumping off point and create a new template to discover and mask sensitive data using the Delphix compliance
+services APIs. [Contributions](./README.md#Contribution) are highly appreciated, and if you need engineering support
+tailored to your specific use case, contributing templates back to this repository will enable our engineering team to
+assist when issues arise. If you don't know where to start but uncover a need, please file a feature request under the
+[Issues](https://github.com/delphix/dcs-for-azure-templates/issues) tab of this repository.
 
 ## Setup
 To use Delphix Compliance Services for Azure, and specifically to leverage these pipelines you will need to have the
@@ -9,17 +34,36 @@ following linked services in your data factory:
 
 ### To Import Latest Version Templates
 
-Run `docker-compose -f docker-compose.yaml up`, this will create the latest version of all templates
-and put them in the `releases` directory. From there, you can import the template into your data factory using the Data
-Factory Studio:
+To create the latest version of the template, you will need to zip the content in this repository.
+
+For convenience, we have provided a Docker file that will create the latest version of all templates (and include the
+version in the archive) and put them in the `releases` directory. If you have Docker installed you can leverage the
+provided [docker-compose.yaml](docker-compose.yaml) file to build release artifacts:
+`docker-compose -f docker-compose.yaml up`
+
+If you're unable to install Docker on your machine, you can manually create artifacts for any of the templates in this
+repository, in any number of ways. In all of the following examples, the directory you for each pipeline is
+`<template_dir>`:
+* On Windows:
+  * Leverage the file explorer for these purposes:
+    https://support.microsoft.com/en-us/windows/zip-and-unzip-files-8d28fa72-f2f9-712f-67df-f80cf89fd4e5
+  * Use Powershell's `Compress-Archive` to zip the directory like: `Compress-Archive <template_dir> <template_dir>.zip`
+  * (Windows 10) Use the command prompt's `tar` executable like: `tar.exe -a -c -f <template_dir>.zip <template_dir>`
+* On Mac:
+  * Leverage Finder to compress (zip) the directory
+  * Leverage the commandline and the `zip` command like: `zip <template_dir>.zip <template_dir>/`
+* On Linux:
+  * Leverage the commandline and the `zip` command like: `zip <template_dir>.zip <template_dir>/`
+
+Once you have created a template, you can import the template into your data factory using the Data Factory Studio:
 * From the `Author` tab, click the `+` next to the search bar for the Factory Resources
 * Select `Pipeline`, then `Import from pipeline template`
-  * This will open a file explorer window, you can select the recently built template
-  from the `releases` folder.
-* After selecting the appropriate template, you will be asked to to select the linked
-services for various steps in the pipeline.
-* Each template will be different, please refer to the `README.md` file
-in the template's folder to familiarize yourself with the linked services that should be selected.
+  * This will open a file explorer window, you can select the recently built template from the `releases` folder or
+    wherever it exists.
+* After selecting the appropriate template, you will be asked to to select the linked services for various steps in the
+pipeline.
+* Each template will be different, please refer to the `README.md` file in the template's folder to familiarize yourself
+with the linked services that should be selected.
 
 
 ### Self-Hosted Metadata Store
@@ -83,7 +127,8 @@ algorithms that should be applied to those columns. This table is populated in o
        2. Collect data from the specified table and column combination and perform data discovery to determine if the
           data is likely to be sensitive. This is done by calling the `profile` endpoint in the discovery component of
           DCS for Azure services, collecting the results of profiling, and persisting them to the `discovered_ruleset`
-          metadata table, populating for key `(dataset, specified_database, specified_schema, identified_table, identified_column)`, the
+          metadata table, populating for key `(dataset, specified_database, specified_schema, identified_table,
+          identified_column)`, the
           following values:
           * `row_count` (determined) - the number of rows in the table, if this was not populated by the previous phase,
              it is populated in this phase using a `SELECT COUNT(1)` type operation
@@ -401,23 +446,26 @@ WHERE
 ## Additional Resources
 
 * Dataflows documentation
+  * [Copy dataflow](./documentation/dataflows/copy_df.md)
   * [Data Discovery dataflow](./documentation/dataflows/data_discovery_df)
+  * [Filter Test Utility dataflow](./documentation/dataflows/filter_test_utility_df.md)
   * [Filtered Masking dataflow](./documentation/dataflows/filtered_mask_df)
   * [Filtered Masking Parameters dataflow](./documentation/dataflows/filtered_mask_params_df)
   * [Unfiltered Masking dataflow](./documentation/dataflows/unfiltered_mask_df)
   * [Unfiltered Masking Parameters dataflow](./documentation/dataflows/unfiltered_mask_params_df)
-  * [Copy dataflow](./documentation/dataflows/copy_df.md)
 * Pipeline documentation - Documentation for each pipeline is included in the released version of the template
-  * [dcsazure_Databricks_to_Databricks_mask_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_mask_pl.md)
+  * [dcsazure_ADLS_to_ADLS_delimited_discovery_pl](./documentation/pipelines/dcsazure_ADLS_to_ADLS_delimited_discovery_pl.md)
+  * [dcsazure_ADLS_to_ADLS_delimited_mask_pl](./documentation/pipelines/dcsazure_ADLS_to_ADLS_delimited_mask_pl.md)
+  * [dcsazure_ADLS_to_ADLS_parquet_discovery_pl](./documentation/pipelines/dcsazure_ADLS_to_ADLS_parquet_discovery_pl.md)
+  * [dcsazure_ADLS_to_ADLS_parquet_mask_pl](./documentation/pipelines/dcsazure_ADLS_to_ADLS_parquet_mask_pl.md)
+  * [dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl](./documentation/pipelines/dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl.md)
+  * [dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl](./documentation/pipelines/dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl.md)
+  * [dcsazure_AzureSQL_to_AzureSQL_discovery_pl](./documentation/pipelines/dcsazure_AzureSQL_to_AzureSQL_discovery_pl.md)
+  * [dcsazure_AzureSQL_to_AzureSQL_mask_pl](./documentation/pipelines/dcsazure_AzureSQL_to_AzureSQL_mask_pl.md)
   * [dcsazure_Databricks_to_Databricks_discovery_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_discovery_pl.md)
-  * [dcsazure_Snowflake_to_Snowflake_mask_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_mask_pl.md)
+  * [dcsazure_Databricks_to_Databricks_mask_pl](./documentation/pipelines/dcsazure_Databricks_to_Databricks_mask_pl.md)
   * [dcsazure_Snowflake_to_Snowflake_discovery_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_discovery_pl.md)
-  * [dcsazure_adls_to_adls_mask_pl](./documentation/pipelines/dcsazure_adls_to_adls_mask_pl.md)
-  * [dcsazure_adls_to_adls_discovery_pl](./documentation/pipelines/dcsazure_adls_to_adls_discovery_pl.md)
-  * [dcsazure_AzureSQL_to_AzureSQL_discovery_pl](./dcsazure_AzureSQL_to_AzureSQL_discovery_pl/README.md)
-  * [dcsazure_AzureSQL_to_AzureSQL_mask_pl](./dcsazure_AzureSQL_to_AzureSQL_mask_pl/README.md)
-  * [dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl](./dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl/README.md)
-  * [dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl](./dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/README.md)
+  * [dcsazure_Snowflake_to_Snowflake_mask_pl](./documentation/pipelines/dcsazure_Snowflake_to_Snowflake_mask_pl.md)
 
 
 ## Contribution
