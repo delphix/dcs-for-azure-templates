@@ -1,1 +1,0 @@
-../../dcsazure_Databricks_to_Databricks_discovery_pl/README.md

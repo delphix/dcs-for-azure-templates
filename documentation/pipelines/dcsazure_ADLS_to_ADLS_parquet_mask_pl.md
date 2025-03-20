@@ -1,1 +1,0 @@
-../../dcsazure_ADLS_to_ADLS_parquet_mask_pl/README.md
