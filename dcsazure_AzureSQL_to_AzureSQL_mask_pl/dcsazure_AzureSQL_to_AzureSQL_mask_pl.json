@@ -1380,7 +1380,7 @@
                                 "value": "@item().source_table",
                                 "type": "Expression"
                               },
-                              "P_SOURCE_DATABASE": {
+                              "DS_SOURCE_DATABASE": {
                                 "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                                 "type": "Expression"
                               }
@@ -1400,7 +1400,7 @@
                                 "value": "@item().sink_table",
                                 "type": "Expression"
                               },
-                              "P_SINK_DATABASE": {
+                              "DS_SINK_DATABASE": {
                                 "value": "@pipeline().parameters.P_SINK_DATABASE",
                                 "type": "Expression"
                               }
@@ -3336,7 +3336,7 @@
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
                   "DS_SINK_TABLE": "-",
-                  "P_SINK_DATABASE": {
+                  "DS_SINK_DATABASE": {
                     "value": "@pipeline().parameters.P_SINK_DATABASE",
                     "type": "Expression"
                   }
@@ -3773,7 +3773,7 @@
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
                   "DS_SINK_TABLE": "-",
-                  "P_SINK_DATABASE": {
+                  "DS_SINK_DATABASE": {
                     "value": "@pipeline().parameters.P_SINK_DATABASE",
                     "type": "Expression"
                   }
@@ -3902,7 +3902,7 @@
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
-              "value": "@dataset().P_SINK_DATABASE",
+              "value": "@dataset().DS_SINK_DATABASE",
               "type": "Expression"
             }
           }
@@ -3914,7 +3914,7 @@
           "DS_SINK_TABLE": {
             "type": "string"
           },
-          "P_SINK_DATABASE": {
+          "DS_SINK_DATABASE": {
             "type": "string"
           }
         },
@@ -5145,7 +5145,7 @@
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
-              "value": "@dataset().P_SOURCE_DATABASE",
+              "value": "@dataset().DS_SOURCE_DATABASE",
               "type": "Expression"
             }
           }
@@ -5157,7 +5157,7 @@
           "DS_SOURCE_TABLE": {
             "type": "string"
           },
-          "P_SOURCE_DATABASE": {
+          "DS_SOURCE_DATABASE": {
             "type": "string"
           }
         },
