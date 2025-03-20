@@ -1,6 +1,6 @@
 # Azure SQL Masking Pipelines Documentation
 
-This document provides an overview and links to the README files for various Azure SQL masking pipelines available in this repository. Each pipeline is organized into its own folder, containing detailed information and instructions.
+This document provides an overview and links to the README files for various Azure SQL masking pipelines available in this repository. Each pipeline is organized into its own folder, containing template files in JSON format and a `README.md` file.
 
 ## Available Pipelines
 
@@ -17,4 +17,4 @@ This document provides an overview and links to the README files for various Azu
 - [dcsazure_Snowflake_to_Snowflake_discovery_pl](../dcsazure_Snowflake_to_Snowflake_discovery_pl/README.md): Snowflake to Snowflake Discovery Pipeline
 - [dcsazure_Snowflake_to_Snowflake_mask_pl](../dcsazure_Snowflake_to_Snowflake_mask_pl/README.md): Snowflake to Snowflake Masking Pipeline
 
-Please refer to the respective README files for detailed information on each pipeline, including setup instructions, configuration details, and usage examples.
+Please refer to the respective README files for detailed information on each pipeline.
