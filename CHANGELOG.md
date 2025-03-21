@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.24
+* Add support for parameterized linked services in the `dcsazure_AzureSQL_to_AzureSQL_discovery_pl` and `dcsazure_AzureSQL_to_AzureSQL_mask_pl` pipelines.
+
 # 0.0.23
 * Add support for parameterized linked services in the `dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl` and `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` pipelines.
 

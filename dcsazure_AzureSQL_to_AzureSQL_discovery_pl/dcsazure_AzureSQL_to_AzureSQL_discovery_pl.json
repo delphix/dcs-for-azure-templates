@@ -196,7 +196,12 @@
               {
                 "referenceName": "dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds",
                 "type": "DatasetReference",
-                "parameters": {}
+                "parameters": {
+                  "DS_SOURCE_DATABASE": {
+                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                    "type": "Expression"
+                  }
+                }
               }
             ],
             "outputs": [
@@ -334,6 +339,16 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
+                      },
+                      "linkedServiceParameters": {
+                        "Source1MillRowDataSampling": {
+                          "linkedService": {
+                            "LS_DATABASE": {
+                              "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                              "type": "Expression"
+                            }
+                          }
+                        }
                       }
                     },
                     "staging": {},
@@ -684,7 +699,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-07T22:23:06Z"
+        "lastPublishTime": "2025-02-27T11:20:58Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_discovery_source_ds')]",
@@ -700,7 +715,18 @@
         "description": "DCSAzure - Azure SQL to AzureSQL Discovery Query Dataset",
         "linkedServiceName": {
           "referenceName": "[parameters('AzureSqlDatabase_Source')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": {
+              "value": "@dataset().DS_SOURCE_DATABASE",
+              "type": "Expression"
+            }
+          }
+        },
+        "parameters": {
+          "DS_SOURCE_DATABASE": {
+            "type": "string"
+          }
         },
         "folder": {
           "name": "dcsazure_AzureSQL_to_AzureSQL"
