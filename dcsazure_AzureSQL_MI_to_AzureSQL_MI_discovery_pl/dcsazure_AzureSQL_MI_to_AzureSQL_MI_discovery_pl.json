@@ -197,7 +197,7 @@
                 "referenceName": "dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_source_ds",
                 "type": "DatasetReference",
                 "parameters": {
-                  "P_SOURCE_DATABASE": {
+                  "DS_SOURCE_DATABASE": {
                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                     "type": "Expression"
                   }
@@ -718,13 +718,13 @@
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
-              "value": "@dataset().P_SOURCE_DATABASE",
+              "value": "@dataset().DS_SOURCE_DATABASE",
               "type": "Expression"
             }
           }
         },
         "parameters": {
-          "P_SOURCE_DATABASE": {
+          "DS_SOURCE_DATABASE": {
             "type": "string"
           }
         },
