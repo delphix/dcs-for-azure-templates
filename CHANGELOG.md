@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.23
+* Add support for parameterized linked services in the `dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl` and `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` pipelines.
+
 # 0.0.22
 * Fix bugs in `dcsazure_Databricks_to_Databricks_mask_pl` that could cause incorrect table selections in mask and copy
 
