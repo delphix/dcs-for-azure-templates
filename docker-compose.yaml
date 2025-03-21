@@ -10,29 +10,55 @@ services:
              apt-get update &&
              apt-get install -y zip &&
              mkdir -p releases &&
+             
+             cp LICENSE dcsazure_ADLS_to_ADLS_delimited_discovery_pl/LICENSE &&
              cp VERSION.md dcsazure_ADLS_to_ADLS_delimited_discovery_pl/VERSION.md &&
              zip dcsazure_ADLS_to_ADLS_delimited_discovery_pl.zip dcsazure_ADLS_to_ADLS_delimited_discovery_pl/* &&
+             
+             cp LICENSE dcsazure_ADLS_to_ADLS_delimited_mask_pl/LICENSE &&
              cp VERSION.md dcsazure_ADLS_to_ADLS_delimited_mask_pl/VERSION.md &&
              zip dcsazure_ADLS_to_ADLS_delimited_mask_pl.zip dcsazure_ADLS_to_ADLS_delimited_mask_pl/* &&
+             
+             cp LICENSE dcsazure_ADLS_to_ADLS_parquet_discovery_pl/LICENSE &&
              cp VERSION.md dcsazure_ADLS_to_ADLS_parquet_discovery_pl/VERSION.md &&
              zip dcsazure_ADLS_to_ADLS_parquet_discovery_pl.zip dcsazure_ADLS_to_ADLS_parquet_discovery_pl/* &&
+            
+             cp LICENSE dcsazure_ADLS_to_ADLS_parquet_mask_pl/LICENSE &&
              cp VERSION.md dcsazure_ADLS_to_ADLS_parquet_mask_pl/VERSION.md &&
              zip dcsazure_ADLS_to_ADLS_parquet_mask_pl.zip dcsazure_ADLS_to_ADLS_parquet_mask_pl/* &&
+             
+             cp LICENSE dcsazure_Snowflake_to_Snowflake_discovery_pl/LICENSE &&
              cp VERSION.md dcsazure_Snowflake_to_Snowflake_discovery_pl/VERSION.md &&
              zip dcsazure_Snowflake_to_Snowflake_discovery_pl.zip dcsazure_Snowflake_to_Snowflake_discovery_pl/* &&
+             
+             cp LICENSE dcsazure_Snowflake_to_Snowflake_mask_pl/LICENSE &&
              cp VERSION.md dcsazure_Snowflake_to_Snowflake_mask_pl/VERSION.md &&
              zip dcsazure_Snowflake_to_Snowflake_mask_pl.zip dcsazure_Snowflake_to_Snowflake_mask_pl/* &&
+             
+             cp LICENSE dcsazure_Databricks_to_Databricks_discovery_pl/LICENSE &&
              cp VERSION.md dcsazure_Databricks_to_Databricks_discovery_pl/VERSION.md &&
              zip dcsazure_Databricks_to_Databricks_discovery_pl.zip dcsazure_Databricks_to_Databricks_discovery_pl/* &&
+             
+             cp LICENSE dcsazure_Databricks_to_Databricks_mask_pl/LICENSE &&
              cp VERSION.md dcsazure_Databricks_to_Databricks_mask_pl/VERSION.md &&
              zip dcsazure_Databricks_to_Databricks_mask_pl.zip dcsazure_Databricks_to_Databricks_mask_pl/* &&
+             
+             cp LICENSE dcsazure_AzureSQL_to_AzureSQL_discovery_pl/LICENSE &&
              cp VERSION.md dcsazure_AzureSQL_to_AzureSQL_discovery_pl/VERSION.md &&
              zip dcsazure_AzureSQL_to_AzureSQL_discovery_pl.zip dcsazure_AzureSQL_to_AzureSQL_discovery_pl/* &&
+             
+             cp LICENSE dcsazure_AzureSQL_to_AzureSQL_mask_pl/LICENSE &&
              cp VERSION.md dcsazure_AzureSQL_to_AzureSQL_mask_pl/VERSION.md &&
              zip dcsazure_AzureSQL_to_AzureSQL_mask_pl.zip dcsazure_AzureSQL_to_AzureSQL_mask_pl/* &&
+             
+             cp LICENSE dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl/LICENSE &&
              cp VERSION.md dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl/VERSION.md &&
              zip dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl.zip dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl/* &&
+             
+             cp LICENSE dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/LICENSE &&
              cp VERSION.md dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/VERSION.md &&
              zip dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl.zip dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/* &&
+             
+             rm *_pl/LICENSE &&
              rm *_pl/VERSION.md &&
              mv *.zip releases/."
