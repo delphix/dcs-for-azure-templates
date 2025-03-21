@@ -1,1 +1,0 @@
-../../dcsazure_AzureSQL_to_AzureSQL_discovery_pl/README.md
