@@ -91,7 +91,7 @@
               "batchCount": 50,
               "activities": [
                 {
-                  "name": "Discover Files Under Schema",
+                  "name": "Get Files Under Homogenous Schemas",
                   "type": "ExecutePipeline",
                   "dependsOn": [],
                   "policy": {
@@ -133,11 +133,11 @@
                   }
                 },
                 {
-                  "name": "If has CSV files",
+                  "name": "If Has CSV Files",
                   "type": "IfCondition",
                   "dependsOn": [
                     {
-                      "activity": "Discover Files Under Schema",
+                      "activity": "Get Files Under Homogenous Schemas",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -146,12 +146,13 @@
                   "userProperties": [],
                   "typeProperties": {
                     "expression": {
-                      "value": "@greater(length(activity('Discover Files Under Schema').output.pipelineReturnValue.CSV), 0)",
+                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV), 0)",
                       "type": "Expression"
                     },
                     "ifTrueActivities": [
                       {
                         "name": "Discover Structure For CSV",
+                        "description": "This will get the schema of the first csv file in the file list",
                         "type": "ExecutePipeline",
                         "dependsOn": [],
                         "policy": {
@@ -178,7 +179,7 @@
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
-                              "value": "@if(\n    contains(\n        activity('Discover Files Under Schema').output.pipelineReturnValue.CSV[0], \n        '/'\n    ),\n    substring(\n        activity('Discover Files Under Schema').output.pipelineReturnValue.CSV[0], \n        0, \n        lastIndexOf(\n            activity('Discover Files Under Schema').output.pipelineReturnValue.CSV[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
                               "type": "Expression"
                             },
                             "P_SUFFIX": {
@@ -206,7 +207,7 @@
                               "type": "Expression"
                             },
                             "P_FILENAME": {
-                              "value": "@last(split(activity('Discover Files Under Schema').output.pipelineReturnValue.CSV[0], '/'))",
+                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], '/'))",
                               "type": "Expression"
                             },
                             "P_DATASET": {
@@ -220,11 +221,11 @@
                   }
                 },
                 {
-                  "name": "If has TXT files",
+                  "name": "If Has TXT Files",
                   "type": "IfCondition",
                   "dependsOn": [
                     {
-                      "activity": "Discover Files Under Schema",
+                      "activity": "Get Files Under Homogenous Schemas",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -233,12 +234,13 @@
                   "userProperties": [],
                   "typeProperties": {
                     "expression": {
-                      "value": "@greater(length(activity('Discover Files Under Schema').output.pipelineReturnValue.TXT), 0)",
+                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT), 0)",
                       "type": "Expression"
                     },
                     "ifTrueActivities": [
                       {
                         "name": "Discover Structure For TXT file",
+                        "description": "This will get the schema of the first txt file in the file list",
                         "type": "ExecutePipeline",
                         "dependsOn": [],
                         "policy": {
@@ -265,7 +267,7 @@
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
-                              "value": "@if(\n    contains(\n        activity('Discover Files Under Schema').output.pipelineReturnValue.TXT[0], \n        '/'\n    ),\n    substring(\n        activity('Discover Files Under Schema').output.pipelineReturnValue.TXT[0], \n        0, \n        lastIndexOf(\n            activity('Discover Files Under Schema').output.pipelineReturnValue.TXT[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
                               "type": "Expression"
                             },
                             "P_SUFFIX": {
@@ -293,7 +295,7 @@
                               "type": "Expression"
                             },
                             "P_FILENAME": {
-                              "value": "@last(split(activity('Discover Files Under Schema').output.pipelineReturnValue.TXT[0], '/'))",
+                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], '/'))",
                               "type": "Expression"
                             },
                             "P_DATASET": {
@@ -307,11 +309,11 @@
                   }
                 },
                 {
-                  "name": "If has files with NO_EXT",
+                  "name": "If Has Files With NO_EXT",
                   "type": "IfCondition",
                   "dependsOn": [
                     {
-                      "activity": "Discover Files Under Schema",
+                      "activity": "Get Files Under Homogenous Schemas",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -320,12 +322,13 @@
                   "userProperties": [],
                   "typeProperties": {
                     "expression": {
-                      "value": "@greater(length(activity('Discover Files Under Schema').output.pipelineReturnValue.NO_EXT), 0)",
+                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT), 0)",
                       "type": "Expression"
                     },
                     "ifTrueActivities": [
                       {
                         "name": "Discover Structure For NO_EXT",
+                        "description": "This will get the schema of the first file with no .  in the name in the file list",
                         "type": "ExecutePipeline",
                         "dependsOn": [],
                         "policy": {
@@ -352,7 +355,7 @@
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
-                              "value": "@if(\n    contains(\n        activity('Discover Files Under Schema').output.pipelineReturnValue.NO_EXT[0], \n        '/'\n    ),\n    substring(\n        activity('Discover Files Under Schema').output.pipelineReturnValue.NO_EXT[0], \n        0, \n        lastIndexOf(\n            activity('Discover Files Under Schema').output.pipelineReturnValue.NO_EXT[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
                               "type": "Expression"
                             },
                             "P_SUFFIX": {
@@ -380,7 +383,7 @@
                               "type": "Expression"
                             },
                             "P_FILENAME": {
-                              "value": "@last(split(activity('Discover Files Under Schema').output.pipelineReturnValue.NO_EXT[0], '/'))",
+                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], '/'))",
                               "type": "Expression"
                             },
                             "P_DATASET": {
@@ -510,7 +513,7 @@
                 ]
               },
               {
-                "activity": "For each hetrogenous  schemas",
+                "activity": "For Each Hetrogenous  Schemas",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -528,7 +531,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\nLOWER(dataset) = LOWER('@{variables('DATASET')}')\nAND LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\nAND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\nLOWER(dataset) = LOWER('@{variables('DATASET')}')\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\nAND LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}%'\nAND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -991,7 +994,7 @@
             }
           },
           {
-            "name": "For each hetrogenous  schemas",
+            "name": "For Each Hetrogenous  Schemas",
             "type": "ForEach",
             "dependsOn": [
               {
@@ -1010,7 +1013,7 @@
               "isSequential": false,
               "activities": [
                 {
-                  "name": "Get files under hetrogenous schemas",
+                  "name": "Get Files Under Hetrogenous Schemas",
                   "type": "ExecutePipeline",
                   "dependsOn": [],
                   "policy": {
@@ -1052,11 +1055,11 @@
                   }
                 },
                 {
-                  "name": "If has files",
+                  "name": "If Has Files",
                   "type": "IfCondition",
                   "dependsOn": [
                     {
-                      "activity": "Get files under hetrogenous schemas",
+                      "activity": "Get Files Under Hetrogenous Schemas",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -1065,7 +1068,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "expression": {
-                      "value": "@greater(length(activity('Get files under hetrogenous schemas').output.pipelineReturnValue[item().suffix]) , 0)",
+                      "value": "@greater(length(activity('Get Files Under Hetrogenous Schemas').output.pipelineReturnValue[item().suffix]) , 0)",
                       "type": "Expression"
                     },
                     "ifTrueActivities": [
@@ -1261,7 +1264,7 @@
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-04-03T07:12:09Z"
+        "lastPublishTime": "2025-04-04T04:50:14Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl')]",
@@ -1282,7 +1285,7 @@
             "type": "Until",
             "dependsOn": [
               {
-                "activity": "Push Current Dir to Queue",
+                "activity": "Push Current Dir To Queue",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -1300,7 +1303,7 @@
                   "type": "WebActivity",
                   "dependsOn": [
                     {
-                      "activity": "Set Dir to traverse",
+                      "activity": "Set Directory To Traverse",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -1337,7 +1340,7 @@
                   }
                 },
                 {
-                  "name": "Set Dir to traverse",
+                  "name": "Set Directory To Traverse",
                   "type": "SetVariable",
                   "dependsOn": [
                     {
@@ -1396,7 +1399,7 @@
                   "typeProperties": {
                     "variableName": "NEXT_MARKER",
                     "value": {
-                      "value": "@if(\n    empty(\n        xpath(\n            xml(\n                activity('List Blobs').output.Response), '//NextMarker/text()')), \n                '', \n                xpath(xml(activity('List Blobs').output.Response), '//NextMarker/text()')[0])",
+                      "value": "@if(\n    empty(\n        xpath(xml(activity('List Blobs').output.Response),\n        '//NextMarker/text()'\n        )\n    ), \n    '', \n    xpath(\n        xml(activity('List Blobs').output.Response),\n        '//NextMarker/text()')[0]\n)",
                       "type": "Expression"
                     }
                   }
@@ -1412,7 +1415,7 @@
                       ]
                     },
                     {
-                      "activity": "Filter directories to exclude",
+                      "activity": "Filter Out Directories To Exclude",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -1437,7 +1440,7 @@
                         "typeProperties": {
                           "variableName": "DIR_QUEUE",
                           "value": {
-                            "value": "@union(activity('Filter directories to exclude').output.Value, skip(variables('TEMP_DIR_QUEUE'), 1))",
+                            "value": "@union(activity('Filter Out Directories To Exclude').output.Value, skip(variables('TEMP_DIR_QUEUE'), 1))",
                             "type": "Expression"
                           }
                         }
@@ -1476,7 +1479,7 @@
                         "typeProperties": {
                           "variableName": "DIR_QUEUE",
                           "value": {
-                            "value": "@union(variables('TEMP_DIR_QUEUE'), activity('Filter directories to exclude').output.Value)",
+                            "value": "@union(variables('TEMP_DIR_QUEUE'), activity('Filter Out Directories To Exclude').output.Value)",
                             "type": "Expression"
                           }
                         }
@@ -1485,7 +1488,8 @@
                   }
                 },
                 {
-                  "name": "Fail to fetch blobs",
+                  "name": "Fail To Fetch Blobs",
+                  "description": "Fail the current iteration.",
                   "type": "Fail",
                   "dependsOn": [
                     {
@@ -1502,7 +1506,8 @@
                   }
                 },
                 {
-                  "name": "Filter directories to exclude",
+                  "name": "Filter Out Directories To Exclude",
+                  "description": "This is where we filter out directories that are too deeply nested.",
                   "type": "Filter",
                   "dependsOn": [
                     {
@@ -1553,11 +1558,11 @@
             }
           },
           {
-            "name": "Push Current Dir to Queue",
+            "name": "Push Current Dir To Queue",
             "type": "SetVariable",
             "dependsOn": [
               {
-                "activity": "Fail if directory does not exists",
+                "activity": "Fail If Directory Does Not Exists",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -1607,7 +1612,7 @@
             }
           },
           {
-            "name": "Check if specified directory is valid",
+            "name": "Check If Specified Directory Is Valid",
             "type": "GetMetadata",
             "dependsOn": [],
             "policy": {
@@ -1647,11 +1652,11 @@
             }
           },
           {
-            "name": "Fail if directory does not exists",
+            "name": "Fail If Directory Does Not Exists",
             "type": "IfCondition",
             "dependsOn": [
               {
-                "activity": "Check if specified directory is valid",
+                "activity": "Check If Specified Directory Is Valid",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -1665,7 +1670,7 @@
               },
               "ifTrueActivities": [
                 {
-                  "name": "Invalid directory",
+                  "name": "Invalid Directory",
                   "type": "Fail",
                   "dependsOn": [],
                   "userProperties": [],
@@ -1743,7 +1748,7 @@
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-03-30T15:18:56Z"
+        "lastPublishTime": "2025-04-04T04:50:12Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]"
@@ -1880,7 +1885,7 @@
                   "type": "WebActivity",
                   "dependsOn": [
                     {
-                      "activity": "Save previous blob list",
+                      "activity": "Save Previous Blob List",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -1917,7 +1922,7 @@
                   }
                 },
                 {
-                  "name": "Parse response and set blob list",
+                  "name": "Parse Response And Set Blob List",
                   "type": "SetVariable",
                   "dependsOn": [
                     {
@@ -1959,13 +1964,13 @@
                   "typeProperties": {
                     "variableName": "NEXT_MARKER",
                     "value": {
-                      "value": "@if(\n    empty(\n        xpath(\n            xml(\n                activity('List Blobs').output.Response), '//NextMarker/text()')), \n                '', \n                xpath(xml(activity('List Blobs').output.Response), '//NextMarker/text()')[0])",
+                      "value": "@if(\n    empty(\n        xpath(\n            xml(activity('List Blobs').output.Response), \n            '//NextMarker/text()'\n        )\n    ), \n    '', \n    xpath(\n        xml(activity('List Blobs').output.Response), \n    '//NextMarker/text()')[0]\n)",
                       "type": "Expression"
                     }
                   }
                 },
                 {
-                  "name": "Save previous blob list",
+                  "name": "Save Previous Blob List",
                   "type": "SetVariable",
                   "dependsOn": [],
                   "policy": {
@@ -1986,7 +1991,7 @@
                   "type": "SetVariable",
                   "dependsOn": [
                     {
-                      "activity": "Parse response and set blob list",
+                      "activity": "Parse Response And Set Blob List",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -2183,7 +2188,7 @@
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-03-30T15:18:54Z"
+        "lastPublishTime": "2025-04-04T04:50:12Z"
       },
       "dependsOn": []
     },

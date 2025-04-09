@@ -6,10 +6,10 @@ This pipeline will perform automated sensitive data discovery on your delimited 
 ### Prerequisites
 
 1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.15.0`).
-2. Configure the DCS for Azure REST service.
-3. Configure the Azure Data Lake Storage (Gen 2) service associated with your ADLS source data.
-4. Assign a managed identity for the Data Factory instance within the storage account.
-
+1. Configure the DCS for Azure REST service.
+1. Configure the Azure Data Lake Storage (Gen 2) service associated with your ADLS source data.
+1. Assign a managed identity with a storage blob data contributor role for the Data Factory instance within
+   the storage account.
 ### Importing
 There are several linked services that will need to be selected in order to perform the profiling and data discovery
 of your delimited text ADLS data.
@@ -43,7 +43,9 @@ The discovery pipeline has a few stages:
   * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables
     have not had their sensitive data discovered
 * Identify Nested Schemas
-  * Using the child pipeline `dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl`, we collect all the identified schemas under the specified `P_DIRECTORY` directory. An empty `P_DIRECTORY` would mean discovering schemas starting at the container level.
+  * Using the child pipeline `dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl`, we collect
+    all the identified schemas under the specified `P_DIRECTORY` directory. An empty `P_DIRECTORY` would
+    mean discovering schemas starting at the root level.
   * For each item in that list, identify if the schema of the files in that child directory is expected to be
     homogeneous or heterogeneous.
 * Schema Discovery
@@ -78,15 +80,15 @@ have customized your metadata store, then these variables may need editing.
   (default `insert_adf_discovery_event`).
 * `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value
   could cause requests to fail (default `1000`).
-* `MAX_RESULTS` - This is the max number of blobs to be included in the Azure blob storage REST API call. (default `5000`)
-* `MSFT_API_VERSION` - This is the version of the Microsoft API to use for the Azure blob storage REST API call. (default `2021-08-06`)
-* `MSFT_BLOB_TYPE` - This is the type of blob to use for the Azure blob storage REST API call. (default `BlockBob`)
+* `MAX_RESULTS` - This is the max number of blobs to be included in the Azure blob storage REST API call (default `5000`).
+* `MSFT_API_VERSION` - This is the version of the Microsoft API to use for the Azure blob storage REST API call (default `2021-08-06`).
+* `MSFT_BLOB_TYPE` - This is the type of blob to use for the Azure blob storage REST API call (default `BlockBlob`).
 
 ### Parameters
 
 * `P_STORAGE_CONTAINER_TO_SCAN` - This is the storage container whose contents need review
 * `P_DIRECTORY` - This is the directory within the storage container that contains additional folders that will be
-  scanned. An empty value would mean discovering schemas starting at the container level.
+  scanned. An empty value would mean discovering schemas starting at the root level.
 * `P_SUFFIXES_TO_SCAN` - This list can be used to limit which kinds of files are scanned for data, note that these
   represent suffixes to file names, not a true extension as `.` is not supported in the keys of the object definition
   in `P_SUFFIX_DELIMITER_MAP` (default `["csv","txt","NO_EXT"]`)
@@ -99,8 +101,11 @@ have customized your metadata store, then these variables may need editing.
   `{"DCS_EXAMPLE_PREFIX":{"suffixes":["csv","txt","NO_EXT"]}}`)
 * `P_REDISCOVER` - This is a Bool that specifies if we should re-execute the data discovery dataflow for previously
   discovered files that have not had their schema modified (default `true`)
-* `P_DIRECTORIES_TO_EXCLUDE` - List of directories to be excluded from the discovered directories. Particulary useful, when we have many child directories that may not contain any relevant delimited files, and we want to exclude those directories from the schema discovery.
-* `P_MAX_LEVELS_TO_RECURSE` - Limit the schema discovery to the given max levels. This is to prevent discovery of deeply nested directories. The default is `5`, which is good enought to discover schemas upto 5 sub nested directories.
+* `P_DIRECTORIES_TO_EXCLUDE` - List of directories to be excluded from the discovered directories. Particularly useful,
+  when we have many child directories that may not contain any relevant delimited files, and we want to exclude those
+  directories from the schema discovery.
+* `P_MAX_LEVELS_TO_RECURSE` - Limit the schema discovery to the given max levels. This is to prevent discovery of deeply
+  nested directories. The default is `5`, which is good enough to discover schemas up to 5 sub nested directories.
 * `P_STORAGE_ACCOUNT` - The name of the Azure Blob Storage account.
 
 
