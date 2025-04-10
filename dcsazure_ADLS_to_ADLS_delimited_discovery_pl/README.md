@@ -8,8 +8,8 @@ This pipeline will perform automated sensitive data discovery on your delimited 
 1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.15.0`).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage (Gen 2) service associated with your ADLS source data.
-1. Assign a managed identity with a storage blob data contributor role for the Data Factory instance within
-   the storage account.
+1. [Assign a managed identity with a storage blob data contributor role for the Data Factory instance within
+   the storage account](https://help.delphix.com/dcs/current/Content/DCSDocs/Configure_ADLS_delimited_pipelines.htm).
 ### Importing
 There are several linked services that will need to be selected in order to perform the profiling and data discovery
 of your delimited text ADLS data.
@@ -83,6 +83,8 @@ have customized your metadata store, then these variables may need editing.
 * `MAX_RESULTS` - This is the max number of blobs to be included in the Azure blob storage REST API call (default `5000`).
 * `MSFT_API_VERSION` - This is the version of the Microsoft API to use for the Azure blob storage REST API call (default `2021-08-06`).
 * `MSFT_BLOB_TYPE` - This is the type of blob to use for the Azure blob storage REST API call (default `BlockBlob`).
+* `STORAGE_ACCOUNT` - The name of the Azure Blob Storage account default (`DCS_PLACEHOLDER`). It is required
+  to set the storage account name during the initial setup and replace it with actual storage account name.
 
 ### Parameters
 
@@ -106,7 +108,6 @@ have customized your metadata store, then these variables may need editing.
   directories from the schema discovery.
 * `P_MAX_LEVELS_TO_RECURSE` - Limit the schema discovery to the given max levels. This is to prevent discovery of deeply
   nested directories. The default is `5`, which is good enough to discover schemas up to 5 sub nested directories.
-* `P_STORAGE_ACCOUNT` - The name of the Azure Blob Storage account.
 
 
 #### Notes
@@ -201,7 +202,7 @@ directory_to_profile
 ```
 
 In order to correctly profile, we'd have to specify `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` as
-`["heterogeneous_subdirectory"]` and `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` as:
+`["heterogeneous_subdirectory/"]` and `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` as:
 ```json
 {
   "prefix1_": {
@@ -228,6 +229,109 @@ and `directory_to_profile/heterogeneous_subdirectory/prefix2`, both of which wil
 are the only suffixes we told the pipeline to scan for the heterogeneous subdirectory.
 
 Note that `NO_EXT` is a special value that represents files with no extension, specifically with no `.` in the file
-name. Also note that we do not scan specifically for `.txt` or `.csv`, so if you have a file that is named `.pcsv`,
-then `csv` will match. Finally, note that addition of other suffixes will require pipeline changes, please feel free to
+name. Finally, note that addition of other suffixes will require pipeline changes, please feel free to
 file an issue should this need arise (or add them and raise a PR).
+
+### Examples
+1. **Discovering directories starting at the root level**
+
+To discover directories and subdirectories starting at the root level,
+leave the pipeline parameter `P_DIRECTORY` as empty.
+
+Given this directory structure,
+```
+.
+── address
+│   └── address.csv
+├── customers
+│   └── customers.csv
+├── organizations
+│   └── organizations.csv
+└── people
+    └── people.csv
+```
+The pipeline will discover all directories under the root level,
+namely `address`, `customers`, `organizations`, and `people`.
+
+2. **Discovering Directories starting at a different level.**
+
+To discover directories and subdirectories starting at a different level,
+specify the absolute path to the directory in the pipeline parameter `P_DIRECTORY` including the trailing /
+
+Given this directory structure,
+```
+.
+├── address
+│   ├── address.csv
+│   ├── local
+│   │   └── local-address.csv
+│   └── office
+│       └── office-address.csv
+├── customers
+│   └── customers.csv
+├── organizations
+│   └── organizations.csv
+└── people
+    └── people.csv
+```
+and the pipeline parameter as `P_DIRECTORY=address/` the pipeline will
+discover all directories under the specified directory, namely `address/local/` and `address/office/`.
+
+3. **Excluding a directory or set of directories from discovering**
+
+To exclude certain directories from the discovery, specify the absolute path to the directory
+including the trailing / in the pipeline parameter `P_DIRECTORIES_TO_EXCLUDE`.
+
+For example, in the previous example if we wanted to exclude the `address/local/` directory,
+we would specify `P_DIRECTORIES_TO_EXCLUDE=["address/local/"]`
+
+To exclude multiple directories, separate them with commas and add it to `P_DIRECTORIES_TO_EXCLUDE`.
+
+Note: You cannot exclude the starting directory and it is applicable only to child directories.
+
+4. **Specifying directories with mixed file schemas**
+
+To specify directories with mixed file schemas, specify the absolute path to the directory including
+the trailing / in the pipeline parameter `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS`.
+
+For example given the directory structure,
+```
+└── hetrogenous_subdir
+    ├── prefix1_file1.csv
+    ├── prefix1_file2.csv
+    ├── prefix2_file1.csv
+    └── prefix2_file2.csv
+```
+set the pipeline parameter `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS=["hetrogenous_subdir/"]`
+
+Note: If the root folder contains mixed files with different schemas, you can specify
+the root folder in the pipeline parameter as `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS=[""]`.
+
+5. **Controlling the max levels to discover directories**
+The default level to discover directories is 5, but you can customize it using the pipeline
+parameter `P_MAX_LEVELS_TO_RECURSE`.
+
+The value of this variable cannot be less than 0.
+
+For example, given this directory structure
+```
+nested-example
+├── nested1-level1
+│   ├── level1.csv
+│   ├── nested1-level2
+│   │   └── level2.csv
+│   └── nested2-level2
+│       ├── level2.csv
+│       ├── nested1-level3
+│       └── nested2-level3
+└── nested2-level1
+    ├── level1.csv
+    ├── nested1-level2
+    │   └── level2.csv
+    └── nested2-level2
+        └── level2.csv
+```
+and we want to discover only till level 2 we specify the `P_MAX_LEVELS_TO_RECURSE=2`
+which will only discover directories until the specified level, namely
+[`nested1-level1/`, `nested2-level1/`, `nested1-level1/nested1-level2/`,
+`nested1-level1/nested2-level2/`, `nested2-level1/nested1-level2/`, `nested2-level1/nested2-level2/`]

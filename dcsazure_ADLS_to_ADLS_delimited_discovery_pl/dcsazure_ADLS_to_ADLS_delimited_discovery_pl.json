@@ -25,6 +25,7 @@
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
+        "description": "The storage account is set to a DCS_PLACEHOLDER, please make sure you update it to actual storage account name before publishing this pipeline",
         "activities": [
           {
             "name": "Check If We Should Rediscover Data",
@@ -110,7 +111,7 @@
                         "type": "Expression"
                       },
                       "P_STORAGE_ACCOUNT": {
-                        "value": "@pipeline().parameters.P_STORAGE_ACCOUNT",
+                        "value": "@variables('STORAGE_ACCOUNT')",
                         "type": "Expression"
                       },
                       "P_DIRECTORY": {
@@ -426,7 +427,7 @@
                   "type": "Expression"
                 },
                 "P_STORAGE_ACCOUNT": {
-                  "value": "@pipeline().parameters.P_STORAGE_ACCOUNT",
+                  "value": "@variables('STORAGE_ACCOUNT')",
                   "type": "Expression"
                 },
                 "P_DIRECTORY": {
@@ -1032,7 +1033,7 @@
                         "type": "Expression"
                       },
                       "P_STORAGE_ACCOUNT": {
-                        "value": "@pipeline().parameters.P_STORAGE_ACCOUNT",
+                        "value": "@variables('STORAGE_ACCOUNT')",
                         "type": "Expression"
                       },
                       "P_DIRECTORY": {
@@ -1100,7 +1101,7 @@
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
-                              "value": "@substring(item().sub_dir, 0, lastIndexOf(item().sub_dir, '/'))",
+                              "value": "@if(\n    empty(item().sub_dir), \n    '', \n    substring(\n        item().sub_dir, 0, lastIndexOf(item().sub_dir, '/')\n    )\n)",
                               "type": "Expression"
                             },
                             "P_SUFFIX": {
@@ -1217,9 +1218,6 @@
           "P_MAX_LEVELS_TO_RECURSE": {
             "type": "int",
             "defaultValue": 5
-          },
-          "P_STORAGE_ACCOUNT": {
-            "type": "string"
           }
         },
         "variables": {
@@ -1258,13 +1256,17 @@
           "MSFT_BLOB_TYPE": {
             "type": "String",
             "defaultValue": "BlockBlob"
+          },
+          "STORAGE_ACCOUNT": {
+            "type": "String",
+            "defaultValue": "DCS_PLACEHOLDER"
           }
         },
         "folder": {
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-04-04T04:50:14Z"
+        "lastPublishTime": "2025-04-09T09:43:03Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl')]",
@@ -1524,7 +1526,7 @@
                       "type": "Expression"
                     },
                     "condition": {
-                      "value": "@and(\n    not(contains(pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE, item())), \n    lessOrEquals(\n        sub(length(split(item(), '/')), 1), \n        pipeline().parameters.P_MAX_LEVELS_TO_RECURSE\n    )\n)",
+                      "value": "@and(\n    not(contains(pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE, item())), \n    lessOrEquals(\n        sub(length(split(item(), '/')), 1), \n        variables('MAX_LEVELS_TO_RECURSE')\n    )\n)",
                       "type": "Expression"
                     }
                   }
@@ -1562,7 +1564,7 @@
             "type": "SetVariable",
             "dependsOn": [
               {
-                "activity": "Fail If Directory Does Not Exists",
+                "activity": "Validate And Set Max Levels To Recurse",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -1684,6 +1686,62 @@
                 }
               ]
             }
+          },
+          {
+            "name": "Validate And Set Max Levels To Recurse",
+            "description": "Validate that the specified level is greater than 0 and correctly set the level relative to the root level",
+            "type": "IfCondition",
+            "dependsOn": [
+              {
+                "activity": "Fail If Directory Does Not Exists",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@less(pipeline().parameters.P_MAX_LEVELS_TO_RECURSE, 0)",
+                "type": "Expression"
+              },
+              "ifFalseActivities": [
+                {
+                  "name": "Set Max Levels To Recurse",
+                  "description": "Set the correct max levels to recursed starting at the specified directory",
+                  "type": "SetVariable",
+                  "dependsOn": [],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "MAX_LEVELS_TO_RECURSE",
+                    "value": {
+                      "value": "@if(\n    empty(pipeline().parameters.P_DIRECTORY), \n    pipeline().parameters.P_MAX_LEVELS_TO_RECURSE, \n    if(\n        endswith(pipeline().parameters.P_DIRECTORY, '/'), \n        add(sub(length(split(pipeline().parameters.P_DIRECTORY, '/')), 1), pipeline().parameters.P_MAX_LEVELS_TO_RECURSE), \n        add(length(split(pipeline().parameters.P_DIRECTORY, '/')), pipeline().parameters.P_MAX_LEVELS_TO_RECURSE)\n    )\n)",
+                      "type": "Expression"
+                    }
+                  }
+                }
+              ],
+              "ifTrueActivities": [
+                {
+                  "name": "Invalid Recursion Level",
+                  "description": "Fail if levels to recurse is less than 0",
+                  "type": "Fail",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "The specified value of pipeline parameter P_MAX_LEVELS_TO_RECURSE=@{pipeline().parameters.P_MAX_LEVELS_TO_RECURSE} should be greater than or equal to 0",
+                      "type": "Expression"
+                    },
+                    "errorCode": "400"
+                  }
+                }
+              ]
+            }
           }
         ],
         "policy": {
@@ -1742,13 +1800,16 @@
           },
           "FILES": {
             "type": "Array"
+          },
+          "MAX_LEVELS_TO_RECURSE": {
+            "type": "Integer"
           }
         },
         "folder": {
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-04-04T04:50:12Z"
+        "lastPublishTime": "2025-04-09T09:33:11Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]"
@@ -2134,7 +2195,7 @@
                 "type": "Expression"
               },
               "condition": {
-                "value": "@and(not(endswith(item(), '.txt')), not(endswith(item(), '.csv')))",
+                "value": "@not(contains(item(), '.'))",
                 "type": "Expression"
               }
             }
@@ -2188,7 +2249,7 @@
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-04-04T04:50:12Z"
+        "lastPublishTime": "2025-04-09T09:33:11Z"
       },
       "dependsOn": []
     },
