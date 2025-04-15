@@ -509,3 +509,13 @@ convention `V<version_number>__<comment>.sql`, where `<version_number>` is `YYYY
 this script is added (with the final digit being used to allow multiple versions to be tagged with the same date).
 You can leverage the [./scripts/migrations.sh](./scripts/migrations.sh) to automatically add the new versioned migration
 to the [./metadata_store_scripts/bootstrap.sql](./metadata_store_scripts/bootstrap.sql) file.
+
+## Pre-Commit Hook
+Pre-commit hooks help enforce code quality by automatically checking and formatting your code before each commit.
+This ensures consistency and reduces the chances of committing code that doesn't meet project standards.
+Requirements:
+* Python 3.12 or later
+* Setup Instructions:
+  1. Install pre-commit: `pip install pre-commit`
+  2. Run the pre-commit hooks manually: `pre-commit run --all-files`
+
