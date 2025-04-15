@@ -1678,7 +1678,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "message": {
-                      "value": "\"The directory @{pipeline().parameters.P_DIRECTORY} is an invalid blob\"",
+                      "value": "The directory @{pipeline().parameters.P_DIRECTORY} is an invalid blob",
                       "type": "Expression"
                     },
                     "errorCode": "400"
