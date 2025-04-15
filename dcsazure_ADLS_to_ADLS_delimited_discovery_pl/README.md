@@ -8,7 +8,8 @@ This pipeline will perform automated sensitive data discovery on your delimited 
 1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.15.0`).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage (Gen 2) service associated with your ADLS source data.
-
+1. [Assign a managed identity with a storage blob data contributor role for the Data Factory instance within
+   the storage account](https://help.delphix.com/dcs/current/Content/DCSDocs/Configure_ADLS_delimited_pipelines.htm).
 ### Importing
 There are several linked services that will need to be selected in order to perform the profiling and data discovery
 of your delimited text ADLS data.
@@ -18,7 +19,6 @@ These linked services types are needed for the following steps:
 `Azure Data Lake Storage` (source) - Linked service associated with ADLS source data. This will be used for the
 following steps:
 * dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds (DelimitedText dataset)
-* dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds (DelimitedText dataset)
 * dcsazure_ADLS_to_ADLS_delimited_data_discovery_df/SourceData1MillRowDataSampling (dataFlow)
 * dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds (DelimitedText dataset)
 
@@ -43,15 +43,16 @@ The discovery pipeline has a few stages:
   * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables
     have not had their sensitive data discovered
 * Identify Nested Schemas
-  * Using a `Get Metadata` activity, collect the items under the specified `P_DIRECTORY` directory
+  * Using the child pipeline `dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl`, we collect
+    all the identified schemas under the specified `P_DIRECTORY` directory. An empty `P_DIRECTORY` would
+    mean discovering schemas starting at the root level.
   * For each item in that list, identify if the schema of the files in that child directory is expected to be
-    homogeneous or heterogeneous. In the case where it's expected to be homogeneous, the child directory is added to
-    an array-type variable, similarly for heterogeneous schemas.
-* Schema Discovery Using Azure Data Factory Metadata Discovery
-  * For each of the directories with heterogeneous schema, identify the schema for each file with one of the suffixes to
+    homogeneous or heterogeneous.
+* Schema Discovery
+  * For each of the directories with homogeneous schema, identify the schema for each file with one of the suffixes to
     scan, determine the structure of the file by calling the child `dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl`
     pipeline with the appropriate parameters.
-  * For each of the directories with a homogeneous schema, and for each of the prefixes/suffix combinations specified in
+  * For each of the directories with a hetreogenous schema, and for each of the prefixes/suffix combinations specified in
     the `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` variable, determine the structure of the file by calling the child
     `dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl` pipeline with the appropriate parameters.
 * Select Discovered Tables - In this case, we consider the table to be items with the same schema.
@@ -73,35 +74,23 @@ have customized your metadata store, then these variables may need editing.
   `discovered_ruleset`).
 * `COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME` - This is the stored procedure on the AzureSQL database that can
   accept, in part, the file structure from the `Get Metadata` ADF pipeline Activity.
-* `HETEROGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
-  accumulator for the list of directories with heterogeneous schemas (default `[]` - do not modify).
-* `HOMOGENEOUS_SCHEMAS_TO_CHECK` - This variable is modified during execution of the pipeline, and serves as an
-  accumulator for the list of directories with homogeneous schemas (default `[]` - do not modify).
 * `DATASET` - This is used to identify data that belongs to this pipeline in the metadata store (default `ADLS`).
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
   metadata data store and sets the discovery state on the items discovered during execution
   (default `insert_adf_discovery_event`).
 * `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value
   could cause requests to fail (default `1000`).
-* `FILE_UPLOAD_DATE_TIME` - This is used to limit the number of files that are retrieved when the pipeline runs, it is
-  helpful to adjust this value if you have a folder containing an especially large number of files. This will cause
-  some directories to not return any files in the discovery, while other directories will return a reduced list of files
-  that need discovery. The value here is a timestamp that corresponds to the last modified time of a file in ADLS,
-  meaning that any files with a last modified time before this datetime will be excluded from discovery
-  (default `1900-01-01T00:00:00Z`).
-* `UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS` - This is used to limit the number of files that are retrieved when the pipeline
-  runs, it is helpful to adjust this value if you have a folder containing an especially large number of files. The
-  value here is an integer that corresponds to the time (in hours) that corresponds to the last modified time of a file
-  in ADLS, meaning that any files with a last modified time after
-  `FILE_UPLOAD_DATE_TIME + UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS hours` will be excluded from discovery. When
-  this value is less than 0, this last modified time is instead limited to "now", which is determined during the
-  pipeline execution (default `-1`).
+* `MAX_RESULTS` - This is the max number of blobs to be included in the Azure blob storage REST API call (default `5000`).
+* `MSFT_API_VERSION` - This is the version of the Microsoft API to use for the Azure blob storage REST API call (default `2021-08-06`).
+* `MSFT_BLOB_TYPE` - This is the type of blob to use for the Azure blob storage REST API call (default `BlockBlob`).
+* `STORAGE_ACCOUNT` - The name of the Azure Blob Storage account default (`DCS_PLACEHOLDER`). It is required
+  to set the storage account name during the initial setup and replace it with actual storage account name.
 
 ### Parameters
 
 * `P_STORAGE_CONTAINER_TO_SCAN` - This is the storage container whose contents need review
 * `P_DIRECTORY` - This is the directory within the storage container that contains additional folders that will be
-  scanned
+  scanned. An empty value would mean discovering schemas starting at the root level.
 * `P_SUFFIXES_TO_SCAN` - This list can be used to limit which kinds of files are scanned for data, note that these
   represent suffixes to file names, not a true extension as `.` is not supported in the keys of the object definition
   in `P_SUFFIX_DELIMITER_MAP` (default `["csv","txt","NO_EXT"]`)
@@ -114,6 +103,11 @@ have customized your metadata store, then these variables may need editing.
   `{"DCS_EXAMPLE_PREFIX":{"suffixes":["csv","txt","NO_EXT"]}}`)
 * `P_REDISCOVER` - This is a Bool that specifies if we should re-execute the data discovery dataflow for previously
   discovered files that have not had their schema modified (default `true`)
+* `P_DIRECTORIES_TO_EXCLUDE` - List of directories to be excluded from the discovered directories. Particularly useful,
+  when we have many child directories that may not contain any relevant delimited files, and we want to exclude those
+  directories from the schema discovery.
+* `P_MAX_LEVELS_TO_RECURSE` - Limit the schema discovery to the given max levels. This is to prevent discovery of deeply
+  nested directories. The default is `5`, which is good enough to discover schemas up to 5 sub nested directories.
 
 
 #### Notes
@@ -151,18 +145,9 @@ entry in the `discovered_ruleset` table corresponding to table name `csv` with `
 `column1|column2|column3`. To correct this, you will need to remove the erroneous row from the table, and re-run the
 pipeline with the correct column delimiter.
 
-If you have a mix of delimiters in files of the same extension across subdirectories, you can either:
-1. Run the pipeline multiple times, changing the values in `P_SUFFIX_DELIMITER_MAP` and then proceeding to clean up the
-`discovered_ruleset` table to remove the incorrect column entries.
-1. Deactivate the `Identify Nested Schemas` and the `For Each Schema Found` steps in the pipeline (by setting the step's
-activity state to `Deactivated` under the `General` settings for each of those steps), modifying the
-`HOMOGENEOUS_SCHEMAS_TO_CHECK` and `HETEROGENEOUS_SCHEMAS_TO_CHECK` default values to include the names of the
-subdirectories that match one set of delimiters in `P_SUFFIX_DELIMITER_MAP` then publish and run the pipeline. After
-this is complete, change the default values of `HOMOGENEOUS_SCHEMAS_TO_CHECK` and `HETEROGENEOUS_SCHEMAS_TO_CHECK`
-accordingly, then publish and re-run the pipeline with the alternative values in `P_SUFFIX_DELIMITER_MAP`, and this
-should pick up another set of files. Repeat as necessary. (Tip: You can also change the value of `P_SUFFIXES_TO_SCAN`
-to not waste time scanning unchanged suffixes between runs.)
-1. Combine steps the first two options as you see fit.
+If files with the same extension across subdirectories use mixed delimiters, follow these steps:
+1. Execute the pipeline multiple times, updating the values in P_SUFFIX_DELIMITER_MAP for each run.
+2. Afterward, clean up the discovered_ruleset table to remove incorrect column entries.
 
 Note that there are a few things worth noting with respect to this parameter.
 1. In order for ADF to interpret `\` as a lone character correctly, it needs to be first be escaped, so it will need
@@ -217,7 +202,7 @@ directory_to_profile
 ```
 
 In order to correctly profile, we'd have to specify `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS` as
-`["heterogeneous_subdirectory"]` and `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` as:
+`["heterogeneous_subdirectory/"]` and `P_MIXED_FILE_SCHEMA_DISAMBIGUATION` as:
 ```json
 {
   "prefix1_": {
@@ -244,6 +229,109 @@ and `directory_to_profile/heterogeneous_subdirectory/prefix2`, both of which wil
 are the only suffixes we told the pipeline to scan for the heterogeneous subdirectory.
 
 Note that `NO_EXT` is a special value that represents files with no extension, specifically with no `.` in the file
-name. Also note that we do not scan specifically for `.txt` or `.csv`, so if you have a file that is named `.pcsv`,
-then `csv` will match. Finally, note that addition of other suffixes will require pipeline changes, please feel free to
+name. Finally, note that addition of other suffixes will require pipeline changes, please feel free to
 file an issue should this need arise (or add them and raise a PR).
+
+### Examples
+1. **Discovering directories starting at the root level**
+
+To discover directories and subdirectories starting at the root level,
+leave the pipeline parameter `P_DIRECTORY` as empty.
+
+Given this directory structure,
+```
+.
+── address
+│   └── address.csv
+├── customers
+│   └── customers.csv
+├── organizations
+│   └── organizations.csv
+└── people
+    └── people.csv
+```
+The pipeline will discover all directories under the root level,
+namely `address`, `customers`, `organizations`, and `people`.
+
+2. **Discovering Directories starting at a different level.**
+
+To discover directories and subdirectories starting at a different level,
+specify the absolute path to the directory in the pipeline parameter `P_DIRECTORY` including the trailing /
+
+Given this directory structure,
+```
+.
+├── address
+│   ├── address.csv
+│   ├── local
+│   │   └── local-address.csv
+│   └── office
+│       └── office-address.csv
+├── customers
+│   └── customers.csv
+├── organizations
+│   └── organizations.csv
+└── people
+    └── people.csv
+```
+and the pipeline parameter as `P_DIRECTORY=address/` the pipeline will
+discover all directories under the specified directory, namely `address/local/` and `address/office/`.
+
+3. **Excluding a directory or set of directories from discovering**
+
+To exclude certain directories from the discovery, specify the absolute path to the directory
+including the trailing / in the pipeline parameter `P_DIRECTORIES_TO_EXCLUDE`.
+
+For example, in the previous example if we wanted to exclude the `address/local/` directory,
+we would specify `P_DIRECTORIES_TO_EXCLUDE=["address/local/"]`
+
+To exclude multiple directories, separate them with commas and add it to `P_DIRECTORIES_TO_EXCLUDE`.
+
+Note: You cannot exclude the starting directory and it is applicable only to child directories.
+
+4. **Specifying directories with mixed file schemas**
+
+To specify directories with mixed file schemas, specify the absolute path to the directory including
+the trailing / in the pipeline parameter `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS`.
+
+For example given the directory structure,
+```
+└── hetrogenous_subdir
+    ├── prefix1_file1.csv
+    ├── prefix1_file2.csv
+    ├── prefix2_file1.csv
+    └── prefix2_file2.csv
+```
+set the pipeline parameter `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS=["hetrogenous_subdir/"]`
+
+Note: If the root folder contains mixed files with different schemas, you can specify
+the root folder in the pipeline parameter as `P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS=[""]`.
+
+5. **Controlling the max levels to discover directories**
+The default level to discover directories is 5, but you can customize it using the pipeline
+parameter `P_MAX_LEVELS_TO_RECURSE`.
+
+The value of this variable cannot be less than 0.
+
+For example, given this directory structure
+```
+nested-example
+├── nested1-level1
+│   ├── level1.csv
+│   ├── nested1-level2
+│   │   └── level2.csv
+│   └── nested2-level2
+│       ├── level2.csv
+│       ├── nested1-level3
+│       └── nested2-level3
+└── nested2-level1
+    ├── level1.csv
+    ├── nested1-level2
+    │   └── level2.csv
+    └── nested2-level2
+        └── level2.csv
+```
+and we want to discover only till level 2 we specify the `P_MAX_LEVELS_TO_RECURSE=2`
+which will only discover directories until the specified level, namely
+[`nested1-level1/`, `nested2-level1/`, `nested1-level1/nested1-level2/`,
+`nested1-level1/nested2-level2/`, `nested2-level1/nested1-level2/`, `nested2-level1/nested2-level2/`]

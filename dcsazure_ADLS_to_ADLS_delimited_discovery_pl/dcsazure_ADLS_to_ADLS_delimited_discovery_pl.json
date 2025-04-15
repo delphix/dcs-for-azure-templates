@@ -25,154 +25,23 @@
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
+        "description": "The storage account is set to a DCS_PLACEHOLDER, please make sure you update it to actual storage account name before publishing this pipeline",
         "activities": [
           {
-            "name": "Identify Nested Schemas",
-            "type": "GetMetadata",
-            "dependsOn": [
-              {
-                "activity": "Check If We Should Rediscover Data",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
+            "name": "Check If We Should Rediscover Data",
+            "type": "IfCondition",
+            "dependsOn": [],
             "userProperties": [],
             "typeProperties": {
-              "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds",
-                "type": "DatasetReference",
-                "parameters": {
-                  "DS_CONTAINER": {
-                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                    "type": "Expression"
-                  },
-                  "DS_DIRECTORY": {
-                    "value": "@pipeline().parameters.P_DIRECTORY",
-                    "type": "Expression"
-                  }
-                }
-              },
-              "fieldList": [
-                "childItems"
-              ],
-              "storeSettings": {
-                "type": "AzureBlobFSReadSettings",
-                "recursive": true,
-                "enablePartitionDiscovery": false
-              },
-              "formatSettings": {
-                "type": "DelimitedTextReadSettings"
-              }
-            }
-          },
-          {
-            "name": "For Each Schema Found",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "Identify Nested Schemas",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@activity('Identify Nested Schemas').output.childItems",
+              "expression": {
+                "value": "@pipeline().parameters.P_REDISCOVER",
                 "type": "Expression"
               },
-              "isSequential": true,
-              "activities": [
+              "ifTrueActivities": [
                 {
-                  "name": "If Folder Is Valid And Has Homogeneous File Schema",
-                  "description": "By default, it is assumed that if there is a folder, each file in the folder with the same suffix (csv, txt, etc.) will have the same schema (i.e. the same header row).",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@and(equals(item().type,'Folder'),not(contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS,item().name)))",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Add Schema To Homogeneous Schema List",
-                        "type": "AppendVariable",
-                        "dependsOn": [],
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "HOMOGENEOUS_SCHEMAS_TO_CHECK",
-                          "value": {
-                            "value": "@item().name",
-                            "type": "Expression"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                {
-                  "name": "If Folder Is Valid And Has Heterogeneous File Schema",
-                  "description": "By default, it is assumed that if there is a folder, each file in the folder with the same suffix (csv, txt, etc.) will have the same schema (i.e. the same header row).\n\nIf this is not the case, it is required that the folder with mixed schema specify two pipeline parameters:\nP_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS - this is a list of strings containing the name of the sub-directories whose files of the same extension have mixed schemas\nP_MIXED_FILE_SCHEMA_DISAMBIGUATION - this is a map of {string: {\"suffixes\": [string]} that is required for disambiguating the schemas as they apply to the files in the folder - the string key in the object is a prefix for the file of a particular schema, and the array of strings in the suffix list are those that we should scan for, which will leverage the already existing P_SUFFIX_DELIMITER_MAP parameter\n\nIf, for example, folder \"FOLDER\" had multiple types of files \"PREFIX1_*.csv\", \"PREFIX1_*.txt\", \"PREFIX2_*.csv\" - then the map for P_MIXED_FILE_SCHEMA_DISAMBIGUATION would be {\"FOLDER\":{\"PREFIX1_\":\"suffixes\":[\"csv\",\"txt\"]},{\"PREFIX2_\":\"suffixes\":[\"csv\"]}}\n",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@and(equals(item().type,'Folder'),contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS,item().name))",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Add Schema To Heterogeneous Schema List",
-                        "type": "AppendVariable",
-                        "dependsOn": [],
-                        "userProperties": [],
-                        "typeProperties": {
-                          "variableName": "HETEROGENEOUS_SCHEMAS_TO_CHECK",
-                          "value": {
-                            "value": "@item().name",
-                            "type": "Expression"
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "name": "For Each Homogeneous Schema",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "For Each Schema Found",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@variables('HOMOGENEOUS_SCHEMAS_TO_CHECK')",
-                "type": "Expression"
-              },
-              "isSequential": false,
-              "activities": [
-                {
-                  "name": "Identify Files In Homogeneous Schema",
-                  "type": "GetMetadata",
+                  "name": "Mark Tables Undiscovered",
+                  "description": "Mark all tables in this database and schema as undiscovered so that we can re-discover sensitive data in them",
+                  "type": "Script",
                   "dependsOn": [],
                   "policy": {
                     "timeout": "0.12:00:00",
@@ -182,334 +51,456 @@
                     "secureInput": false
                   },
                   "userProperties": [],
+                  "linkedServiceName": {
+                    "referenceName": "[parameters('Metadata Datastore')]",
+                    "type": "LinkedServiceReference"
+                  },
                   "typeProperties": {
-                    "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds",
-                      "type": "DatasetReference",
-                      "parameters": {
-                        "DS_CONTAINER": {
-                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                          "type": "Expression"
-                        },
-                        "DS_SUB_DIRECTORY": {
-                          "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
+                    "scripts": [
+                      {
+                        "type": "Query",
+                        "text": {
+                          "value": "UPDATE @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nSET discovery_complete = CAST(0 AS BIT)\nWHERE\n    LOWER(dataset) = LOWER('@{variables('DATASET')}')\n    AND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\n    AND LOWER(specified_schema) LIKE LOWER('@{pipeline().parameters.P_DIRECTORY}%')",
                           "type": "Expression"
                         }
                       }
-                    },
-                    "fieldList": [
-                      "childItems"
                     ],
-                    "storeSettings": {
-                      "type": "AzureBlobFSReadSettings",
-                      "recursive": true,
-                      "modifiedDatetimeStart": {
-                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
-                        "type": "Expression"
-                      },
-                      "modifiedDatetimeEnd": {
-                        "value": "@if(greater(variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS'),0),addHours(variables('FILE_UPLOAD_DATE_TIME'),variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')),utcNow())",
-                        "type": "Expression"
-                      },
-                      "enablePartitionDiscovery": false
-                    },
-                    "formatSettings": {
-                      "type": "DelimitedTextReadSettings"
-                    }
-                  }
-                },
-                {
-                  "name": "Homogeneous filter csv",
-                  "type": "Filter",
-                  "dependsOn": [
-                    {
-                      "activity": "Identify Files In Homogeneous Schema",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "items": {
-                      "value": "@activity('Identify Files In Homogeneous Schema').output.childItems",
-                      "type": "Expression"
-                    },
-                    "condition": {
-                      "value": "@endswith(item().name, 'csv')",
-                      "type": "Expression"
-                    }
-                  }
-                },
-                {
-                  "name": "Homogeneous filter txt",
-                  "type": "Filter",
-                  "dependsOn": [
-                    {
-                      "activity": "Identify Files In Homogeneous Schema",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "items": {
-                      "value": "@activity('Identify Files In Homogeneous Schema').output.childItems",
-                      "type": "Expression"
-                    },
-                    "condition": {
-                      "value": "@endswith(item().name, 'txt')",
-                      "type": "Expression"
-                    }
-                  }
-                },
-                {
-                  "name": "Homogeneous get csv schema",
-                  "type": "ExecutePipeline",
-                  "dependsOn": [
-                    {
-                      "activity": "Homogeneous filter csv",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "policy": {
-                    "secureInput": false
-                  },
-                  "userProperties": [],
-                  "typeProperties": {
-                    "pipeline": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
-                      "type": "PipelineReference"
-                    },
-                    "waitOnCompletion": true,
-                    "parameters": {
-                      "P_METADATA_SCHEMA": {
-                        "value": "@variables('METADATA_SCHEMA')",
-                        "type": "Expression"
-                      },
-                      "P_METADATA_RULESET_TABLE": {
-                        "value": "@variables('METADATA_RULESET_TABLE')",
-                        "type": "Expression"
-                      },
-                      "P_STORAGE_CONTAINER": {
-                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                        "type": "Expression"
-                      },
-                      "P_DIRECTORY": {
-                        "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
-                        "type": "Expression"
-                      },
-                      "P_SUFFIX": "csv",
-                      "P_COLUMN_DELIMITER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.column_delimiter",
-                        "type": "Expression"
-                      },
-                      "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                        "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
-                        "type": "Expression"
-                      },
-                      "P_QUOTE_CHARACTER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.quote_character",
-                        "type": "Expression"
-                      },
-                      "P_NULL_VALUE": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.null_value",
-                        "type": "Expression"
-                      },
-                      "P_ESCAPE_CHARACTER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.escape_character",
-                        "type": "Expression"
-                      },
-                      "P_FILE_UPLOAD_DATE_TIME": {
-                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
-                        "type": "Expression"
-                      },
-                      "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
-                        "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
-                        "type": "Expression"
-                      },
-                      "P_DATASET": {
-                        "value": "@variables('DATASET')",
-                        "type": "Expression"
-                      }
-                    }
-                  }
-                },
-                {
-                  "name": "Homogeneous get txt schema",
-                  "type": "ExecutePipeline",
-                  "dependsOn": [
-                    {
-                      "activity": "Homogeneous filter txt",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "policy": {
-                    "secureInput": false
-                  },
-                  "userProperties": [],
-                  "typeProperties": {
-                    "pipeline": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
-                      "type": "PipelineReference"
-                    },
-                    "waitOnCompletion": true,
-                    "parameters": {
-                      "P_METADATA_SCHEMA": {
-                        "value": "@variables('METADATA_SCHEMA')",
-                        "type": "Expression"
-                      },
-                      "P_METADATA_RULESET_TABLE": {
-                        "value": "@variables('METADATA_RULESET_TABLE')",
-                        "type": "Expression"
-                      },
-                      "P_STORAGE_CONTAINER": {
-                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                        "type": "Expression"
-                      },
-                      "P_DIRECTORY": {
-                        "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
-                        "type": "Expression"
-                      },
-                      "P_SUFFIX": "txt",
-                      "P_COLUMN_DELIMITER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.column_delimiter",
-                        "type": "Expression"
-                      },
-                      "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                        "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
-                        "type": "Expression"
-                      },
-                      "P_QUOTE_CHARACTER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.quote_character",
-                        "type": "Expression"
-                      },
-                      "P_NULL_VALUE": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.null_value",
-                        "type": "Expression"
-                      },
-                      "P_ESCAPE_CHARACTER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.escape_character",
-                        "type": "Expression"
-                      },
-                      "P_FILE_UPLOAD_DATE_TIME": {
-                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
-                        "type": "Expression"
-                      },
-                      "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
-                        "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
-                        "type": "Expression"
-                      },
-                      "P_DATASET": {
-                        "value": "@variables('DATASET')",
-                        "type": "Expression"
-                      }
-                    }
-                  }
-                },
-                {
-                  "name": "Homogeneous filter no extension",
-                  "type": "Filter",
-                  "dependsOn": [
-                    {
-                      "activity": "Identify Files In Homogeneous Schema",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "items": {
-                      "value": "@activity('Identify Files In Homogeneous Schema').output.childItems",
-                      "type": "Expression"
-                    },
-                    "condition": {
-                      "value": "@not(contains(item().name, '.'))",
-                      "type": "Expression"
-                    }
-                  }
-                },
-                {
-                  "name": "Homogeneous get NO_EXT schema",
-                  "type": "ExecutePipeline",
-                  "dependsOn": [
-                    {
-                      "activity": "Homogeneous filter no extension",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "policy": {
-                    "secureInput": false
-                  },
-                  "userProperties": [],
-                  "typeProperties": {
-                    "pipeline": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
-                      "type": "PipelineReference"
-                    },
-                    "waitOnCompletion": true,
-                    "parameters": {
-                      "P_METADATA_SCHEMA": {
-                        "value": "@variables('METADATA_SCHEMA')",
-                        "type": "Expression"
-                      },
-                      "P_METADATA_RULESET_TABLE": {
-                        "value": "@variables('METADATA_RULESET_TABLE')",
-                        "type": "Expression"
-                      },
-                      "P_STORAGE_CONTAINER": {
-                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                        "type": "Expression"
-                      },
-                      "P_DIRECTORY": {
-                        "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item())",
-                        "type": "Expression"
-                      },
-                      "P_SUFFIX": "NO_EXT",
-                      "P_COLUMN_DELIMITER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.column_delimiter",
-                        "type": "Expression"
-                      },
-                      "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                        "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
-                        "type": "Expression"
-                      },
-                      "P_QUOTE_CHARACTER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.quote_character",
-                        "type": "Expression"
-                      },
-                      "P_NULL_VALUE": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.null_value",
-                        "type": "Expression"
-                      },
-                      "P_ESCAPE_CHARACTER": {
-                        "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.escape_character",
-                        "type": "Expression"
-                      },
-                      "P_FILE_UPLOAD_DATE_TIME": {
-                        "value": "@variables('FILE_UPLOAD_DATE_TIME')",
-                        "type": "Expression"
-                      },
-                      "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
-                        "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
-                        "type": "Expression"
-                      },
-                      "P_DATASET": {
-                        "value": "@variables('DATASET')",
-                        "type": "Expression"
-                      }
-                    }
+                    "scriptBlockExecutionTimeout": "02:00:00"
                   }
                 }
               ]
+            }
+          },
+          {
+            "name": "For Each Homogenous Schemas",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Filter Homogenous",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Filter Homogenous').output.Value",
+                "type": "Expression"
+              },
+              "isSequential": false,
+              "batchCount": 50,
+              "activities": [
+                {
+                  "name": "Get Files Under Homogenous Schemas",
+                  "type": "ExecutePipeline",
+                  "dependsOn": [],
+                  "policy": {
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "pipeline": {
+                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_discovery_pl",
+                      "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                      "P_STORAGE_CONTAINER": {
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
+                        "type": "Expression"
+                      },
+                      "P_STORAGE_ACCOUNT": {
+                        "value": "@variables('STORAGE_ACCOUNT')",
+                        "type": "Expression"
+                      },
+                      "P_DIRECTORY": {
+                        "value": "@item()",
+                        "type": "Expression"
+                      },
+                      "P_MAX_RESULTS": {
+                        "value": "@variables('MAX_RESULTS')",
+                        "type": "Expression"
+                      },
+                      "P_MSFT_API_VERSION": {
+                        "value": "@variables('MSFT_API_VERSION')",
+                        "type": "Expression"
+                      },
+                      "P_MSFT_BLOB_TYPE": {
+                        "value": "@variables('MSFT_BLOB_TYPE')",
+                        "type": "Expression"
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "If Has CSV Files",
+                  "type": "IfCondition",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Files Under Homogenous Schemas",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV), 0)",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Discover Structure For CSV",
+                        "description": "This will get the schema of the first csv file in the file list",
+                        "type": "ExecutePipeline",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "pipeline": {
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                            "type": "PipelineReference"
+                          },
+                          "waitOnCompletion": true,
+                          "parameters": {
+                            "P_METADATA_SCHEMA": {
+                              "value": "@variables('METADATA_SCHEMA')",
+                              "type": "Expression"
+                            },
+                            "P_METADATA_RULESET_TABLE": {
+                              "value": "@variables('METADATA_RULESET_TABLE')",
+                              "type": "Expression"
+                            },
+                            "P_STORAGE_CONTAINER": {
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
+                              "type": "Expression"
+                            },
+                            "P_DIRECTORY": {
+                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "type": "Expression"
+                            },
+                            "P_SUFFIX": {
+                              "value": "csv",
+                              "type": "Expression"
+                            },
+                            "P_COLUMN_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.column_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
+                              "type": "Expression"
+                            },
+                            "P_QUOTE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.quote_character",
+                              "type": "Expression"
+                            },
+                            "P_NULL_VALUE": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.null_value",
+                              "type": "Expression"
+                            },
+                            "P_ESCAPE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.escape_character",
+                              "type": "Expression"
+                            },
+                            "P_FILENAME": {
+                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], '/'))",
+                              "type": "Expression"
+                            },
+                            "P_DATASET": {
+                              "value": "@variables('DATASET')",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "If Has TXT Files",
+                  "type": "IfCondition",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Files Under Homogenous Schemas",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT), 0)",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Discover Structure For TXT file",
+                        "description": "This will get the schema of the first txt file in the file list",
+                        "type": "ExecutePipeline",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "pipeline": {
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                            "type": "PipelineReference"
+                          },
+                          "waitOnCompletion": true,
+                          "parameters": {
+                            "P_METADATA_SCHEMA": {
+                              "value": "@variables('METADATA_SCHEMA')",
+                              "type": "Expression"
+                            },
+                            "P_METADATA_RULESET_TABLE": {
+                              "value": "@variables('METADATA_RULESET_TABLE')",
+                              "type": "Expression"
+                            },
+                            "P_STORAGE_CONTAINER": {
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
+                              "type": "Expression"
+                            },
+                            "P_DIRECTORY": {
+                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "type": "Expression"
+                            },
+                            "P_SUFFIX": {
+                              "value": "txt",
+                              "type": "Expression"
+                            },
+                            "P_COLUMN_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.column_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
+                              "type": "Expression"
+                            },
+                            "P_QUOTE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.quote_character",
+                              "type": "Expression"
+                            },
+                            "P_NULL_VALUE": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.null_value",
+                              "type": "Expression"
+                            },
+                            "P_ESCAPE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.escape_character",
+                              "type": "Expression"
+                            },
+                            "P_FILENAME": {
+                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.TXT[0], '/'))",
+                              "type": "Expression"
+                            },
+                            "P_DATASET": {
+                              "value": "@variables('DATASET')",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "If Has Files With NO_EXT",
+                  "type": "IfCondition",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Files Under Homogenous Schemas",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT), 0)",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                      {
+                        "name": "Discover Structure For NO_EXT",
+                        "description": "This will get the schema of the first file with no .  in the name in the file list",
+                        "type": "ExecutePipeline",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "pipeline": {
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                            "type": "PipelineReference"
+                          },
+                          "waitOnCompletion": true,
+                          "parameters": {
+                            "P_METADATA_SCHEMA": {
+                              "value": "@variables('METADATA_SCHEMA')",
+                              "type": "Expression"
+                            },
+                            "P_METADATA_RULESET_TABLE": {
+                              "value": "@variables('METADATA_RULESET_TABLE')",
+                              "type": "Expression"
+                            },
+                            "P_STORAGE_CONTAINER": {
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
+                              "type": "Expression"
+                            },
+                            "P_DIRECTORY": {
+                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "type": "Expression"
+                            },
+                            "P_SUFFIX": {
+                              "value": "NO_EXT",
+                              "type": "Expression"
+                            },
+                            "P_COLUMN_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.column_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
+                              "type": "Expression"
+                            },
+                            "P_QUOTE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.quote_character",
+                              "type": "Expression"
+                            },
+                            "P_NULL_VALUE": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.null_value",
+                              "type": "Expression"
+                            },
+                            "P_ESCAPE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.escape_character",
+                              "type": "Expression"
+                            },
+                            "P_FILENAME": {
+                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.NO_EXT[0], '/'))",
+                              "type": "Expression"
+                            },
+                            "P_DATASET": {
+                              "value": "@variables('DATASET')",
+                              "type": "Expression"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Discover Directories",
+            "type": "ExecutePipeline",
+            "dependsOn": [
+              {
+                "activity": "Check If We Should Rediscover Data",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "pipeline": {
+                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl",
+                "type": "PipelineReference"
+              },
+              "waitOnCompletion": true,
+              "parameters": {
+                "P_STORAGE_CONTAINER": {
+                  "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
+                  "type": "Expression"
+                },
+                "P_STORAGE_ACCOUNT": {
+                  "value": "@variables('STORAGE_ACCOUNT')",
+                  "type": "Expression"
+                },
+                "P_DIRECTORY": {
+                  "value": "@pipeline().parameters.P_DIRECTORY",
+                  "type": "Expression"
+                },
+                "P_MAX_RESULTS": {
+                  "value": "@variables('MAX_RESULTS')",
+                  "type": "Expression"
+                },
+                "P_DIRECTORIES_TO_EXCLUDE": {
+                  "value": "@pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE",
+                  "type": "Expression"
+                },
+                "P_MAX_LEVELS_TO_RECURSE": {
+                  "value": "@pipeline().parameters.P_MAX_LEVELS_TO_RECURSE",
+                  "type": "Expression"
+                },
+                "P_MSFT_API_VERSION": {
+                  "value": "@variables('MSFT_API_VERSION')",
+                  "type": "Expression"
+                },
+                "P_MSFT_BLOB_TYPE": {
+                  "value": "@variables('MSFT_BLOB_TYPE')",
+                  "type": "Expression"
+                }
+              }
+            }
+          },
+          {
+            "name": "Filter Homogenous",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Discover Directories",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Discover Directories').output.pipelineReturnValue.SCHEMAS",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@not(contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS, item()))",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "Filter Hetrogenous",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Discover Directories",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Discover Directories').output.pipelineReturnValue.SCHEMAS",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS, item())",
+                "type": "Expression"
+              }
             }
           },
           {
@@ -517,13 +508,13 @@
             "type": "Lookup",
             "dependsOn": [
               {
-                "activity": "For Each Homogeneous Schema",
+                "activity": "For Each Homogenous Schemas",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
               },
               {
-                "activity": "For Each Heterogeneous Schema",
+                "activity": "For Each Hetrogenous  Schemas",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -541,7 +532,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\nLOWER(dataset) = LOWER('@{variables('DATASET')}')\nAND LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}/%'\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\nAND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
+                  "value": "SELECT DISTINCT\n    specified_database,\n    specified_schema,\n    identified_table\nFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nWHERE\nLOWER(dataset) = LOWER('@{variables('DATASET')}')\nAND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\nAND LOWER(specified_schema) LIKE '@{pipeline().parameters.P_DIRECTORY}%'\nAND (discovery_complete IS NULL OR discovery_complete = 0)\nORDER BY identified_table",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -562,351 +553,6 @@
                 }
               },
               "firstRowOnly": false
-            }
-          },
-          {
-            "name": "For Each Heterogeneous Schema",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "Determine All Heterogeneous Schemas",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@if(greater(length(activity('Determine All Heterogeneous Schemas').output.resultSets),0),activity('Determine All Heterogeneous Schemas').output.resultSets[0].rows,json('[]'))",
-                "type": "Expression"
-              },
-              "isSequential": false,
-              "activities": [
-                {
-                  "name": "Heterogeneous - if csv",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@equals(item().suffix, 'csv')",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Heterogeneous get csv schema",
-                        "type": "ExecutePipeline",
-                        "dependsOn": [],
-                        "policy": {
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "pipeline": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
-                            "type": "PipelineReference"
-                          },
-                          "waitOnCompletion": true,
-                          "parameters": {
-                            "P_METADATA_SCHEMA": {
-                              "value": "@variables('METADATA_SCHEMA')",
-                              "type": "Expression"
-                            },
-                            "P_METADATA_RULESET_TABLE": {
-                              "value": "@variables('METADATA_RULESET_TABLE')",
-                              "type": "Expression"
-                            },
-                            "P_STORAGE_CONTAINER": {
-                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                              "type": "Expression"
-                            },
-                            "P_DIRECTORY": {
-                              "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item().sub_dir)",
-                              "type": "Expression"
-                            },
-                            "P_SUFFIX": {
-                              "value": "@item().suffix",
-                              "type": "Expression"
-                            },
-                            "P_COLUMN_DELIMITER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.column_delimiter",
-                              "type": "Expression"
-                            },
-                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
-                              "type": "Expression"
-                            },
-                            "P_PREFIX": {
-                              "value": "@item().prefix",
-                              "type": "Expression"
-                            },
-                            "P_QUOTE_CHARACTER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.quote_character",
-                              "type": "Expression"
-                            },
-                            "P_NULL_VALUE": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.null_value",
-                              "type": "Expression"
-                            },
-                            "P_ESCAPE_CHARACTER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.csv.escape_character",
-                              "type": "Expression"
-                            },
-                            "P_FILE_UPLOAD_DATE_TIME": {
-                              "value": "@variables('FILE_UPLOAD_DATE_TIME')",
-                              "type": "Expression"
-                            },
-                            "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
-                              "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
-                              "type": "Expression"
-                            },
-                            "P_DATASET": {
-                              "value": "@variables('DATASET')",
-                              "type": "Expression"
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                {
-                  "name": "Heterogeneous - if txt",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@equals(item().suffix, 'txt')",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Heterogeneous get txt schema",
-                        "type": "ExecutePipeline",
-                        "dependsOn": [],
-                        "policy": {
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "pipeline": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
-                            "type": "PipelineReference"
-                          },
-                          "waitOnCompletion": true,
-                          "parameters": {
-                            "P_METADATA_SCHEMA": {
-                              "value": "@variables('METADATA_SCHEMA')",
-                              "type": "Expression"
-                            },
-                            "P_METADATA_RULESET_TABLE": {
-                              "value": "@variables('METADATA_RULESET_TABLE')",
-                              "type": "Expression"
-                            },
-                            "P_STORAGE_CONTAINER": {
-                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                              "type": "Expression"
-                            },
-                            "P_DIRECTORY": {
-                              "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item().sub_dir)",
-                              "type": "Expression"
-                            },
-                            "P_SUFFIX": {
-                              "value": "@item().suffix",
-                              "type": "Expression"
-                            },
-                            "P_COLUMN_DELIMITER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.column_delimiter",
-                              "type": "Expression"
-                            },
-                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
-                              "type": "Expression"
-                            },
-                            "P_PREFIX": {
-                              "value": "@item().prefix",
-                              "type": "Expression"
-                            },
-                            "P_QUOTE_CHARACTER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.quote_character",
-                              "type": "Expression"
-                            },
-                            "P_NULL_VALUE": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.null_value",
-                              "type": "Expression"
-                            },
-                            "P_ESCAPE_CHARACTER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.txt.escape_character",
-                              "type": "Expression"
-                            },
-                            "P_FILE_UPLOAD_DATE_TIME": {
-                              "value": "@variables('FILE_UPLOAD_DATE_TIME')",
-                              "type": "Expression"
-                            },
-                            "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
-                              "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
-                              "type": "Expression"
-                            },
-                            "P_DATASET": {
-                              "value": "@variables('DATASET')",
-                              "type": "Expression"
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                {
-                  "name": "Heterogeneous - if NO_EXT",
-                  "type": "IfCondition",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@equals(item().suffix, 'NO_EXT')",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Heterogeneous get NO_EXT schema",
-                        "type": "ExecutePipeline",
-                        "dependsOn": [],
-                        "policy": {
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "pipeline": {
-                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
-                            "type": "PipelineReference"
-                          },
-                          "waitOnCompletion": true,
-                          "parameters": {
-                            "P_METADATA_SCHEMA": {
-                              "value": "@variables('METADATA_SCHEMA')",
-                              "type": "Expression"
-                            },
-                            "P_METADATA_RULESET_TABLE": {
-                              "value": "@variables('METADATA_RULESET_TABLE')",
-                              "type": "Expression"
-                            },
-                            "P_STORAGE_CONTAINER": {
-                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
-                              "type": "Expression"
-                            },
-                            "P_DIRECTORY": {
-                              "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',item().sub_dir)",
-                              "type": "Expression"
-                            },
-                            "P_SUFFIX": {
-                              "value": "@item().suffix",
-                              "type": "Expression"
-                            },
-                            "P_COLUMN_DELIMITER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.column_delimiter",
-                              "type": "Expression"
-                            },
-                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
-                              "type": "Expression"
-                            },
-                            "P_PREFIX": {
-                              "value": "@item().prefix",
-                              "type": "Expression"
-                            },
-                            "P_QUOTE_CHARACTER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.quote_character",
-                              "type": "Expression"
-                            },
-                            "P_NULL_VALUE": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.null_value",
-                              "type": "Expression"
-                            },
-                            "P_ESCAPE_CHARACTER": {
-                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP.NO_EXT.escape_character",
-                              "type": "Expression"
-                            },
-                            "P_FILE_UPLOAD_DATE_TIME": {
-                              "value": "@variables('FILE_UPLOAD_DATE_TIME')",
-                              "type": "Expression"
-                            },
-                            "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
-                              "value": "@variables('UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS')",
-                              "type": "Expression"
-                            },
-                            "P_DATASET": {
-                              "value": "@variables('DATASET')",
-                              "type": "Expression"
-                            }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "name": "Determine All Heterogeneous Schemas",
-            "type": "Script",
-            "dependsOn": [
-              {
-                "activity": "Filter Schemas",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "linkedServiceName": {
-              "referenceName": "[parameters('Metadata Datastore')]",
-              "type": "LinkedServiceReference"
-            },
-            "typeProperties": {
-              "scripts": [
-                {
-                  "type": "Query",
-                  "text": {
-                    "value": "DECLARE @disambiguation_json NVARCHAR(MAX) = N'@{pipeline().parameters.P_MIXED_FILE_SCHEMA_DISAMBIGUATION}';\nDECLARE @heterogeneous_schemas_array NVARCHAR(MAX) = N'@{pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS}';\nSELECT b.[value] AS sub_dir, a.[key] AS prefix, c.[value] AS suffix\nFROM OPENJSON(@disambiguation_json, '$') a\nCROSS APPLY OPENJSON(@heterogeneous_schemas_array, '$') b\nCROSS APPLY OPENJSON(a.[value], '$.suffixes') c;",
-                    "type": "Expression"
-                  }
-                }
-              ],
-              "scriptBlockExecutionTimeout": "02:00:00"
-            }
-          },
-          {
-            "name": "Filter Schemas",
-            "type": "Filter",
-            "dependsOn": [
-              {
-                "activity": "For Each Schema Found",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@variables('HETEROGENEOUS_SCHEMAS_TO_CHECK')",
-                "type": "Expression"
-              },
-              "condition": {
-                "value": "@contains(pipeline().parameters.P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS,item())",
-                "type": "Expression"
-              }
             }
           },
           {
@@ -1283,7 +929,7 @@
                       },
                       "source_metadata": {
                         "value": {
-                          "value": "@activity('Get Source Metadata').output.firstRow.source_metadata",
+                          "value": "@activity('Get Source Metadata').output.firstRow.metadata",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -1313,44 +959,191 @@
             }
           },
           {
-            "name": "Check If We Should Rediscover Data",
-            "type": "IfCondition",
-            "dependsOn": [],
+            "name": "Determine All Heterogenous schema",
+            "type": "Script",
+            "dependsOn": [
+              {
+                "activity": "Filter Hetrogenous",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "linkedServiceName": {
+              "referenceName": "[parameters('Metadata Datastore')]",
+              "type": "LinkedServiceReference"
+            },
+            "typeProperties": {
+              "scripts": [
+                {
+                  "type": "Query",
+                  "text": {
+                    "value": "DECLARE @disambiguation_json NVARCHAR(MAX) = N'@{pipeline().parameters.P_MIXED_FILE_SCHEMA_DISAMBIGUATION}';\nDECLARE @heterogeneous_schemas_array NVARCHAR(MAX) = N'@{activity('Filter Hetrogenous').output.Value}';\nSELECT b.[value] AS sub_dir, a.[key] AS prefix, c.[value] AS suffix\nFROM OPENJSON(@disambiguation_json, '$') a\nCROSS APPLY OPENJSON(@heterogeneous_schemas_array, '$') b\nCROSS APPLY OPENJSON(a.[value], '$.suffixes') c;",
+                    "type": "Expression"
+                  }
+                }
+              ],
+              "scriptBlockExecutionTimeout": "02:00:00"
+            }
+          },
+          {
+            "name": "For Each Hetrogenous  Schemas",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Determine All Heterogenous schema",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
             "userProperties": [],
             "typeProperties": {
-              "expression": {
-                "value": "@pipeline().parameters.P_REDISCOVER",
+              "items": {
+                "value": "@if(\n    greater(\n        length(activity('Determine All Heterogenous schema').output.resultSets), \n        0\n    ),\n    activity('Determine All Heterogenous schema').output.resultSets[0].rows,\n    json('[]')\n)",
                 "type": "Expression"
               },
-              "ifTrueActivities": [
+              "isSequential": false,
+              "activities": [
                 {
-                  "name": "Mark Tables Undiscovered",
-                  "description": "Mark all tables in this database and schema as undiscovered so that we can re-discover sensitive data in them",
-                  "type": "Script",
+                  "name": "Get Files Under Hetrogenous Schemas",
+                  "type": "ExecutePipeline",
                   "dependsOn": [],
                   "policy": {
-                    "timeout": "0.12:00:00",
-                    "retry": 0,
-                    "retryIntervalInSeconds": 30,
-                    "secureOutput": false,
                     "secureInput": false
                   },
                   "userProperties": [],
-                  "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
-                    "type": "LinkedServiceReference"
-                  },
                   "typeProperties": {
-                    "scripts": [
+                    "pipeline": {
+                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_discovery_pl",
+                      "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                      "P_STORAGE_CONTAINER": {
+                        "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
+                        "type": "Expression"
+                      },
+                      "P_STORAGE_ACCOUNT": {
+                        "value": "@variables('STORAGE_ACCOUNT')",
+                        "type": "Expression"
+                      },
+                      "P_DIRECTORY": {
+                        "value": "@concat(item().sub_dir, item().prefix)",
+                        "type": "Expression"
+                      },
+                      "P_MAX_RESULTS": {
+                        "value": "@variables('MAX_RESULTS')",
+                        "type": "Expression"
+                      },
+                      "P_MSFT_API_VERSION": {
+                        "value": "@variables('MSFT_API_VERSION')",
+                        "type": "Expression"
+                      },
+                      "P_MSFT_BLOB_TYPE": {
+                        "value": "@variables('MSFT_BLOB_TYPE')",
+                        "type": "Expression"
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "If Has Files",
+                  "type": "IfCondition",
+                  "dependsOn": [
+                    {
+                      "activity": "Get Files Under Hetrogenous Schemas",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@greater(length(activity('Get Files Under Hetrogenous Schemas').output.pipelineReturnValue[item().suffix]) , 0)",
+                      "type": "Expression"
+                    },
+                    "ifTrueActivities": [
                       {
-                        "type": "Query",
-                        "text": {
-                          "value": "UPDATE @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\nSET discovery_complete = CAST(0 AS BIT)\nWHERE\n    LOWER(dataset) = LOWER('@{variables('DATASET')}')\n    AND LOWER(specified_database) = LOWER('@{pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN}')\n    AND LOWER(specified_schema) LIKE LOWER('@{pipeline().parameters.P_DIRECTORY}/%')",
-                          "type": "Expression"
+                        "name": "Discover Structure",
+                        "type": "ExecutePipeline",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "pipeline": {
+                            "referenceName": "dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl",
+                            "type": "PipelineReference"
+                          },
+                          "waitOnCompletion": true,
+                          "parameters": {
+                            "P_METADATA_SCHEMA": {
+                              "value": "@variables('METADATA_SCHEMA')",
+                              "type": "Expression"
+                            },
+                            "P_METADATA_RULESET_TABLE": {
+                              "value": "@variables('METADATA_RULESET_TABLE')",
+                              "type": "Expression"
+                            },
+                            "P_STORAGE_CONTAINER": {
+                              "value": "@pipeline().parameters.P_STORAGE_CONTAINER_TO_SCAN",
+                              "type": "Expression"
+                            },
+                            "P_DIRECTORY": {
+                              "value": "@if(\n    empty(item().sub_dir), \n    '', \n    substring(\n        item().sub_dir, 0, lastIndexOf(item().sub_dir, '/')\n    )\n)",
+                              "type": "Expression"
+                            },
+                            "P_SUFFIX": {
+                              "value": "@item().suffix",
+                              "type": "Expression"
+                            },
+                            "P_COLUMN_DELIMITER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP[item().suffix].column_delimiter",
+                              "type": "Expression"
+                            },
+                            "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+                              "value": "@variables('COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME')",
+                              "type": "Expression"
+                            },
+                            "P_PREFIX": {
+                              "value": "@item().prefix",
+                              "type": "Expression"
+                            },
+                            "P_QUOTE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP[item().suffix].quote_character",
+                              "type": "Expression"
+                            },
+                            "P_NULL_VALUE": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP[item().suffix].null_value",
+                              "type": "Expression"
+                            },
+                            "P_ESCAPE_CHARACTER": {
+                              "value": "@pipeline().parameters.P_SUFFIX_DELIMITER_MAP[item().suffix].escape_character",
+                              "type": "Expression"
+                            },
+                            "P_FILENAME": {
+                              "value": "@last(\n    split(\n        activity('Get files under hetrogenous schemas').output.pipelineReturnValue[item().suffix][0], \n        '/'\n    )\n)",
+                              "type": "Expression"
+                            },
+                            "P_DATASET": {
+                              "value": "@variables('DATASET')",
+                              "type": "Expression"
+                            }
+                          }
                         }
                       }
-                    ],
-                    "scriptBlockExecutionTimeout": "02:00:00"
+                    ]
                   }
                 }
               ]
@@ -1417,6 +1210,14 @@
           "P_REDISCOVER": {
             "type": "bool",
             "defaultValue": true
+          },
+          "P_DIRECTORIES_TO_EXCLUDE": {
+            "type": "array",
+            "defaultValue": []
+          },
+          "P_MAX_LEVELS_TO_RECURSE": {
+            "type": "int",
+            "defaultValue": 5
           }
         },
         "variables": {
@@ -1432,14 +1233,6 @@
             "type": "String",
             "defaultValue": "get_columns_from_delimited_file_structure_sp"
           },
-          "HOMOGENEOUS_SCHEMAS_TO_CHECK": {
-            "type": "Array",
-            "defaultValue": []
-          },
-          "HETEROGENEOUS_SCHEMAS_TO_CHECK": {
-            "type": "Array",
-            "defaultValue": []
-          },
           "DATASET": {
             "type": "String",
             "defaultValue": "ADLS-DELIMITED"
@@ -1452,75 +1245,575 @@
             "type": "Integer",
             "defaultValue": 1000
           },
-          "FILE_UPLOAD_DATE_TIME": {
-            "type": "String",
-            "defaultValue": "1900-01-01T00:00:00Z"
-          },
-          "UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
+          "MAX_RESULTS": {
             "type": "Integer",
-            "defaultValue": -1
+            "defaultValue": 5000
+          },
+          "MSFT_API_VERSION": {
+            "type": "String",
+            "defaultValue": "2021-08-06"
+          },
+          "MSFT_BLOB_TYPE": {
+            "type": "String",
+            "defaultValue": "BlockBlob"
+          },
+          "STORAGE_ACCOUNT": {
+            "type": "String",
+            "defaultValue": "DCS_PLACEHOLDER"
           }
         },
         "folder": {
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-16T18:00:44Z"
+        "lastPublishTime": "2025-04-09T09:43:03Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]",
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl')]",
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_metadata_discovery_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds')]",
-        "[concat(variables('factoryId'), '/pipelines/dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_data_discovery_df')]"
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_ADLS_to_ADLS_delimited_file_discovery_pl')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_ADLS_to_ADLS_delimited_data_discovery_df')]",
+        "[concat(variables('factoryId'), '/pipelines/dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]",
-      "type": "Microsoft.DataFactory/factories/datasets",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
-        "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
-          "type": "LinkedServiceReference"
+        "activities": [
+          {
+            "name": "Until Queue Is Empty",
+            "type": "Until",
+            "dependsOn": [
+              {
+                "activity": "Push Current Dir To Queue",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@empty(variables('DIR_QUEUE'))",
+                "type": "Expression"
+              },
+              "activities": [
+                {
+                  "name": "List Blobs",
+                  "type": "WebActivity",
+                  "dependsOn": [
+                    {
+                      "activity": "Set Directory To Traverse",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "method": "GET",
+                    "headers": {
+                      "x-ms-version": {
+                        "value": "@pipeline().parameters.P_MSFT_API_VERSION",
+                        "type": "Expression"
+                      },
+                      "x-ms-blob-type": {
+                        "value": "@pipeline().parameters.P_MSFT_BLOB_TYPE",
+                        "type": "Expression"
+                      }
+                    },
+                    "url": {
+                      "value": "https://@{pipeline().parameters.P_STORAGE_ACCOUNT}.blob.core.windows.net/@{pipeline().parameters.P_STORAGE_CONTAINER}?&restype=container&comp=list&maxResults=@{pipeline().parameters.P_MAX_RESULTS}&marker=@{variables('NEXT_MARKER')}&delimiter=/&prefix=@{variables('CURRENT_PREFIX')}",
+                      "type": "Expression"
+                    },
+                    "authentication": {
+                      "type": "MSI",
+                      "resource": "https://storage.azure.com/"
+                    }
+                  }
+                },
+                {
+                  "name": "Set Directory To Traverse",
+                  "type": "SetVariable",
+                  "dependsOn": [
+                    {
+                      "activity": "Temp Save Directories",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "CURRENT_PREFIX",
+                    "value": {
+                      "value": "@if(\n    or(\n        endswith(string(variables('TEMP_DIR_QUEUE')[0]), '/'), \n        empty(variables('TEMP_DIR_QUEUE')[0])\n    ),\n    variables('TEMP_DIR_QUEUE')[0], \n    concat(variables('TEMP_DIR_QUEUE')[0], '/')\n)",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Temp Save Directories",
+                  "type": "SetVariable",
+                  "dependsOn": [],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "TEMP_DIR_QUEUE",
+                    "value": {
+                      "value": "@variables('DIR_QUEUE')",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Update Next Marker",
+                  "type": "SetVariable",
+                  "dependsOn": [
+                    {
+                      "activity": "List Blobs",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "NEXT_MARKER",
+                    "value": {
+                      "value": "@if(\n    empty(\n        xpath(xml(activity('List Blobs').output.Response),\n        '//NextMarker/text()'\n        )\n    ), \n    '', \n    xpath(\n        xml(activity('List Blobs').output.Response),\n        '//NextMarker/text()')[0]\n)",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "If Has More Items In Current Directory",
+                  "type": "IfCondition",
+                  "dependsOn": [
+                    {
+                      "activity": "Update Next Marker",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    },
+                    {
+                      "activity": "Filter Out Directories To Exclude",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@not(empty(variables('NEXT_MARKER')))",
+                      "type": "Expression"
+                    },
+                    "ifFalseActivities": [
+                      {
+                        "name": "False - Pop Current Directory And Push New Directories",
+                        "type": "SetVariable",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "variableName": "DIR_QUEUE",
+                          "value": {
+                            "value": "@union(activity('Filter Out Directories To Exclude').output.Value, skip(variables('TEMP_DIR_QUEUE'), 1))",
+                            "type": "Expression"
+                          }
+                        }
+                      },
+                      {
+                        "name": "Add Processed Dir To Schema",
+                        "type": "AppendVariable",
+                        "dependsOn": [
+                          {
+                            "activity": "False - Pop Current Directory And Push New Directories",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "variableName": "ALL_SCHEMAS_FOUND",
+                          "value": {
+                            "value": "@variables('CURRENT_PREFIX')",
+                            "type": "Expression"
+                          }
+                        }
+                      }
+                    ],
+                    "ifTrueActivities": [
+                      {
+                        "name": "True - Push New Directories To Queue",
+                        "type": "SetVariable",
+                        "dependsOn": [],
+                        "policy": {
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "variableName": "DIR_QUEUE",
+                          "value": {
+                            "value": "@union(variables('TEMP_DIR_QUEUE'), activity('Filter Out Directories To Exclude').output.Value)",
+                            "type": "Expression"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "Fail To Fetch Blobs",
+                  "description": "Fail the current iteration.",
+                  "type": "Fail",
+                  "dependsOn": [
+                    {
+                      "activity": "Empty Queue",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": "Fail to fetch blobs",
+                    "errorCode": "500"
+                  }
+                },
+                {
+                  "name": "Filter Out Directories To Exclude",
+                  "description": "This is where we filter out directories that are too deeply nested.",
+                  "type": "Filter",
+                  "dependsOn": [
+                    {
+                      "activity": "List Blobs",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "items": {
+                      "value": "@xpath(xml(activity('List Blobs').output.Response), '//BlobPrefix/Name/text()')",
+                      "type": "Expression"
+                    },
+                    "condition": {
+                      "value": "@and(\n    not(contains(pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE, item())), \n    lessOrEquals(\n        sub(length(split(item(), '/')), 1), \n        variables('MAX_LEVELS_TO_RECURSE')\n    )\n)",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Empty Queue",
+                  "type": "SetVariable",
+                  "dependsOn": [
+                    {
+                      "activity": "List Blobs",
+                      "dependencyConditions": [
+                        "Failed"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "DIR_QUEUE",
+                    "value": {
+                      "value": "@skip(variables('TEMP_DIR_QUEUE'), 1)",
+                      "type": "Expression"
+                    }
+                  }
+                }
+              ],
+              "timeout": "0.12:00:00"
+            }
+          },
+          {
+            "name": "Push Current Dir To Queue",
+            "type": "SetVariable",
+            "dependsOn": [
+              {
+                "activity": "Validate And Set Max Levels To Recurse",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "variableName": "DIR_QUEUE",
+              "value": {
+                "value": "@createArray(pipeline().parameters.P_DIRECTORY)",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "Set Unique Schemas",
+            "type": "SetVariable",
+            "dependsOn": [
+              {
+                "activity": "Until Queue Is Empty",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "variableName": "pipelineReturnValue",
+              "value": [
+                {
+                  "key": "SCHEMAS",
+                  "value": {
+                    "type": "Expression",
+                    "content": "@union(variables('ALL_SCHEMAS_FOUND'), variables('ALL_SCHEMAS_FOUND'))"
+                  }
+                }
+              ],
+              "setSystemVariable": true
+            }
+          },
+          {
+            "name": "Check If Specified Directory Is Valid",
+            "type": "GetMetadata",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "dataset": {
+                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_STORAGE_CONTAINER": {
+                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
+                    "type": "Expression"
+                  },
+                  "DS_DIRECTORY": {
+                    "value": "@pipeline().parameters.P_DIRECTORY",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "fieldList": [
+                "exists"
+              ],
+              "storeSettings": {
+                "type": "AzureBlobFSReadSettings",
+                "recursive": true,
+                "enablePartitionDiscovery": false
+              },
+              "formatSettings": {
+                "type": "DelimitedTextReadSettings"
+              }
+            }
+          },
+          {
+            "name": "Fail If Directory Does Not Exists",
+            "type": "IfCondition",
+            "dependsOn": [
+              {
+                "activity": "Check If Specified Directory Is Valid",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@equals(activity('Check if specified directory is valid').output.exists, false)",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "Invalid Directory",
+                  "type": "Fail",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "The directory @{pipeline().parameters.P_DIRECTORY} is an invalid blob",
+                      "type": "Expression"
+                    },
+                    "errorCode": "400"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Validate And Set Max Levels To Recurse",
+            "description": "Validate that the specified level is greater than 0 and correctly set the level relative to the root level",
+            "type": "IfCondition",
+            "dependsOn": [
+              {
+                "activity": "Fail If Directory Does Not Exists",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@less(pipeline().parameters.P_MAX_LEVELS_TO_RECURSE, 0)",
+                "type": "Expression"
+              },
+              "ifFalseActivities": [
+                {
+                  "name": "Set Max Levels To Recurse",
+                  "description": "Set the correct max levels to recursed starting at the specified directory",
+                  "type": "SetVariable",
+                  "dependsOn": [],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "MAX_LEVELS_TO_RECURSE",
+                    "value": {
+                      "value": "@if(\n    empty(pipeline().parameters.P_DIRECTORY), \n    pipeline().parameters.P_MAX_LEVELS_TO_RECURSE, \n    if(\n        endswith(pipeline().parameters.P_DIRECTORY, '/'), \n        add(sub(length(split(pipeline().parameters.P_DIRECTORY, '/')), 1), pipeline().parameters.P_MAX_LEVELS_TO_RECURSE), \n        add(length(split(pipeline().parameters.P_DIRECTORY, '/')), pipeline().parameters.P_MAX_LEVELS_TO_RECURSE)\n    )\n)",
+                      "type": "Expression"
+                    }
+                  }
+                }
+              ],
+              "ifTrueActivities": [
+                {
+                  "name": "Invalid Recursion Level",
+                  "description": "Fail if levels to recurse is less than 0",
+                  "type": "Fail",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "The specified value of pipeline parameter P_MAX_LEVELS_TO_RECURSE=@{pipeline().parameters.P_MAX_LEVELS_TO_RECURSE} should be greater than or equal to 0",
+                      "type": "Expression"
+                    },
+                    "errorCode": "400"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
         },
         "parameters": {
-          "DS_CONTAINER": {
+          "P_STORAGE_CONTAINER": {
             "type": "string"
           },
-          "DS_DIRECTORY": {
+          "P_STORAGE_ACCOUNT": {
             "type": "string"
+          },
+          "P_DIRECTORY": {
+            "type": "string"
+          },
+          "P_MAX_RESULTS": {
+            "type": "string",
+            "defaultValue": "1000"
+          },
+          "P_DIRECTORIES_TO_EXCLUDE": {
+            "type": "array",
+            "defaultValue": []
+          },
+          "P_MAX_LEVELS_TO_RECURSE": {
+            "type": "int",
+            "defaultValue": 5
+          },
+          "P_MSFT_API_VERSION": {
+            "type": "string",
+            "defaultValue": "2021-08-06"
+          },
+          "P_MSFT_BLOB_TYPE": {
+            "type": "string",
+            "defaultValue": "BlockBlob"
+          }
+        },
+        "variables": {
+          "UNIQUE_SCHEMAS_FOUND": {
+            "type": "Array",
+            "defaultValue": []
+          },
+          "NEXT_MARKER": {
+            "type": "String"
+          },
+          "DIR_QUEUE": {
+            "type": "Array"
+          },
+          "ALL_SCHEMAS_FOUND": {
+            "type": "Array"
+          },
+          "CURRENT_PREFIX": {
+            "type": "String"
+          },
+          "TEMP_DIR_QUEUE": {
+            "type": "Array"
+          },
+          "FILES": {
+            "type": "Array"
+          },
+          "MAX_LEVELS_TO_RECURSE": {
+            "type": "Integer"
           }
         },
         "folder": {
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "type": "DelimitedText",
-        "typeProperties": {
-          "location": {
-            "type": "AzureBlobFSLocation",
-            "folderPath": {
-              "value": "@dataset().DS_DIRECTORY",
-              "type": "Expression"
-            },
-            "fileSystem": {
-              "value": "@dataset().DS_CONTAINER",
-              "type": "Expression"
-            }
-          },
-          "columnDelimiter": ",",
-          "escapeChar": "\\",
-          "firstRowAsHeader": false,
-          "quoteChar": "\""
-        },
-        "schema": [
-          {
-            "type": "String"
-          }
-        ]
+        "lastPublishTime": "2025-04-09T09:33:11Z"
       },
-      "dependsOn": []
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]"
+      ]
     },
     {
       "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_metadata_discovery_ds')]",
@@ -1632,236 +1925,28 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_sub_directory_discovery_ds')]",
-      "type": "Microsoft.DataFactory/factories/datasets",
-      "apiVersion": "2018-06-01",
-      "properties": {
-        "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
-          "type": "LinkedServiceReference"
-        },
-        "parameters": {
-          "DS_CONTAINER": {
-            "type": "string"
-          },
-          "DS_SUB_DIRECTORY": {
-            "type": "string"
-          }
-        },
-        "folder": {
-          "name": "dcsazure_ADLS_to_ADLS_delimited"
-        },
-        "annotations": [],
-        "type": "DelimitedText",
-        "typeProperties": {
-          "location": {
-            "type": "AzureBlobFSLocation",
-            "folderPath": {
-              "value": "@dataset().DS_SUB_DIRECTORY",
-              "type": "Expression"
-            },
-            "fileSystem": {
-              "value": "@dataset().DS_CONTAINER",
-              "type": "Expression"
-            }
-          },
-          "columnDelimiter": ",",
-          "escapeChar": "\\",
-          "firstRowAsHeader": false,
-          "quoteChar": "\""
-        },
-        "schema": [
-          {
-            "type": "String"
-          }
-        ]
-      },
-      "dependsOn": []
-    },
-    {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_file_discovery_pl')]",
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
         "activities": [
           {
-            "name": "Get Files",
-            "type": "GetMetadata",
+            "name": "Until No More Blobs",
+            "type": "Until",
             "dependsOn": [],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "typeProperties": {
-              "dataset": {
-                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds",
-                "type": "DatasetReference",
-                "parameters": {
-                  "DS_CONTAINER": {
-                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
-                    "type": "Expression"
-                  },
-                  "DS_DIRECTORY": {
-                    "value": "@pipeline().parameters.P_DIRECTORY",
-                    "type": "Expression"
-                  }
-                }
-              },
-              "fieldList": [
-                "childItems"
-              ],
-              "storeSettings": {
-                "type": "AzureBlobFSReadSettings",
-                "recursive": true,
-                "modifiedDatetimeStart": {
-                  "value": "@pipeline().parameters.P_FILE_UPLOAD_DATE_TIME",
-                  "type": "Expression"
-                },
-                "modifiedDatetimeEnd": {
-                  "value": "@if(greater(pipeline().parameters.P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS, 0), addHours(pipeline().parameters.P_FILE_UPLOAD_DATE_TIME,pipeline().parameters.P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS), utcNow())",
-                  "type": "Expression"
-                },
-                "enablePartitionDiscovery": false
-              },
-              "formatSettings": {
-                "type": "DelimitedTextReadSettings"
-              }
-            }
-          },
-          {
-            "name": "Prefix",
-            "type": "Filter",
-            "dependsOn": [
-              {
-                "activity": "Get Files",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@activity('Get Files').output.childItems",
-                "type": "Expression"
-              },
-              "condition": {
-                "value": "@if(empty(pipeline().parameters.P_PREFIX),\n    true,\n    startswith(item().name,pipeline().parameters.P_PREFIX))",
-                "type": "Expression"
-              }
-            }
-          },
-          {
-            "name": "Suffix",
-            "type": "Filter",
-            "dependsOn": [
-              {
-                "activity": "Prefix",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@activity('Prefix').output.Value",
-                "type": "Expression"
-              },
-              "condition": {
-                "value": "@if(equals('NO_EXT', pipeline().parameters.P_SUFFIX), \n    not(contains(item().name, '.')),\n    endswith(item().name,pipeline().parameters.P_SUFFIX))",
-                "type": "Expression"
-              }
-            }
-          },
-          {
-            "name": "If Match",
-            "type": "IfCondition",
-            "dependsOn": [
-              {
-                "activity": "Suffix",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
             "userProperties": [],
             "typeProperties": {
               "expression": {
-                "value": "@not(empty(activity('Suffix').output.Value))",
+                "value": "@empty(variables('NEXT_MARKER'))",
                 "type": "Expression"
               },
-              "ifTrueActivities": [
+              "activities": [
                 {
-                  "name": "Get File Structure",
-                  "type": "GetMetadata",
-                  "dependsOn": [],
-                  "policy": {
-                    "timeout": "0.12:00:00",
-                    "retry": 0,
-                    "retryIntervalInSeconds": 30,
-                    "secureOutput": false,
-                    "secureInput": false
-                  },
-                  "userProperties": [],
-                  "typeProperties": {
-                    "dataset": {
-                      "referenceName": "dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds",
-                      "type": "DatasetReference",
-                      "parameters": {
-                        "DS_STORAGE_CONTAINER": {
-                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
-                          "type": "Expression"
-                        },
-                        "DS_DIRECTORY": {
-                          "value": "@pipeline().parameters.P_DIRECTORY",
-                          "type": "Expression"
-                        },
-                        "DS_FILE_NAME": {
-                          "value": "@activity('Suffix').output.Value[0].name",
-                          "type": "Expression"
-                        },
-                        "DS_COLUMN_DELIMITER": {
-                          "value": "@pipeline().parameters.P_COLUMN_DELIMITER",
-                          "type": "Expression"
-                        },
-                        "DS_QUOTE_CHARACTER": {
-                          "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
-                          "type": "Expression"
-                        },
-                        "DS_ESCAPE_CHARACTER": {
-                          "value": "@pipeline().parameters.P_ESCAPE_CHARACTER",
-                          "type": "Expression"
-                        },
-                        "DS_NULL_VALUE": {
-                          "value": "@pipeline().parameters.P_NULL_VALUE",
-                          "type": "Expression"
-                        }
-                      }
-                    },
-                    "fieldList": [
-                      "structure"
-                    ],
-                    "storeSettings": {
-                      "type": "AzureBlobFSReadSettings",
-                      "recursive": true,
-                      "enablePartitionDiscovery": false
-                    },
-                    "formatSettings": {
-                      "type": "DelimitedTextReadSettings"
-                    }
-                  }
-                },
-                {
-                  "name": "Persist Metadata To Database",
-                  "type": "SqlServerStoredProcedure",
+                  "name": "List Blobs",
+                  "type": "WebActivity",
                   "dependsOn": [
                     {
-                      "activity": "Get File Structure",
+                      "activity": "Save Previous Blob List",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -1876,82 +1961,243 @@
                   },
                   "userProperties": [],
                   "typeProperties": {
-                    "storedProcedureName": {
-                      "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME}",
+                    "method": "GET",
+                    "headers": {
+                      "x-ms-version": {
+                        "value": "@pipeline().parameters.P_MSFT_API_VERSION",
+                        "type": "Expression"
+                      },
+                      "x-ms-blob-type": {
+                        "value": "@pipeline().parameters.P_MSFT_BLOB_TYPE",
+                        "type": "Expression"
+                      }
+                    },
+                    "url": {
+                      "value": "https://@{pipeline().parameters.P_STORAGE_ACCOUNT}.blob.core.windows.net/@{pipeline().parameters.P_STORAGE_CONTAINER}?&restype=container&comp=list&prefix=@{pipeline().parameters.P_DIRECTORY}&maxResults=@{pipeline().parameters.P_MAX_RESULTS}&delimiter=/&marker=@{variables('NEXT_MARKER')}",
                       "type": "Expression"
                     },
-                    "storedProcedureParameters": {
-                      "adf_file_structure": {
-                        "value": {
-                          "value": "@string(activity('Get File Structure').output.structure)",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "column_delimiter": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_COLUMN_DELIMITER",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "database": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "escape_character": {
-                        "value": {
-                          "value": "@replace(pipeline().parameters.P_ESCAPE_CHARACTER,'\\','\\\\')",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "null_value": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_NULL_VALUE",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "quote_character": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "schema": {
-                        "value": {
-                          "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',pipeline().parameters.P_PREFIX)",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "table": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_SUFFIX",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      },
-                      "dataset": {
-                        "value": {
-                          "value": "@pipeline().parameters.P_DATASET",
-                          "type": "Expression"
-                        },
-                        "type": "String"
-                      }
+                    "authentication": {
+                      "type": "MSI",
+                      "resource": "https://storage.azure.com/"
                     }
+                  }
+                },
+                {
+                  "name": "Parse Response And Set Blob List",
+                  "type": "SetVariable",
+                  "dependsOn": [
+                    {
+                      "activity": "List Blobs",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
                   },
-                  "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata Datastore')]",
-                    "type": "LinkedServiceReference"
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "CURRENT_BLOB_LIST",
+                    "value": {
+                      "value": "@xpath(xml(activity('List Blobs').output.Response), '//Blob/Name/text()')",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Update Next Marker",
+                  "type": "SetVariable",
+                  "dependsOn": [
+                    {
+                      "activity": "List Blobs",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "NEXT_MARKER",
+                    "value": {
+                      "value": "@if(\n    empty(\n        xpath(\n            xml(activity('List Blobs').output.Response), \n            '//NextMarker/text()'\n        )\n    ), \n    '', \n    xpath(\n        xml(activity('List Blobs').output.Response), \n    '//NextMarker/text()')[0]\n)",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Save Previous Blob List",
+                  "type": "SetVariable",
+                  "dependsOn": [],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "PREV_BLOB_LIST",
+                    "value": {
+                      "value": "@variables('BLOBS_LIST')",
+                      "type": "Expression"
+                    }
+                  }
+                },
+                {
+                  "name": "Update Blob List",
+                  "type": "SetVariable",
+                  "dependsOn": [
+                    {
+                      "activity": "Parse Response And Set Blob List",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "BLOBS_LIST",
+                    "value": {
+                      "value": "@union(variables('CURRENT_BLOB_LIST'), variables('PREV_BLOB_LIST'))",
+                      "type": "Expression"
+                    }
                   }
                 }
-              ]
+              ],
+              "timeout": "0.12:00:00"
+            }
+          },
+          {
+            "name": "Set Result",
+            "type": "SetVariable",
+            "dependsOn": [
+              {
+                "activity": "Filter CSV",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              },
+              {
+                "activity": "Filter TXT",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              },
+              {
+                "activity": "Filter NO_EXT",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "variableName": "pipelineReturnValue",
+              "value": [
+                {
+                  "key": "CSV",
+                  "value": {
+                    "type": "Expression",
+                    "content": "@activity('Filter CSV').output.Value"
+                  }
+                },
+                {
+                  "key": "TXT",
+                  "value": {
+                    "type": "Expression",
+                    "content": "@activity('Filter TXT').output.Value"
+                  }
+                },
+                {
+                  "key": "NO_EXT",
+                  "value": {
+                    "type": "Expression",
+                    "content": "@activity('Filter NO_EXT').output.Value"
+                  }
+                }
+              ],
+              "setSystemVariable": true
+            }
+          },
+          {
+            "name": "Filter CSV",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Until No More Blobs",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@variables('BLOBS_LIST')",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@endswith(item(), '.csv')",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "Filter TXT",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Until No More Blobs",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@variables('BLOBS_LIST')",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@endswith(item(), '.txt')",
+                "type": "Expression"
+              }
+            }
+          },
+          {
+            "name": "Filter NO_EXT",
+            "type": "Filter",
+            "dependsOn": [
+              {
+                "activity": "Until No More Blobs",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@variables('BLOBS_LIST')",
+                "type": "Expression"
+              },
+              "condition": {
+                "value": "@not(contains(item(), '.'))",
+                "type": "Expression"
+              }
             }
           }
         ],
@@ -1959,59 +2205,250 @@
           "elapsedTimeMetric": {}
         },
         "parameters": {
-          "P_METADATA_SCHEMA": {
-            "type": "string"
-          },
-          "P_METADATA_RULESET_TABLE": {
-            "type": "string"
-          },
           "P_STORAGE_CONTAINER": {
-            "type": "String"
+            "type": "string"
+          },
+          "P_STORAGE_ACCOUNT": {
+            "type": "string"
           },
           "P_DIRECTORY": {
             "type": "string"
           },
-          "P_SUFFIX": {
-            "type": "string"
+          "P_MAX_RESULTS": {
+            "type": "string",
+            "defaultValue": "1000"
           },
-          "P_COLUMN_DELIMITER": {
-            "type": "string"
+          "P_MSFT_API_VERSION": {
+            "type": "string",
+            "defaultValue": "2021-08-06"
           },
-          "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-            "type": "string"
+          "P_MSFT_BLOB_TYPE": {
+            "type": "string",
+            "defaultValue": "BlockBlob"
+          }
+        },
+        "variables": {
+          "BLOBS_LIST": {
+            "type": "Array",
+            "defaultValue": []
           },
-          "P_PREFIX": {
-            "type": "string"
+          "NEXT_MARKER": {
+            "type": "String"
           },
-          "P_QUOTE_CHARACTER": {
-            "type": "string"
+          "CURRENT_BLOB_LIST": {
+            "type": "Array"
           },
-          "P_NULL_VALUE": {
-            "type": "string"
+          "PREV_BLOB_LIST": {
+            "type": "Array"
           },
-          "P_ESCAPE_CHARACTER": {
-            "type": "string"
-          },
-          "P_FILE_UPLOAD_DATE_TIME": {
-            "type": "string"
-          },
-          "P_UPLOAD_WINDOW_TO_CONSIDER_IN_HOURS": {
-            "type": "int"
-          },
-          "P_DATASET": {
-            "type": "string"
+          "FILES": {
+            "type": "Array"
           }
         },
         "folder": {
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2024-12-05T00:28:53Z"
+        "lastPublishTime": "2025-04-09T09:33:11Z"
       },
-      "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds')]"
-      ]
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_container_and_directory_discovery_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_STORAGE_CONTAINER": {
+            "type": "String"
+          },
+          "DS_DIRECTORY": {
+            "type": "String"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+          "location": {
+            "type": "AzureBlobFSLocation",
+            "folderPath": {
+              "value": "@dataset().DS_DIRECTORY",
+              "type": "Expression"
+            },
+            "fileSystem": {
+              "value": "@dataset().DS_STORAGE_CONTAINER",
+              "type": "Expression"
+            }
+          },
+          "columnDelimiter": ",",
+          "escapeChar": "\\",
+          "firstRowAsHeader": true,
+          "quoteChar": "\""
+        },
+        "schema": [
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          },
+          {
+            "type": "String"
+          }
+        ]
+      },
+      "dependsOn": []
     },
     {
       "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_data_discovery_df')]",
@@ -2296,6 +2733,236 @@
         }
       },
       "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_file_schema_discovery_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "activities": [
+          {
+            "name": "Get File Structure",
+            "type": "GetMetadata",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "dataset": {
+                "referenceName": "dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_STORAGE_CONTAINER": {
+                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
+                    "type": "Expression"
+                  },
+                  "DS_DIRECTORY": {
+                    "value": "@pipeline().parameters.P_DIRECTORY",
+                    "type": "Expression"
+                  },
+                  "DS_FILE_NAME": {
+                    "value": "@pipeline().parameters.P_FILENAME",
+                    "type": "Expression"
+                  },
+                  "DS_COLUMN_DELIMITER": {
+                    "value": "@pipeline().parameters.P_COLUMN_DELIMITER",
+                    "type": "Expression"
+                  },
+                  "DS_QUOTE_CHARACTER": {
+                    "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
+                    "type": "Expression"
+                  },
+                  "DS_ESCAPE_CHARACTER": {
+                    "value": "@pipeline().parameters.P_ESCAPE_CHARACTER",
+                    "type": "Expression"
+                  },
+                  "DS_NULL_VALUE": {
+                    "value": "@pipeline().parameters.P_NULL_VALUE",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "fieldList": [
+                "structure"
+              ],
+              "storeSettings": {
+                "type": "AzureBlobFSReadSettings",
+                "recursive": true,
+                "enablePartitionDiscovery": false
+              },
+              "formatSettings": {
+                "type": "DelimitedTextReadSettings"
+              }
+            }
+          },
+          {
+            "name": "Persist Metadata To Database",
+            "type": "SqlServerStoredProcedure",
+            "dependsOn": [
+              {
+                "activity": "Get File Structure",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "storedProcedureName": {
+                "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.@{pipeline().parameters.P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME}",
+                "type": "Expression"
+              },
+              "storedProcedureParameters": {
+                "adf_file_structure": {
+                  "value": {
+                    "value": "@string(activity('Get File Structure').output.structure)",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "column_delimiter": {
+                  "value": {
+                    "value": "@pipeline().parameters.P_COLUMN_DELIMITER",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "database": {
+                  "value": {
+                    "value": "@pipeline().parameters.P_STORAGE_CONTAINER",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "escape_character": {
+                  "value": {
+                    "value": "@replace(pipeline().parameters.P_ESCAPE_CHARACTER,'\\','\\\\')",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "null_value": {
+                  "value": {
+                    "value": "@pipeline().parameters.P_NULL_VALUE",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "quote_character": {
+                  "value": {
+                    "value": "@pipeline().parameters.P_QUOTE_CHARACTER",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "schema": {
+                  "value": {
+                    "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',pipeline().parameters.P_PREFIX)",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "table": {
+                  "value": {
+                    "value": "@pipeline().parameters.P_SUFFIX",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                },
+                "dataset": {
+                  "value": {
+                    "value": "@pipeline().parameters.P_DATASET",
+                    "type": "Expression"
+                  },
+                  "type": "String"
+                }
+              }
+            },
+            "linkedServiceName": {
+              "referenceName": "[parameters('Metadata Datastore')]",
+              "type": "LinkedServiceReference"
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_METADATA_SCHEMA": {
+            "type": "string"
+          },
+          "P_METADATA_RULESET_TABLE": {
+            "type": "string"
+          },
+          "P_STORAGE_CONTAINER": {
+            "type": "String"
+          },
+          "P_DIRECTORY": {
+            "type": "string"
+          },
+          "P_SUFFIX": {
+            "type": "string"
+          },
+          "P_COLUMN_DELIMITER": {
+            "type": "string"
+          },
+          "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
+            "type": "string"
+          },
+          "P_PREFIX": {
+            "type": "string"
+          },
+          "P_QUOTE_CHARACTER": {
+            "type": "string"
+          },
+          "P_NULL_VALUE": {
+            "type": "string"
+          },
+          "P_ESCAPE_CHARACTER": {
+            "type": "string"
+          },
+          "P_FILENAME": {
+            "type": "string"
+          },
+          "P_DATASET": {
+            "type": "string"
+          }
+        },
+        "variables": {
+          "HOMOGENOUS_SCHEMAS": {
+            "type": "Array"
+          },
+          "HETROGENOUS_SCHEMAS": {
+            "type": "Array"
+          },
+          "UNIQUE_HOMEGENOUS_SCHEMAS": {
+            "type": "Array"
+          },
+          "UNIQUE_HETROGENOUS_SCHEMAS": {
+            "type": "Array"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_ADLS_to_ADLS_delimited"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-04-03T07:12:08Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds')]"
+      ]
     },
     {
       "name": "[concat(parameters('factoryName'), '/dcsazure_ADLS_to_ADLS_delimited_header_file_schema_discovery_ds')]",
