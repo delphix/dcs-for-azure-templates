@@ -6,15 +6,8 @@ from pathlib import Path
 import typing as tp
 from datetime import datetime
 
-logger = logging.getLogger("verify_migration_script")
-logger.setLevel(logging.INFO)
-
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(levelname)s - %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+logger = logging.getLogger("validate_migration_scripts")
 
 CODE_EXTENSION = ".sql"
 BOOTSTRAP_FILE = "bootstrap.sql"
@@ -49,19 +42,18 @@ def check_duplicate_migration_versions(new_migration_files: tp.List, old_migrati
     Check if there are any duplicate migration versions
     1. Between new and old migration files.
     2. Between new migration files.
+    Migration Version Example - V2025.02.24.0
     """
     new_versions = [file.split("_")[0] for file in new_migration_files if file != BOOTSTRAP_FILE]
     old_versions = [file.split("_")[0] for file in old_migration_files]
 
-    duplicates = set(new_versions) & set(old_versions)
-    if duplicates:
+    if duplicates := set(new_versions) & set(old_versions):
         raise MigrationValidationError(
             f"Duplicate migration versions found: {duplicates}"
         )
 
     new_migration_files_set = set(new_migration_files)
-    duplicates = [file for file in new_migration_files_set if new_versions.count(file.split("_")[0]) > 1]
-    if duplicates:
+    if duplicates := [file for file in new_migration_files_set if new_versions.count(file.split("_")[0]) > 1]:
         raise MigrationValidationError(
             f"Duplicate migration versions found in new migration files: {duplicates}"
         )
@@ -77,24 +69,27 @@ def check_new_migration_file_format(new_migration_files: tp.List) -> None:
         if not re.match(r"^V\d{4}.\d{2}.\d{2}.\d{1,2}__.+\.sql$", file):
             raise MigrationValidationError(
                 f"New migration file {file} does not have a valid file name format."
+                "Correct format example: VYYYY.MM.DD.NN__description.sql"
             )
 
 
 def validate_new_migration_dates(new_migration_files: tp.List, old_migration_files: tp.List) -> None:
     """
-    Validate that the new migration files have a date format in their names.
+    Validate that the new migration files have a correct date in their names.
     """
     new_migration_date = [parse_date(file) for file in new_migration_files if file != BOOTSTRAP_FILE]
     latest_migration_date = [parse_date(file) for file in old_migration_files]
 
-    invalid_new_migration_file_date = [
+    if invalid_new_migration_file_date := [
         file_date for file_date in new_migration_date if file_date < max(latest_migration_date)
-    ]
-    if invalid_new_migration_file_date:
+    ]:
+        error_message = ""
         for file_date in invalid_new_migration_file_date:
-            raise MigrationValidationError(
+            error_message += (
                 f"New migration file date: V{file_date.strftime('%Y.%m.%d')} is older than the latest"
-                f" available migration version date: V{max(latest_migration_date).strftime('%Y.%m.%d')}")
+                f" available migration version date: V{max(latest_migration_date).strftime('%Y.%m.%d')}\n"
+            )
+        raise MigrationValidationError(error_message)
 
 
 def validate_if_bootstrap_file_is_updated(new_migration_files: tp.List) -> None:

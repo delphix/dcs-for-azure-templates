@@ -510,7 +510,7 @@ this script is added (with the final digit being used to allow multiple versions
 You can leverage the [./scripts/migrations.sh](./scripts/migrations.sh) to automatically add the new versioned migration
 to the [./metadata_store_scripts/bootstrap.sql](./metadata_store_scripts/bootstrap.sql) file.
 
-## Pre-Commit Hook
+## Pre-Commit Hook [OPTIONAL]
 Pre-commit hooks help enforce code quality by automatically checking and formatting your code before each commit.
 This ensures consistency and reduces the chances of committing code that doesn't meet project standards.
 Requirements:
