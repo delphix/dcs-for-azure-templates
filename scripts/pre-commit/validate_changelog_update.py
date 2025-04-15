@@ -75,7 +75,7 @@ def validate_files(changed_files: tp.List[str]) -> None:
     if staged_code and not changelog_updated:
         raise ValidationError(
             f"Detected code changes, but no corresponding update to {CHANGELOG_FILE}."
-            " Please document your changes in the changelog to maintain proper release history."
+            " Please document your changes to maintain release history."
         )
 
     if changelog_updated and not staged_code:
