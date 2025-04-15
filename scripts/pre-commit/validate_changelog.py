@@ -38,7 +38,7 @@ def get_project_root() -> Path:
 
 
 def read_file_content(file_path: Path) -> str:
-    if not file_path.is_file():
+    if not file_path.exists():
         raise ValidationError(f"File not found: {file_path}")
     return file_path.read_text().strip()
 
@@ -49,7 +49,8 @@ def read_version_file() -> str:
 
 def read_changelog_file() -> tp.Optional[str]:
     changelog_path = get_project_root() / CHANGELOG_FILE
-    content = changelog_path.read_text()
+    with changelog_path.open("r") as file:
+        content = ''.join([next(file) for _ in range(10)])
     match = re.search(r"^#\s*\[?(\d+\.\d+\.\d+)]?", content, re.MULTILINE)
     return match.group(1) if match else None
 
