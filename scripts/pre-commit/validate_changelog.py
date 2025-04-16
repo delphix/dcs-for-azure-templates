@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2025 by Delphix. All rights reserved.
+#
+
 import subprocess
 import logging
 import re
@@ -5,18 +9,13 @@ import sys
 import typing as tp
 from pathlib import Path
 
-logger = logging.getLogger("validate_changelog_update")
-logger.setLevel(logging.INFO)
-
-handler = logging.StreamHandler()
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+logger = logging.getLogger("validate_changelog")
 
 CODE_EXTENSIONS = {".json", ".sql"}
 VERSION_FILE = "VERSION.md"
 CHANGELOG_FILE = "CHANGELOG.md"
+MAX_LINES_TO_READ = 10
 
 
 class ValidationError(Exception):
@@ -50,7 +49,7 @@ def read_version_file() -> str:
 def read_changelog_file() -> tp.Optional[str]:
     changelog_path = get_project_root() / CHANGELOG_FILE
     with changelog_path.open("r") as file:
-        content = ''.join([next(file) for _ in range(10)])
+        content = ''.join([next(file) for _ in range(MAX_LINES_TO_READ)])
     match = re.search(r"^#\s*\[?(\d+\.\d+\.\d+)]?", content, re.MULTILINE)
     return match.group(1) if match else None
 
