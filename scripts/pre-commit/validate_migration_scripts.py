@@ -12,6 +12,8 @@ logger = logging.getLogger("validate_migration_scripts")
 CODE_EXTENSION = ".sql"
 BOOTSTRAP_FILE = "bootstrap.sql"
 METADATA_STORE_SCRIPTS_DIR = "metadata_store_scripts"
+MIGRATION_SCRIPT_COMMENT = "-- source: "
+MIGRATION_SCRIPT = "scripts/migrations.sh"
 
 
 class MigrationValidationError(Exception):
@@ -69,7 +71,7 @@ def check_new_migration_file_format(new_migration_files: tp.List) -> None:
         if not re.match(r"^V\d{4}.\d{2}.\d{2}.\d{1,2}__.+\.sql$", file):
             raise MigrationValidationError(
                 f"New migration file {file} does not have a valid file name format."
-                "Correct format example: VYYYY.MM.DD.NN__description.sql"
+                "Correct format example: VYYYY.MM.DD.N__description.sql or VYYYY.MM.DD.NN__description.sql"
             )
 
 
@@ -115,6 +117,16 @@ def validate_if_bootstrap_file_is_updated(new_migration_files: tp.List) -> None:
                 raise MigrationValidationError(
                     f"Bootstrap file [{BOOTSTRAP_FILE}] is not updated with the contents of"
                     f" new migration file {migration_script}."
+                )
+
+            #
+            # Check for the migration script comment
+            # This is to ensure that the bootstrap file is updated with the migration script
+            #
+            if f"{MIGRATION_SCRIPT_COMMENT}{Path(migration_script).stem}" not in bootstrap_content:
+                raise MigrationValidationError(
+                    "Bootstrap file is not updated correctly. "
+                    f"Please use migration script: {MIGRATION_SCRIPT} to update the bootstrap file."
                 )
 
 
