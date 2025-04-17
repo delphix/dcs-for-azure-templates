@@ -72,7 +72,7 @@ def check_new_migration_file_format(new_migration_files: tp.List) -> None:
     for file in new_migration_files:
         if file == BOOTSTRAP_FILE:
             continue
-        if not re.match(r"^V\d{4}.\d{2}.\d{2}.\d{1}__.+\.sql$", file):
+        if not re.match(r"^V\d{4}\.\d{2}\.\d{2}\.\d__.+\.sql$", file):
             raise MigrationValidationError(
                 f"New migration file {file} does not have a valid file name format."
                 "Correct format example: VYYYY.MM.DD.N__description.sql"
