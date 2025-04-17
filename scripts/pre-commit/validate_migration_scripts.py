@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2025 by Delphix. All rights reserved.
+#
+
 import subprocess
 import sys
 import re
@@ -68,10 +72,10 @@ def check_new_migration_file_format(new_migration_files: tp.List) -> None:
     for file in new_migration_files:
         if file == BOOTSTRAP_FILE:
             continue
-        if not re.match(r"^V\d{4}.\d{2}.\d{2}.\d{1,2}__.+\.sql$", file):
+        if not re.match(r"^V\d{4}.\d{2}.\d{2}.\d{1}__.+\.sql$", file):
             raise MigrationValidationError(
                 f"New migration file {file} does not have a valid file name format."
-                "Correct format example: VYYYY.MM.DD.N__description.sql or VYYYY.MM.DD.NN__description.sql"
+                "Correct format example: VYYYY.MM.DD.N__description.sql"
             )
 
 
@@ -103,6 +107,12 @@ def validate_if_bootstrap_file_is_updated(new_migration_files: tp.List) -> None:
         raise MigrationValidationError(
             f"Bootstrap file [{BOOTSTRAP_FILE}] is not updated with the latest migration scripts."
             " Execute scripts/migrations.sh script to update bootstrap.sql file."
+        )
+
+    if BOOTSTRAP_FILE in new_migration_files and not migration_scripts:
+        raise MigrationValidationError(
+            f"Bootstrap file [{BOOTSTRAP_FILE}] is updated without any new migration files."
+            " Please remove the bootstrap file from the commit."
         )
 
     if BOOTSTRAP_FILE in new_migration_files:

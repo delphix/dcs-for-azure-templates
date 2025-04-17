@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2025 by Delphix. All rights reserved.
+#
+
 repos:
   - repo: local
     hooks:
