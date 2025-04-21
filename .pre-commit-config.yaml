@@ -15,6 +15,17 @@ repos:
         additional_dependencies:
           - PyYAML
           - packaging
+      - id: sql-json-formatter
+        name: Format SQL and json files
+        entry: python ./scripts/pre-commit/format_sql_json.py
+        language: python
+        always_run: true
+        pass_filenames: false
+        verbose: true
+        additional_dependencies:
+          - PyYAML
+          - sqlparse
+          - packaging
       - id: check-version
         name: Check if the version number has been updated in the VERSION.md file.
         entry: python ./scripts/pre-commit/check_version.py
