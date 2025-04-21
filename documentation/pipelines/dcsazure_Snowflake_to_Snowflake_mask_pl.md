@@ -1,1 +1,0 @@
-../../dcsazure_Snowflake_to_Snowflake_mask_pl/README.md

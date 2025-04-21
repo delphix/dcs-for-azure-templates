@@ -1,5 +1,15 @@
 # CHANGELOG
 
+# 0.0.25 
+* Introduced functionality for identifying nested directories in the `dcsazure_ADLS_to_ADLS_delimited_discovery_pl` pipeline.
+* Modified queries to select the root schema and execute the masking job at the entire container level in the `dcsazure_ADLS_to_ADLS_delimited_masking_pl` pipeline.
+
+# 0.0.24
+* Add support for parameterized linked services in the `dcsazure_AzureSQL_to_AzureSQL_discovery_pl` and `dcsazure_AzureSQL_to_AzureSQL_mask_pl` pipelines.
+
+# 0.0.23
+* Add support for parameterized linked services in the `dcsazure_AzureSQL_MI_to_AzureSQL_MI_discovery_pl` and `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` pipelines.
+
 # 0.0.22
 * Fix bugs in `dcsazure_Databricks_to_Databricks_mask_pl` that could cause incorrect table selections in mask and copy
 

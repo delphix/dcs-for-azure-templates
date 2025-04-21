@@ -286,6 +286,24 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -830,6 +848,24 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -1343,6 +1379,10 @@
                               "DS_SOURCE_TABLE": {
                                 "value": "@item().source_table",
                                 "type": "Expression"
+                              },
+                              "DS_SOURCE_DATABASE": {
+                                "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                "type": "Expression"
                               }
                             }
                           }
@@ -1358,6 +1398,10 @@
                               },
                               "DS_SINK_TABLE": {
                                 "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "DS_SINK_DATABASE": {
+                                "value": "@pipeline().parameters.P_SINK_DATABASE",
                                 "type": "Expression"
                               }
                             }
@@ -1747,6 +1791,24 @@
                             "datasetParameters": {
                               "SourceData": {},
                               "SinkData": {}
+                            },
+                            "linkedServiceParameters": {
+                              "SourceData": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "SinkData": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -2149,6 +2211,24 @@
                 "datasetParameters": {
                   "Source": {},
                   "Sink": {}
+                },
+                "linkedServiceParameters": {
+                  "Source": {
+                    "linkedService": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  },
+                  "Sink": {
+                    "linkedService": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  }
                 }
               },
               "staging": {},
@@ -2281,7 +2361,13 @@
                   "userProperties": [],
                   "linkedServiceName": {
                     "referenceName": "[parameters('azuresql_mask_sink_db')]",
-                    "type": "LinkedServiceReference"
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -2639,7 +2725,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T11:53:56Z"
+        "lastPublishTime": "2025-02-27T12:50:19Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -2814,7 +2900,13 @@
                   "userProperties": [],
                   "linkedServiceName": {
                     "referenceName": "[parameters('azuresql_mask_sink_db')]",
-                    "type": "LinkedServiceReference"
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -3243,7 +3335,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
-                  "DS_SINK_TABLE": "-"
+                  "DS_SINK_TABLE": "-",
+                  "DS_SINK_DATABASE": {
+                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                    "type": "Expression"
+                  }
                 }
               }
             ],
@@ -3359,7 +3455,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T12:24:29Z"
+        "lastPublishTime": "2025-02-27T12:02:45Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3405,7 +3501,13 @@
                   "userProperties": [],
                   "linkedServiceName": {
                     "referenceName": "[parameters('azuresql_mask_sink_db')]",
-                    "type": "LinkedServiceReference"
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -3670,7 +3772,11 @@
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_SINK_SCHEMA": "-",
-                  "DS_SINK_TABLE": "-"
+                  "DS_SINK_TABLE": "-",
+                  "DS_SINK_DATABASE": {
+                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                    "type": "Expression"
+                  }
                 }
               }
             ],
@@ -3779,7 +3885,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-01-30T12:24:29Z"
+        "lastPublishTime": "2025-02-27T12:00:23Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3793,13 +3899,22 @@
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('azuresql_mask_sink_db')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": {
+              "value": "@dataset().DS_SINK_DATABASE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SINK_SCHEMA": {
             "type": "string"
           },
           "DS_SINK_TABLE": {
+            "type": "string"
+          },
+          "DS_SINK_DATABASE": {
             "type": "string"
           }
         },
@@ -5027,13 +5142,22 @@
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('azuresql_mask_source_db')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": {
+              "value": "@dataset().DS_SOURCE_DATABASE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SOURCE_SCHEMA": {
             "type": "string"
           },
           "DS_SOURCE_TABLE": {
+            "type": "string"
+          },
+          "DS_SOURCE_DATABASE": {
             "type": "string"
           }
         },
