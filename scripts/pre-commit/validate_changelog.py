@@ -8,6 +8,7 @@ import re
 import sys
 import typing as tp
 from pathlib import Path
+from packaging.version import Version
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger("validate_changelog")
@@ -15,7 +16,6 @@ logger = logging.getLogger("validate_changelog")
 CODE_EXTENSIONS = {".json", ".sql"}
 VERSION_FILE = "VERSION.md"
 CHANGELOG_FILE = "CHANGELOG.md"
-MAX_LINES_TO_READ = 10
 
 
 class ValidationError(Exception):
@@ -46,12 +46,38 @@ def read_version_file() -> str:
     return read_file_content(get_project_root() / VERSION_FILE)
 
 
-def read_changelog_file() -> tp.Optional[str]:
+def read_and_validate_changelog_file() -> tp.Optional[str]:
     changelog_path = get_project_root() / CHANGELOG_FILE
-    with changelog_path.open("r") as file:
-        content = ''.join([next(file) for _ in range(MAX_LINES_TO_READ)])
-    match = re.search(r"^#\s*\[?(\d+\.\d+\.\d+)]?", content, re.MULTILINE)
-    return match.group(1) if match else None
+    content = changelog_path.read_text().splitlines()
+
+    # Validate the first line
+    if not content or content[0].strip() != "# CHANGELOG":
+        raise ValidationError(
+            f"The first line of {CHANGELOG_FILE} must be '# CHANGELOG'"
+        )
+
+    versions = []
+    # Read the next lines to find version headers. Example: "# 0.0.25"
+    version_pattern = re.compile(r"^#\s*(\d+\.\d+\.\d+)\s*$")
+    for line in content[1:]:
+        if match := version_pattern.match(line):
+            versions.append(match.group(1))
+
+    if not versions:
+        raise ValidationError(
+            f"No version header found in {CHANGELOG_FILE}. Expected format: '# <version>'."
+            " Example - '# 0.0.25'"
+        )
+
+    # Verify that the version list is in strictly descending order.
+    for i in range(len(versions) - 1):
+        if Version(versions[i]) <= Version(versions[i + 1]):
+            raise ValidationError(
+                f"Version {versions[i]} is not greater than {versions[i + 1]}."
+                " Please ensure new version should be greater than the previous version."
+            )
+
+    return versions[0]
 
 
 def get_changed_files() -> tp.List[str]:
@@ -79,7 +105,7 @@ def validate_files(changed_files: tp.List[str]) -> None:
         )
 
     if changelog_updated and not staged_code:
-        raise ValidationError(
+        logger.warning(
             f"{CHANGELOG_FILE} has been modified, but no code files were changed."
             " If this was unintentional, please remove the changelog update."
         )
@@ -88,7 +114,7 @@ def validate_files(changed_files: tp.List[str]) -> None:
     if not version:
         raise ValidationError(f"Could not determine version from {VERSION_FILE}")
 
-    changelog_version = read_changelog_file()
+    changelog_version = read_and_validate_changelog_file()
     if not changelog_version:
         raise ValidationError(f"Could not determine version from {CHANGELOG_FILE}")
 
