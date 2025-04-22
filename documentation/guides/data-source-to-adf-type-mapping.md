@@ -20,9 +20,9 @@ Follow these steps to identify and configure the type mappings:
     - Populate these columns with sample data.
 
 3. **Use ADF Data Flow Debugging**:
-    - Open any data flow in ADF that reads from the data source. For example, use the "SourceData" activity in the `dcsazure_AzureSQL_to_AzureSQL_copy_df` data flow.
+    - Open any data flow in ADF that reads from the data source. For example, use the `Source1MillRowDataSampling` activity in the `dcsazure_AzureSQL_to_AzureSQL_discovery_df` data flow.
     - Enable "Data Flow Debug" mode.
-    - Navigate to the "Data Preview" tab of the "SourceData" activity and click "Refresh" to view the data preview.
+    - Navigate to the "Data Preview" tab of the `Source1MillRowDataSampling` activity and click "Refresh" to view the data preview.
 
 4. **Identify ADF Types**:
     - In the data preview, observe the data types of each column.
@@ -34,7 +34,9 @@ Follow these steps to identify and configure the type mappings:
       INSERT INTO adf_type_mapping (dataset, source_type, target_type)
       VALUES
             ('AZURESQL', '<data_source_type_1>', '<adf_type_1>'),
-            ('AZURESQL', '<data_source_type_2>', '<adf_type_2>');
+            ('AZURESQL', '<data_source_type_2>', '<adf_type_2>'),
+            -- Add more mappings as needed
+      ;
       ```
 
 ## Example
