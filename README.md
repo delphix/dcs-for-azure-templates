@@ -509,5 +509,3 @@ convention `V<version_number>__<comment>.sql`, where `<version_number>` is `YYYY
 this script is added (with the final digit being used to allow multiple versions to be tagged with the same date).
 You can leverage the [./scripts/migrations.sh](./scripts/migrations.sh) to automatically add the new versioned migration
 to the [./metadata_store_scripts/bootstrap.sql](./metadata_store_scripts/bootstrap.sql) file.
-
-

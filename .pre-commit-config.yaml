@@ -15,8 +15,6 @@ repos:
         additional_dependencies:
           - PyYAML
           - packaging
-  - repo: local
-    hooks:
       - id: validate-changelog
         name: Verify if CHANGELOG.md has been updated
         entry: python ./scripts/pre-commit/validate_changelog.py
@@ -36,3 +34,4 @@ repos:
         verbose: true
         additional_dependencies:
           - PyYAML
+          - packaging
