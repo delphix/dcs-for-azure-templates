@@ -15,11 +15,19 @@ repos:
         additional_dependencies:
           - PyYAML
           - packaging
-  - repo: local
-    hooks:
       - id: validate-changelog
         name: Verify if CHANGELOG.md has been updated
         entry: python ./scripts/pre-commit/validate_changelog.py
+        language: python
+        always_run: true
+        pass_filenames: false
+        verbose: true
+        additional_dependencies:
+          - PyYAML
+          - packaging
+      - id: validate-migration-scripts
+        name: Validate migration scripts
+        entry: python ./scripts/pre-commit/validate_migration_scripts.py
         language: python
         always_run: true
         pass_filenames: false
