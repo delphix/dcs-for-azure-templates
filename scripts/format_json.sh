@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Copyright (c) 2025 by Delphix. All rights reserved.
+#
 
 for PIPELINE in $(ls -d *_pl)
 do

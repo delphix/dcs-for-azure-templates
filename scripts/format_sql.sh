@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Copyright (c) 2025 by Delphix. All rights reserved.
+#
 
 # This script formats SQL files with sqlfluff.
 BOOTSTRAP_FILE="bootstrap.sql"
