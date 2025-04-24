@@ -959,7 +959,7 @@
             }
           },
           {
-            "name": "Determine All Heterogenous schema",
+            "name": "Determine All Heterogeneous Schema",
             "type": "Script",
             "dependsOn": [
               {
@@ -999,7 +999,7 @@
             "type": "ForEach",
             "dependsOn": [
               {
-                "activity": "Determine All Heterogenous schema",
+                "activity": "Determine All Heterogeneous Schema",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -1008,7 +1008,7 @@
             "userProperties": [],
             "typeProperties": {
               "items": {
-                "value": "@if(\n    greater(\n        length(activity('Determine All Heterogenous schema').output.resultSets), \n        0\n    ),\n    activity('Determine All Heterogenous schema').output.resultSets[0].rows,\n    json('[]')\n)",
+                "value": "@if(\n    greater(\n        length(activity('Determine All Heterogeneous Schema').output.resultSets), \n        0\n    ),\n    activity('Determine All Heterogeneous Schema').output.resultSets[0].rows,\n    json('[]')\n)",
                 "type": "Expression"
               },
               "isSequential": false,
