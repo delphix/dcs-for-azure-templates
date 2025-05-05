@@ -43,7 +43,7 @@ Follow these steps to identify and configure the type mappings:
 
 6. **Test the Mappings**:
     - After updating the `adf_type_mapping` table, run a pipeline that uses the updated mappings and ensure that data is correctly stored in the sink data source.
-    - If the pipeline fails despite using the identified ADF data types (e.g., see issue #40), adjust the mappings as needed to ensure the pipeline runs successfully and stores the masked data in the sink data source.
+    - If the pipeline fails despite using the identified ADF data types (e.g., see issue [#40](https://github.com/delphix/dcs-for-azure-templates/issues/40)), adjust the mappings as needed to ensure the pipeline runs successfully and stores the masked data in the sink data source.
 
 ## Example
 
