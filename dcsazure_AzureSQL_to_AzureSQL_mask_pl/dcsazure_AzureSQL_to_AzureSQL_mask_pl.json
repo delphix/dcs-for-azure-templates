@@ -2725,7 +2725,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-02-27T12:50:19Z"
+        "lastPublishTime": "2025-02-04T14:55:53Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -3455,7 +3455,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-02-27T12:02:45Z"
+        "lastPublishTime": "2025-02-04T14:55:51Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3885,7 +3885,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-02-27T12:00:23Z"
+        "lastPublishTime": "2025-02-04T14:55:51Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -4070,6 +4070,22 @@
             {
               "name": "AllMaskingParameters",
               "description": "Perform an inner join on output_row with the computed casting parameters and date format headers - combining all masking parameters into the same output stream"
+            },
+            {
+              "name": "JoinWithRulesetWithTypes",
+              "description": "Left outer join on 'RulesetWithTypes' and 'FilterColumnsForStringCasting'"
+            },
+            {
+              "name": "FilterColumnsForStringCasting",
+              "description": "Selects only the columns required for the join with 'JoinWithRulesetWithTypes'"
+            },
+            {
+              "name": "DropStringCastingColumns",
+              "description": "Removes all columns from `FilterColumnsForStringCasting` that are no longer needed."
+            },
+            {
+              "name": "UpdateAdfType",
+              "description": "Updates the `adf_type` column value to string for columns that should be casted as string"
             }
           ],
           "scriptLines": [
@@ -4135,7 +4151,7 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'left')~> RulesetWithTypes",
-            "RulesetWithTypes derive(output_row = 1,",
+            "DropStringCastingColumns derive(output_row = 1,",
             "          adf_type_conversion = concat(identified_column, ' as ', adf_type),",
             "          column_width_estimate = iif(identified_column_max_length > 0, identified_column_max_length+4, $DF_COLUMN_WIDTH_ESTIMATE)) ~> RulesetWithAlgorithmTypeMapping",
             "RulesetWithAlgorithmTypeMapping aggregate(groupBy(output_row),",
@@ -4230,6 +4246,53 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'auto')~> AllMaskingParameters",
+            "RulesetWithTypes, FilterColumnsForStringCasting join(Ruleset@dataset == FilterColumnsForStringCasting@dataset",
+            "     && Ruleset@specified_database == FilterColumnsForStringCasting@specified_database",
+            "     && Ruleset@specified_schema == FilterColumnsForStringCasting@specified_schema",
+            "     && Ruleset@identified_table == FilterColumnsForStringCasting@identified_table",
+            "     && Ruleset@identified_column == FilterColumnsForStringCasting@identified_column",
+            "     && Ruleset@identified_column_type == FilterColumnsForStringCasting@identified_column_type,",
+            "     joinType:'left',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'left')~> JoinWithRulesetWithTypes",
+            "FilterToRowsWithStringCasting select(mapColumn(",
+            "          dataset,",
+            "          specified_database,",
+            "          specified_schema,",
+            "          identified_table,",
+            "          identified_column,",
+            "          identified_column_type",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> FilterColumnsForStringCasting",
+            "UpdateAdfType select(mapColumn(",
+            "          dataset = Ruleset@dataset,",
+            "          specified_database = Ruleset@specified_database,",
+            "          specified_schema = Ruleset@specified_schema,",
+            "          identified_table = Ruleset@identified_table,",
+            "          identified_column = Ruleset@identified_column,",
+            "          identified_column_type = Ruleset@identified_column_type,",
+            "          identified_column_max_length,",
+            "          ordinal_position,",
+            "          row_count,",
+            "          metadata,",
+            "          profiled_domain,",
+            "          profiled_algorithm,",
+            "          confidence_score,",
+            "          rows_profiled,",
+            "          assigned_algorithm,",
+            "          last_profiled_updated_timestamp,",
+            "          discovery_complete,",
+            "          latest_event,",
+            "          algorithm_metadata,",
+            "          dataset = TypeMapping@dataset,",
+            "          dataset_type,",
+            "          adf_type",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> DropStringCastingColumns",
+            "JoinWithRulesetWithTypes derive(adf_type = iif(not(isNull(FilterColumnsForStringCasting@identified_column)), 'string', adf_type)) ~> UpdateAdfType",
             "AllMaskingParameters sink(validateSchema: false,",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
