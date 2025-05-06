@@ -8,7 +8,7 @@ import helpers
 from pathlib import Path
 
 
-SCRIPT_DIR = "scripts"
+SCRIPT_DIR = "scripts/pre-commit"
 SQL_FORMATTER_SCRIPT = "format_sql.sh"
 JSON_FORMATTER_SCRIPT = "format_json.sh"
 
