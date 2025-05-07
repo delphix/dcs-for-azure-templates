@@ -4077,7 +4077,7 @@
             },
             {
               "name": "FilterColumnsForStringCasting",
-              "description": "Selects only the columns required for the join with 'JoinWithRulesetWithTypes'"
+              "description": "Selects only the columns required for the join with 'RulesetWithTypes'"
             },
             {
               "name": "DropStringCastingColumns",
