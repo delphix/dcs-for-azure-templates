@@ -17,6 +17,8 @@ CHANGELOG_FILE = "CHANGELOG.md"
 TEMPLATES_JSON_PATH_PREFIX = "dcsazure_"
 METADATA_STORE_PATH = "metadata_store_scripts"
 DOCUMENTATION_PATH = "documentation"
+DOCKER_COMPOSE_FILE = "docker-compose.yaml"
+DOCUMENTATION_FILE = f"{DOCUMENTATION_PATH}/pipelines.md"
 JSON = ".json"
 SQL = ".sql"
 MD = ".md"
@@ -41,6 +43,7 @@ class GitCommand:
     FILE_CONTENT = ["git", "show"]
     COMMIT_MESSAGE = ["git", "log", "-1", "--pretty=%s"]
     PROJECT_ROOT = ["git", "rev-parse", "--show-toplevel"]
+    ORIGIN_FILES = ["git", "ls-tree", "-r", "origin/main", "--name-only"]
 
 
 class FileNotFoundException(Exception):
@@ -118,6 +121,14 @@ def get_commit_message() -> str:
     Get the commit message
     """
     return get_cmd_output(GitCommand.COMMIT_MESSAGE).strip()
+
+
+def get_files_from_origin_main() -> tp.List[pathlib.Path]:
+    """
+    Get the list of files from the origin/main branch
+    """
+    origin_pipeline_files = get_cmd_output(GitCommand.ORIGIN_FILES).strip()
+    return [pathlib.Path(path) for path in origin_pipeline_files.splitlines()]
 
 
 def get_all_modified_files() -> tp.List[pathlib.Path]:
