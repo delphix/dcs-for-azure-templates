@@ -10,7 +10,6 @@ import subprocess
 import sys
 import helpers
 
-TEMPLATE_DIR_REGEX = r"^dcsazure_(\w+)_to_(\w+)_(mask|discovery)_pl$"
 FILES_TO_VALIDATE = [
     helpers.CHANGELOG_FILE,
     helpers.README_FILE,
@@ -33,7 +32,7 @@ def filter_pipeline_directory(path_files: tp.List[pathlib.Path]) -> set[pathlib.
     return {
         pathlib.Path(path.parts[0])
         for path in path_files
-        if re.match(TEMPLATE_DIR_REGEX, path.parts[0])
+        if re.match(helpers.TEMPLATE_DIR_REGEX, path.parts[0])
     }
 
 
@@ -50,13 +49,11 @@ def __validate_pipeline_reference_in_file(file_path: pathlib.Path, pipeline: pat
     Validate if the pipeline reference is present in the specified file.
     """
     error_message = None
-    content = file_path.read_text().splitlines()
-    if pipeline not in content:
+    content = file_path.read_text()
+    if str(pipeline) not in content:
         relative_file_path = file_path.relative_to(helpers.get_project_root())
         error_message = (
             f"The pipeline '{pipeline}' reference was not found in '{relative_file_path}'."
-            f" \nKindly update the file {relative_file_path} to include a reference to the"
-            f" newly added pipeline."
         )
 
     return error_message
@@ -87,7 +84,7 @@ def validate_pipeline_reference(pipelines: set[pathlib.Path]) -> None:
 
     # Raise error if any validation errors were found
     if errors:
-        error_message = "\n\n".join(errors)
+        error_message = "\n".join(errors)
         raise ValidationError(
             f"Pipeline reference validation failed:\n{error_message}"
         )
@@ -99,10 +96,7 @@ def main():
         if not staged_pipelines:
             return 0
 
-        current_pipelines = get_pipeline_files_from_origin_main()
-        if new_pipelines := staged_pipelines - current_pipelines:
-            validate_pipeline_reference(new_pipelines)
-
+        validate_pipeline_reference(staged_pipelines)
         return 0
 
     except subprocess.CalledProcessError as e:
