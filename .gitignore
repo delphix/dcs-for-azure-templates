@@ -2,3 +2,4 @@
 dcs-for-azure-templates.iml
 releases/*.zip
 .DS_Store
+scripts/pre-commit/__pycache__/*.pyc

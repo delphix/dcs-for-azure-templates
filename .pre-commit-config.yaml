@@ -5,6 +5,16 @@
 repos:
   - repo: local
     hooks:
+      - id: check-template-names
+        name: Check if the ADF pipeline's template file and directory names are as per the convention.
+        entry: python ./scripts/pre-commit/check_names.py
+        language: python
+        always_run: true
+        pass_filenames: false
+        verbose: true
+        additional_dependencies:
+          - PyYAML
+          - packaging
       - id: check-version
         name: Check if the version number has been updated in the VERSION.md file.
         entry: python ./scripts/pre-commit/check_version.py
