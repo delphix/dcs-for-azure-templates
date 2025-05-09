@@ -31,7 +31,7 @@ NON_TEMPLATES_DIR = [
     DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts",
 ]
 
-TEMPLATE_DIR_REGEX = r"^dcsazure_(\w+)_to_(\w+)?_(mask|discovery)_pl$"
+TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}(\w+)_to_(\w+)?_(mask|discovery)_pl$"
 
 
 class GitCommand:
