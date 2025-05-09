@@ -4,14 +4,19 @@
 
 import logging
 import pathlib
+import re
 import typing as tp
 import subprocess
 import sys
 import helpers
 
-PIPELINE_DIR_PREFIX = "dcsazure_"
-MASK_PIPELINE_DIR_SUFFIX = "_mask_pl"
-DISCOVERY_PIPELINE_DIR_SUFFIX = "_discovery_pl"
+TEMPLATE_DIR_REGEX = r"^dcsazure_(\w+)_to_(\w+)_(mask|discovery)_pl$"
+FILES_TO_VALIDATE = [
+    helpers.CHANGELOG_FILE,
+    helpers.README_FILE,
+    helpers.DOCKER_COMPOSE_FILE,
+    helpers.DOCUMENTATION_FILE,
+]
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger("validate_new_pipeline_references")
@@ -21,30 +26,23 @@ class ValidationError(Exception):
     """Custom exception for validation-related errors."""
 
 
-def get_pipeline_directory(path_files: tp.List[pathlib.Path]) -> set[pathlib.Path]:
+def filter_pipeline_directory(path_files: tp.List[pathlib.Path]) -> set[pathlib.Path]:
     """
-    Get the list of pipeline directories from the given list of filepath.
+    Filter and return the set of pipeline directories from the given list of filepath.
     """
-    result = set()
-    for path in path_files:
-        pipeline_dir = path.parts[0]
-        if (
-                pipeline_dir.startswith(PIPELINE_DIR_PREFIX)
-                and (
-                pipeline_dir.endswith(MASK_PIPELINE_DIR_SUFFIX)
-                or pipeline_dir.endswith(DISCOVERY_PIPELINE_DIR_SUFFIX))
-        ):
-            result.add(pathlib.Path(pipeline_dir))
-    return result
+    return {
+        pathlib.Path(path.parts[0])
+        for path in path_files
+        if re.match(TEMPLATE_DIR_REGEX, path.parts[0])
+    }
 
 
-def get_pipeline_files_from_origin_main() -> tp.List[pathlib.Path]:
+def get_pipeline_files_from_origin_main() -> set[pathlib.Path]:
     """
     Get the list of files in the current working directory
     """
     origin_main_files = helpers.get_files_from_origin_main()
-    pipeline_files = get_pipeline_directory(origin_main_files)
-    return list(pipeline_files)
+    return filter_pipeline_directory(origin_main_files)
 
 
 def __validate_pipeline_reference_in_file(file_path: pathlib.Path, pipeline: pathlib.Path) -> tp.Optional[str]:
@@ -66,26 +64,16 @@ def __validate_pipeline_reference_in_file(file_path: pathlib.Path, pipeline: pat
 
 def validate_pipeline_reference(pipelines: set[pathlib.Path]) -> None:
     errors = []
-    for pipeline in list(pipelines):
+
+    for pipeline in pipelines:
         # 1. Validate if pipeline reference is present in CHANGELOG.md file
-        changelog_path = helpers.get_project_root() / helpers.CHANGELOG_FILE
-        if error_msg := __validate_pipeline_reference_in_file(changelog_path, pipeline):
-            errors.append(error_msg)
-
         # 2. Validate if pipeline reference is present in README.md file
-        readme_path = helpers.get_project_root() / helpers.README_FILE
-        if error_msg := __validate_pipeline_reference_in_file(readme_path, pipeline):
-            errors.append(error_msg)
-
         # 3. Validate if pipeline reference is present in docker-compose.yaml file
-        docker_compose_path = helpers.get_project_root() / helpers.DOCKER_COMPOSE_FILE
-        if error_msg := __validate_pipeline_reference_in_file(docker_compose_path, pipeline):
-            errors.append(error_msg)
-
         # 4. Validate if pipeline reference is present in documentation/pipelines.md file
-        documentation_path = helpers.get_project_root() / helpers.DOCUMENTATION_FILE
-        if error_msg := __validate_pipeline_reference_in_file(documentation_path, pipeline):
-            errors.append(error_msg)
+        for file in FILES_TO_VALIDATE:
+            file_path = helpers.get_project_root() / file
+            if error_msg := __validate_pipeline_reference_in_file(file_path, pipeline):
+                errors.append(error_msg)
 
         # 5. Validate if pipeline reference is present in pipeline/README.md file
         pipeline_readme_path = helpers.get_project_root() / pipeline / helpers.README_FILE
@@ -107,12 +95,12 @@ def validate_pipeline_reference(pipelines: set[pathlib.Path]) -> None:
 
 def main():
     try:
-        staged_pipelines = list(get_pipeline_directory(helpers.get_all_modified_files()))
+        staged_pipelines = filter_pipeline_directory(helpers.get_all_modified_files())
         if not staged_pipelines:
             return 0
 
         current_pipelines = get_pipeline_files_from_origin_main()
-        if new_pipelines := set(staged_pipelines) - set(current_pipelines):
+        if new_pipelines := staged_pipelines - current_pipelines:
             validate_pipeline_reference(new_pipelines)
 
         return 0
