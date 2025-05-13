@@ -36,14 +36,6 @@ def filter_pipeline_directory(path_files: tp.List[pathlib.Path]) -> set[pathlib.
     }
 
 
-def get_pipeline_files_from_origin_main() -> set[pathlib.Path]:
-    """
-    Get the list of files in the current working directory
-    """
-    origin_main_files = helpers.get_files_from_origin_main()
-    return filter_pipeline_directory(origin_main_files)
-
-
 def __validate_pipeline_reference_in_file(file_path: pathlib.Path, pipeline: pathlib.Path) -> tp.Optional[str]:
     """
     Validate if the pipeline reference is present in the specified file.
