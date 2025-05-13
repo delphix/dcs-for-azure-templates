@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.27
+* Fixed an issue where many small requests are being sent in ADLS pipelines instead of fewer requests that are larger in size
+
 # 0.0.26
 * Updated the resource activity `Determine All Heterogeneous Schema` name to title case in `dcsazure_ADLS_to_ADLS_delimited_discovery_pl` pipeline template.
 
