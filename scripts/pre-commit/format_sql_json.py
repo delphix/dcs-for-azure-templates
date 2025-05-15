@@ -15,13 +15,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger("format_sql_json")
 
 
-def run_script(script_path: Path):
-    subprocess.run(
-        [script_path],
-        check=True,
-    )
-
-
 def format_sql(modified_sql_files: tp.List[Path]):
     for sql_file in modified_sql_files:
         try:
@@ -33,7 +26,7 @@ def format_sql(modified_sql_files: tp.List[Path]):
             )
         except subprocess.CalledProcessError as e:
             logger.error(f"Error formatting SQL file {sql_file}: {e}")
-            raise
+            raise e
 
 
 def format_json(modified_json_files: tp.List[Path]):
@@ -51,7 +44,7 @@ def format_json(modified_json_files: tp.List[Path]):
             temp_json_path.replace(json_path)
         except subprocess.CalledProcessError as e:
             logger.error(f"Error formatting JSON file {json_file}: {e}")
-            raise
+            raise e
 
 
 def main():
@@ -62,8 +55,7 @@ def main():
         format_sql(modified_sql_files)
         format_json(modified_json_files)
         return 0
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error executing command: {e}")
+    except subprocess.CalledProcessError:
         return 1
     except Exception as e:
         logger.error(f"An error occurred: {e}")
