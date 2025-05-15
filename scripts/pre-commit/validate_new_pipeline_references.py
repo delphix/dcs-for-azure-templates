@@ -53,7 +53,6 @@ def __validate_pipeline_reference_in_file(file_path: pathlib.Path, pipeline: pat
 
 def validate_pipeline_reference(pipelines: set[pathlib.Path]) -> None:
     errors = []
-
     for pipeline in pipelines:
         # 1. Validate if pipeline reference is present in CHANGELOG.md file
         # 2. Validate if pipeline reference is present in README.md file
@@ -67,10 +66,32 @@ def validate_pipeline_reference(pipelines: set[pathlib.Path]) -> None:
         # 5. Validate if pipeline reference is present in pipeline/README.md file
         pipeline_readme_path = helpers.get_project_root() / pipeline / helpers.README_FILE
         if not pipeline_readme_path.exists():
-            relative_path = pipeline_readme_path.relative_to(helpers.get_project_root())
-            raise ValidationError(
-                f"Pipeline README file '{relative_path}' not found."
-            )
+            #
+            # Validate if the pipeline got deleted
+            #
+            deleted_files = helpers.get_staged_deleted_files()
+            required_pipeline_files = [
+                pipeline / f"{pipeline.name}.json",
+                pipeline / helpers.README_FILE,
+                pipeline / helpers.MANIFEST_FILE,
+            ]
+            #
+            # Validate if the below files got deleted
+            # - pipeline/pipeline.json file
+            # - pipeline/README.md file
+            # - pipeline/manifest.json file
+            #
+            if all(file in deleted_files for file in required_pipeline_files):
+                logger.warning(
+                    f"Pipeline '{pipeline.name}' got deleted."
+                )
+                continue
+            else:
+                relative_path = pipeline_readme_path.relative_to(helpers.get_project_root())
+                raise ValidationError(
+                    f"Pipeline README file '{relative_path}' not found."
+                )
+
         if error_msg := __validate_pipeline_reference_in_file(pipeline_readme_path, pipeline):
             errors.append(error_msg)
 

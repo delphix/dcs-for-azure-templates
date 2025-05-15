@@ -33,6 +33,16 @@ NON_TEMPLATES_DIR = [
     DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts",
 ]
 
+#
+# This regex is used to match the template directory names
+# e.g. dcsazure_<source_db>_to_<sink_db>_<service>_pl
+# e.g. dcsazure_AzureSQL_to_AzureSQL_discovery_pl
+# e.g. dcsazure_AzureSQL_to_AzureSQL_mask_pl
+# Captures:
+#   1. source_db as group 1
+#   2. sink_db as group 2
+#   3. service - mask or discovery as group 3
+#
 TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}(\w+)_to_(\w+)_(mask|discovery)_pl$"
 
 
@@ -129,6 +139,17 @@ def get_files_from_origin_main() -> tp.List[pathlib.Path]:
     """
     origin_pipeline_files = get_cmd_output(GitCommand.ORIGIN_FILES).strip()
     return [pathlib.Path(path) for path in origin_pipeline_files.splitlines()]
+
+
+def get_staged_deleted_files() -> tp.List[pathlib.Path]:
+    """
+    Get the list of files deleted in the commit
+    """
+    try:
+        deleted_files = get_cmd_output(GitCommand.MODIFIED_FILES + ["--diff-filter=D"])
+        return [pathlib.Path(path) for path in deleted_files.splitlines()]
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Could not retrieve git diff: {e}")
 
 
 def get_all_modified_files() -> tp.List[pathlib.Path]:
