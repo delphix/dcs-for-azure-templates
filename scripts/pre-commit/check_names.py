@@ -32,7 +32,7 @@ The files do not follow the naming conventions. Use the format below.
 """
 
 
-def validate_file_and_directory_names(files: tp.List[pathlib.Path]) -> None:
+def validate_file_and_directory_names(files: tp.Set[pathlib.Path]) -> None:
     """
     Validate the names of all the files being added to repo
     """
@@ -189,7 +189,7 @@ def validate_code_json_content(file: pathlib.Path) -> None:
     validate_resource_activity_names(file, json_content['resources'])
 
 
-def validate_pipeline_json_content(files: tp.List[pathlib.Path]) -> None:
+def validate_pipeline_json_content(files: tp.Set[pathlib.Path]) -> None:
     all_json = filter_json_files(files)
     for file in all_json:
         if is_template_code_json(file):
@@ -198,7 +198,7 @@ def validate_pipeline_json_content(files: tp.List[pathlib.Path]) -> None:
             validate_manifest_json_content(file)
 
 
-def filter_json_files(files: tp.List[pathlib.Path]) -> tp.List[pathlib.Path]:
+def filter_json_files(files: tp.Set[pathlib.Path]) -> tp.List[pathlib.Path]:
     json_files = []
     for file in files:
         if (
@@ -250,9 +250,13 @@ def main() -> int:
     """
     exit_status = 0
     modified_files = helpers.get_all_modified_files()
+    deleted_files = helpers.get_staged_deleted_files()
+
+    # Validate the files which are added or modified
+    active_modified_files = set(modified_files) - set(deleted_files)
     try:
-        validate_file_and_directory_names(modified_files)
-        validate_pipeline_json_content(modified_files)
+        validate_file_and_directory_names(active_modified_files)
+        validate_pipeline_json_content(active_modified_files)
     except helpers.InvalidTemplateNameException as e:
         log.error(f"{e}\n{NAMING_ERROR}")
         exit_status = 1
