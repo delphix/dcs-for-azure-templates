@@ -17,6 +17,8 @@ CHANGELOG_FILE = "CHANGELOG.md"
 TEMPLATES_JSON_PATH_PREFIX = "dcsazure_"
 METADATA_STORE_PATH = "metadata_store_scripts"
 DOCUMENTATION_PATH = "documentation"
+DOCKER_COMPOSE_FILE = "docker-compose.yaml"
+DOCUMENTATION_FILE = f"{DOCUMENTATION_PATH}/pipelines.md"
 JSON = ".json"
 SQL = ".sql"
 MD = ".md"
@@ -31,7 +33,19 @@ NON_TEMPLATES_DIR = [
     DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts",
 ]
 
-TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}(\w+)_to_(\w+)?_(mask|discovery)_pl$"
+#
+# This regex is used to match the template directory names
+# e.g. dcsazure_<source_db>_to_<sink_db>_<service>_pl
+# e.g. dcsazure_AzureSQL_to_AzureSQL_discovery_pl
+# e.g. dcsazure_AzureSQL_to_AzureSQL_mask_pl
+# e.g dcsazure_ADLS_to_ADLS_delimited_discovery_pl
+# Captures:
+#   1. source_db as group 1 --> ([A-Za-z]+)
+#   2. sink_db and optional specifier as group 2 --> ([A-Za-z]+(?:_[A-Za-z]+)*)
+#      2.1 (?:_[A-Za-z]+)* allows 0 or more letters, making it optional
+#   3. service - mask or discovery as group 3 --> (mask|discovery)
+#
+TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}([A-Za-z0-9]+)_to_([A-Za-z0-9]+(?:_[A-Za-z]+)*)_(mask|discovery)_pl$"
 
 
 class GitCommand:
@@ -41,6 +55,7 @@ class GitCommand:
     FILE_CONTENT = ["git", "show"]
     COMMIT_MESSAGE = ["git", "log", "-1", "--pretty=%s"]
     PROJECT_ROOT = ["git", "rev-parse", "--show-toplevel"]
+    ORIGIN_FILES = ["git", "ls-tree", "-r", "origin/main", "--name-only"]
 
 
 class FileNotFoundException(Exception):
@@ -118,6 +133,25 @@ def get_commit_message() -> str:
     Get the commit message
     """
     return get_cmd_output(GitCommand.COMMIT_MESSAGE).strip()
+
+
+def get_files_from_origin_main() -> tp.List[pathlib.Path]:
+    """
+    Get the list of files from the origin/main branch
+    """
+    origin_pipeline_files = get_cmd_output(GitCommand.ORIGIN_FILES).strip()
+    return [pathlib.Path(path) for path in origin_pipeline_files.splitlines()]
+
+
+def get_staged_deleted_files() -> tp.List[pathlib.Path]:
+    """
+    Get the list of files deleted in the commit
+    """
+    try:
+        deleted_files = get_cmd_output(GitCommand.MODIFIED_FILES + ["--diff-filter=D"])
+        return [pathlib.Path(path) for path in deleted_files.splitlines()]
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Could not retrieve git diff: {e}")
 
 
 def get_all_modified_files() -> tp.List[pathlib.Path]:
