@@ -31,8 +31,8 @@ the mappings from Azure SQL Database data types to ADF types.
     - Open any data flow in ADF that reads from the data source. For example, use the 
     `Source1MillRowDataSampling` activity in the `dcsazure_AzureSQL_to_AzureSQL_discovery_df` data flow.
     - Enable "Data Flow Debug" mode.
-    - Navigate to the "Data Preview" tab of the `Source1MillRowDataSampling` activity and click "Refresh" to view 
-    the data preview.
+    - Navigate to the "Data Preview" tab of the source activity and click "Refresh" to view the data preview.
+    For example, use the "Data Preview" tab of the `Source1MillRowDataSampling` activity in the discovery dataflow.
     ![data preview](../images/ADF%20Data%20Preview.png)
 
 4. **Identify ADF Types**:
@@ -42,26 +42,35 @@ the mappings from Azure SQL Database data types to ADF types.
     - Note the corresponding ADF type for each data source type.
 
 5. **Update the `adf_type_mapping` Table**:
-    - Add the identified mappings to the `adf_type_mapping` table in the Metadata Datastore using the following 
-    SQL template:
+    - Add the identified mappings to the `adf_type_mapping` table in the Metadata Datastore using 
+    the following SQL template:
       ```sql
       INSERT INTO adf_type_mapping (dataset, source_type, target_type)
       VALUES
-            ('AZURESQL', '<data_source_type_1>', '<adf_type_1>'),
-            ('AZURESQL', '<data_source_type_2>', '<adf_type_2>'),
-            -- Add more mappings as needed
+          ('<dataset>', '<data_source_type_1>', '<adf_type_1>'),
+          ('<dataset>', '<data_source_type_2>', '<adf_type_2>'),
+          -- Add more mappings as needed
       ;
       ```
+      - Replace `<dataset>` with your dataset name (e.g., `AZURESQL`, `SNOWFLAKE`), 
+      `<data_source_type_X>` with the source data type, and `<adf_type_X>` with the corresponding ADF type.
 
 6. **Test the Mappings**:
-    - After updating the `adf_type_mapping` table, run a pipeline that uses the updated mappings and ensure that 
-    data is correctly stored in the sink data source.
+    - After adding the new type mappings to the `adf_type_mapping` table, run a pipeline that uses these mappings and ensure that 
+    the data is correctly stored in the sink data source.
     - If the pipeline fails despite using the identified ADF data types (e.g., see issue [#40](https://github.com/delphix/dcs-for-azure-templates/issues/40)), 
     adjust the mappings as needed to ensure the pipeline runs successfully and stores the masked data in the sink data source.
 
+7. **Create a Migration Script**:
+    - Once you have verified the new type mappings, create a versioned migration script to add them 
+    to the `adf_type_mapping` table.  
+    - Include this script in your pull request so the mappings are applied consistently 
+    across all environments during deployment.  
+    - For more details, see the [metadata_store_scripts](../../metadata_store_scripts) directory and and the main [README.md](../../README.md#self-hosted-metadata-store).
+
 ## Example
 
-For a data source like Azure SQL, you might map types as follows:
+For a data source like Azure SQL, you might map Azure SQL data types to ADF types as follows:
 - `tinyint` → `integer`
 - `float` → `double`
 - `smalldatetime` → `timestamp`
