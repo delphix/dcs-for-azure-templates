@@ -73,6 +73,6 @@ the mappings from Azure SQL Database data types to ADF types.
 For a data source like Azure SQL, you might map Azure SQL data types to ADF types as follows:
 - `tinyint` → `integer`
 - `float` → `double`
-- `smalldatetime` → `timestamp` 
+- `smalldatetime` → `timestamp`
 
 These mappings ensure that ADF correctly interprets and processes the data during pipeline execution.
