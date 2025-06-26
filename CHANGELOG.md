@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.26
+* Updated the resource activity `Determine All Heterogeneous Schema` name to title case in `dcsazure_ADLS_to_ADLS_delimited_discovery_pl` pipeline template.
+
 # 0.0.25 
 * Introduced functionality for identifying nested directories in the `dcsazure_ADLS_to_ADLS_delimited_discovery_pl` pipeline.
 * Modified queries to select the root schema and execute the masking job at the entire container level in the `dcsazure_ADLS_to_ADLS_delimited_masking_pl` pipeline.
