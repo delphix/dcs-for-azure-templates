@@ -2651,7 +2651,7 @@
           },
           "TARGET_BATCH_SIZE": {
             "type": "Integer",
-            "defaultValue": 2000
+            "defaultValue": 50000
           },
           "DATASET": {
             "type": "String",
@@ -3239,7 +3239,7 @@
             "     DF_SINK_TABLE as string (''),",
             "     DF_TRIM_LENGTHS as integer[] ([-1]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
-            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
+            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (50000),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
             "     DF_COLUMNS_TO_CAST_AS_STRINGS as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_BINARY as string[] ([\"\"]),",
@@ -3899,7 +3899,7 @@
             "     DF_SINK_TABLE as string (''),",
             "     DF_TRIM_LENGTHS as integer[] ([-1]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
-            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
+            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (50000),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
             "     DF_FILTER_CONDITION as boolean (true()),",
             "     DF_COLUMNS_TO_CAST_AS_STRINGS as string[] ([\"\"]),",
