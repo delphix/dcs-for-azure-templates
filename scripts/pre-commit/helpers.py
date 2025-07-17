@@ -53,7 +53,7 @@ class GitCommand:
         "git", "diff", "--no-merges", "--name-only", "--first-parent", "origin/main"
     ]
     FILE_CONTENT = ["git", "show"]
-    COMMIT_MESSAGE = ["git", "log", "-1", "--pretty=%s"]
+    COMMIT_MESSAGE = ["git", "log", "@{u}..", "-1", "--pretty=%s"]
     PROJECT_ROOT = ["git", "rev-parse", "--show-toplevel"]
     ORIGIN_FILES = ["git", "ls-tree", "-r", "origin/main", "--name-only"]
 

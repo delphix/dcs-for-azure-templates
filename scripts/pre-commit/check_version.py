@@ -103,12 +103,12 @@ def main() -> int:
             exit_status = 1
     else:
         doc_files = filter_documentation_files(all_updated_files)
-        if doc_files and not commit_message.startswith("docs:"):
+        if doc_files and commit_message and not commit_message.startswith("docs:"):
             file_names = "\n".join([str(path) for path in doc_files])
             log.error(
                 "Below documentation files related to ADF templates have been"
                 f" modified:\n\n{file_names}\n\nCommit message should start"
-                " with 'docs:'"
+                f" with 'docs:'\n\n{commit_message}"
             )
             exit_status = 1
 
