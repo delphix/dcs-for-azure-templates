@@ -109,8 +109,8 @@ have customized your metadata store, then these variables may need editing.
   pipeline starts and ends (default `adf_data_mapping`)
 * `METADATA_ADF_TYPE_MAPPING_TABLE` - This is the table used for determining how Azure Data Factory should interpret
   data that flows through the pipeline (default `adf_type_mapping`)
-* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`)
-* `DATASET` - This is the way this data set is referred to in the metadata store (default `ADLS`)
+* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `50000`)
+* `DATASET` - This is the way this data set is referred to in the metadata store (default `ADLS-DELIMITED`)
 * `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
   when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
   ADF syntax for referencing the key column (default `%`)
