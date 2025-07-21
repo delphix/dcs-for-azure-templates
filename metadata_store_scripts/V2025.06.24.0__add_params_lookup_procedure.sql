@@ -9,10 +9,7 @@
  * 2. Filtered mode - When @DF_FILTER_KEY is provided, applies conditional algorithms and formats
  *    based on the provided filter key
  */
-CREATE OR ALTER PROCEDURE [dbo].[GenerateMaskingParameters]
-    @DF_METADATA_SCHEMA NVARCHAR(128) = 'dbo',
-    @DF_METADATA_RULESET_TABLE NVARCHAR(128) = 'discovered_ruleset',
-    @DF_METADATA_ADF_TYPE_MAPPING_TABLE NVARCHAR(128) = 'adf_type_mapping',
+CREATE OR ALTER PROCEDURE generate_masking_parameters
     @DF_SOURCE_DB NVARCHAR(128),
     @DF_SOURCE_SCHEMA NVARCHAR(128),
     @DF_SOURCE_TABLE NVARCHAR(128),
@@ -32,7 +29,7 @@ BEGIN
     WITH FilterToSingleTable AS (
         SELECT 
             r.*
-        FROM dbo.discovered_ruleset r
+        FROM discovered_ruleset r
         WHERE r.dataset = @DF_DATASET
           AND r.specified_database = @DF_SOURCE_DB
           AND r.specified_schema = @DF_SOURCE_SCHEMA
@@ -47,7 +44,7 @@ BEGIN
             t.dataset,
             t.dataset_type,
             t.adf_type
-        FROM dbo.adf_type_mapping t
+        FROM adf_type_mapping t
         WHERE t.dataset = @DF_DATASET
     ),
     -- ConditionalProcessing

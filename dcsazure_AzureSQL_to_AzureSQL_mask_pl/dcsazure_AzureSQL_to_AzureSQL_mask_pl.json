@@ -1090,27 +1090,6 @@
                             "type": "Expression"
                           }
                         },
-                        "DF_METADATA_ADF_TYPE_MAPPING_TABLE": {
-                          "type": "String",
-                          "value": {
-                            "value": "@variables('METADATA_ADF_TYPE_MAPPING_TABLE')",
-                            "type": "Expression"
-                          }
-                        },
-                        "DF_METADATA_RULESET_TABLE": {
-                          "type": "String",
-                          "value": {
-                            "value": "@variables('METADATA_RULESET_TABLE')",
-                            "type": "Expression"
-                          }
-                        },
-                        "DF_METADATA_SCHEMA": {
-                          "type": "String",
-                          "value": {
-                            "value": "@variables('METADATA_SCHEMA')",
-                            "type": "Expression"
-                          }
-                        },
                         "DF_SOURCE_DB": {
                           "type": "String",
                           "value": {
@@ -2602,14 +2581,14 @@
           },
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
-            "defaultValue": "GenerateMaskingParameters"
+            "defaultValue": "generate_masking_parameters"
           }
         },
         "folder": {
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-07-21T06:36:06Z"
+        "lastPublishTime": "2025-07-21T13:04:02Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
