@@ -57,23 +57,23 @@ BEGIN
         SELECT fts.*
         FROM FilterToSingleTable fts
         WHERE ISJSON(fts.assigned_algorithm) = 1
-        AND JSON_VALUE(fts.assigned_algorithm, '$[0].alias') IS NOT NULL
+          AND JSON_VALUE(fts.assigned_algorithm, '$[0].alias') IS NOT NULL
     ),
     ConditionalAlgorithm AS (
         SELECT fts.*
         FROM FilterToSingleTable fts
         WHERE ISJSON(fts.assigned_algorithm) = 1 
-        AND JSON_VALUE(fts.assigned_algorithm, '$.key_column') IS NOT NULL
-        AND JSON_QUERY(fts.assigned_algorithm, '$.conditions') IS NOT NULL
-        AND EXISTS (
-          SELECT 1
-          FROM OPENJSON(JSON_QUERY(fts.assigned_algorithm, '$.conditions'))
-        )
+          AND JSON_VALUE(fts.assigned_algorithm, '$.key_column') IS NOT NULL
+          AND JSON_QUERY(fts.assigned_algorithm, '$.conditions') IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM OPENJSON(JSON_QUERY(fts.assigned_algorithm, '$.conditions'))
+          )
     ),
     StandardAlgorithm AS (
         SELECT fts.*
         FROM FilterToSingleTable fts
-        WHERE ISJSON(fts.assigned_algorithm) = 0 -- Not JSON at all
+        WHERE ISJSON(fts.assigned_algorithm) = 0
     ),
     ParseKeyColumn AS (
         SELECT 
@@ -180,7 +180,8 @@ BEGIN
     -- UnionAllRules
     -- Simply use the result of conditional filtering
     UnionAllRules AS (
-        SELECT cf.* FROM ConditionalFiltering cf
+        SELECT cf.* 
+        FROM ConditionalFiltering cf
         WHERE cf.assigned_algorithm IS NOT NULL
           AND cf.assigned_algorithm <> ''
           AND ISJSON(cf.assigned_algorithm) = 0
@@ -191,10 +192,21 @@ BEGIN
     RulesetWithTypes AS (
         SELECT 
             u.*,
-            t.adf_type
+            t.adf_type,
+            CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, u.identified_column), 2)) AS encoded_column_name
         FROM UnionAllRules u
         INNER JOIN FilterToDataSourceType t
             ON u.identified_column_type = t.dataset_type
+    ),
+    -- ParseMetadata
+    -- Parse the content from the metadata column that contains JSON,
+    -- specifically handling parsing of known keys (i.e. date_format and treat_as_string)
+    ParseMetadata AS (
+        SELECT
+            f.*,
+            JSON_VALUE(f.algorithm_metadata, '$.date_format') AS date_format,
+            CAST(JSON_VALUE(f.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
+        FROM FilterToSingleTable f
     ),
     -- RulesetWithAlgorithmTypeMapping
     -- Generate several columns:
@@ -205,12 +217,14 @@ BEGIN
         SELECT
             r.*,
             1 AS output_row,
-            CONCAT(r.identified_column, ' as ', r.adf_type) AS adf_type_conversion,
             CASE 
                 WHEN r.identified_column_max_length > 0 THEN r.identified_column_max_length + 4
                 ELSE @DF_COLUMN_WIDTH_ESTIMATE
-            END AS column_width_estimate
+            END AS column_width_estimate,
+            pm.treat_as_string as treat_as_string
         FROM RulesetWithTypes r
+        LEFT JOIN ParseMetadata pm
+            ON r.identified_column = pm.identified_column
     ),
     -- GenerateMaskParameters
     -- Grouped by output_row to produce the following aggregates:
@@ -223,27 +237,38 @@ BEGIN
         SELECT
             output_row,
             -- JSON object mapping column name to assigned algorithm
-            -- This is the SQL equivalent of the ADF expression:
-            -- regexReplace(reduce(mapAssociation(keyValues(collect(concat('x',hex(encode(identified_column)))), collect(assigned_algorithm)), '"' + #key + '":"' + #value + '"'), '{', #acc + #item + ',', #result + '}'), ',}', '}')
             '{' + STRING_AGG(
-                '"' + LOWER(CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, identified_column), 2))) + '":"' + assigned_algorithm + '"',
+                '"' + LOWER(encoded_column_name) + '":"' + assigned_algorithm + '"',
                 ','
             ) + '}' AS FieldAlgorithmAssignments,
             -- List of columns to mask as JSON array
-            JSON_QUERY('[' + STRING_AGG('"' + identified_column + '"', ',') WITHIN GROUP (ORDER BY ordinal_position) + ']') AS ColumnsToMask,
+            JSON_QUERY('[' + STRING_AGG('"' + identified_column + '"', ',') + ']') AS ColumnsToMask,
             -- Data factory type mapping string for parsing API response
-            '''' + '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ' +
-            STRING_AGG(CONCAT(LOWER(CONCAT('x',CONVERT(varchar(max),CONVERT(varbinary, identified_column),2))), ' as ', adf_type), ', ') WITHIN GROUP (ORDER BY ordinal_position) + 
-            ')[])' + '''' AS DataFactoryTypeMapping,
+            (
+                '''' + 
+                '(timestamp as date, status as string, message as string, trace_id as string, ' + 
+                'items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ' +
+                STRING_AGG(
+                    LOWER(CONCAT(
+                        encoded_column_name, 
+                        ' as ', 
+                        CASE 
+                            WHEN treat_as_string = 1 THEN 'string'
+                            ELSE adf_type
+                        END
+                    )), 
+                    ', '
+                ) + 
+                ')[])' + '''' 
+            ) AS DataFactoryTypeMapping,
             -- Raw number of batches calculation without minimum enforcement
             CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) AS NumberOfBatches,
             -- Array of column lengths for trimming
-            '[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') WITHIN GROUP (ORDER BY ordinal_position) + ']' AS TrimLengths
+            '[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']' AS TrimLengths
         FROM RulesetWithAlgorithmTypeMapping
         GROUP BY output_row
     ),
     -- ModifyNumberOfBatches
-    -- Equivalent to ADF expression: iif(NumberOfBatches > 0, NumberOfBatches, 1)
     -- Ensures the number of batches is at least 1
     ModifyNumberOfBatches AS (
         SELECT
@@ -253,16 +278,6 @@ BEGIN
                 ELSE 1
             END AS AdjustedNumberOfBatches
         FROM GenerateMaskParameters
-    ),
-    -- ParseMetadata
-    -- Parse the content from the metadata column that contains JSON,
-    -- specifically handling parsing of known keys (i.e. date_format and treat_as_string)
-    ParseMetadata AS (
-        SELECT
-            f.*,
-            JSON_VALUE(f.algorithm_metadata, '$.date_format') AS date_format,
-            CAST(JSON_VALUE(f.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
-        FROM FilterToSingleTable f
     ),
     -- Process conditional date formats when @DF_FILTER_KEY is provided
     -- These CTEs extract date formats from conditional formatting
@@ -323,8 +338,8 @@ BEGIN
                 '"' + LOWER(CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, identified_column), 2))) + '":"' + date_format_string + '"',
                 ','
             ) + '}' AS DateFormatAssignments
-            FROM DateFormatWithValues
-            WHERE date_format_string IS NOT NULL
+        FROM DateFormatWithValues
+        WHERE date_format_string IS NOT NULL
     ),
     -- JoinDateHeaders
     -- Full outer join both DateFormatHeader and NoFormatHeader where output_row = output_row
@@ -365,7 +380,6 @@ BEGIN
             ON f.identified_column_type = t.dataset_type
     ),
     -- AggregateColumnsToCastBackParameters
-    -- Merged implementation of CreateColumnsToCastBackParameters and AggregateColumnsToCastBackParameters
     -- Creates all the ColumnsToCastBackTo* parameters directly from StringCastingWithAdfType
     AggregateColumnsToCastBackParameters AS (
         SELECT
@@ -382,7 +396,6 @@ BEGIN
         GROUP BY output_row
     ),
     -- CombineAllStringCastingParameters
-    -- Merged implementation of CreateColumnsToCastAsStrings and CombineAllStringCastingParameters
     -- Creates ColumnsToCastAsStrings directly and combines with ColumnsToCastBackTo* parameters
     CombineAllStringCastingParameters AS (
         SELECT
@@ -393,7 +406,7 @@ BEGIN
                     FROM FilterToRowsWithStringCasting f
                     WHERE f.output_row = a.output_row
                     GROUP BY f.output_row
-                ), '[""]'
+                ), '[]'
             ) AS ColumnsToCastAsStrings,
             a.ColumnsToCastBackToBinary,
             a.ColumnsToCastBackToBoolean,
@@ -429,15 +442,15 @@ BEGIN
         SELECT
             output_row,
             DateFormatAssignments,
-            COALESCE(ColumnsToCastAsStrings, '[""]') AS ColumnsToCastAsStrings,
-            COALESCE(ColumnsToCastBackToBinary, '[""]') AS ColumnsToCastBackToBinary,
-            COALESCE(ColumnsToCastBackToBoolean, '[""]') AS ColumnsToCastBackToBoolean,
-            COALESCE(ColumnsToCastBackToDate, '[""]') AS ColumnsToCastBackToDate,
-            COALESCE(ColumnsToCastBackToDouble, '[""]') AS ColumnsToCastBackToDouble,
-            COALESCE(ColumnsToCastBackToFloat, '[""]') AS ColumnsToCastBackToFloat,
-            COALESCE(ColumnsToCastBackToInteger, '[""]') AS ColumnsToCastBackToInteger,
-            COALESCE(ColumnsToCastBackToLong, '[""]') AS ColumnsToCastBackToLong,
-            COALESCE(ColumnsToCastBackToTimestamp, '[""]') AS ColumnsToCastBackToTimestamp
+            COALESCE(ColumnsToCastAsStrings, '[]') AS ColumnsToCastAsStrings,
+            COALESCE(ColumnsToCastBackToBinary, '[]') AS ColumnsToCastBackToBinary,
+            COALESCE(ColumnsToCastBackToBoolean, '[]') AS ColumnsToCastBackToBoolean,
+            COALESCE(ColumnsToCastBackToDate, '[]') AS ColumnsToCastBackToDate,
+            COALESCE(ColumnsToCastBackToDouble, '[]') AS ColumnsToCastBackToDouble,
+            COALESCE(ColumnsToCastBackToFloat, '[]') AS ColumnsToCastBackToFloat,
+            COALESCE(ColumnsToCastBackToInteger, '[]') AS ColumnsToCastBackToInteger,
+            COALESCE(ColumnsToCastBackToLong, '[]') AS ColumnsToCastBackToLong,
+            COALESCE(ColumnsToCastBackToTimestamp, '[]') AS ColumnsToCastBackToTimestamp
         FROM JoinDateFormatAndStringCastingParameters
     ),
     -- AllMaskingParameters
@@ -464,96 +477,116 @@ BEGIN
         FROM GenerateMaskParameters m
         INNER JOIN ComputeCastingDefaultsIfMissing c ON m.output_row = c.output_row
         INNER JOIN ModifyNumberOfBatches b ON m.output_row = b.output_row
-    )
-    
-    -- Return the final result
-    SELECT 
-        amp.*
-    FROM AllMaskingParameters amp
-    
-    UNION ALL
+    ), 
+    FinalMaskingParameters AS (
+        SELECT 
+            amp.*
+        FROM AllMaskingParameters amp
+        
+        UNION ALL
 
-    SELECT
-        1 AS output_row,
-        '{}' AS FieldAlgorithmAssignments,
-        '[]' AS ColumnsToMask,
-        '''(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])''' AS DataFactoryTypeMapping,
-        1 AS NumberOfBatches,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('-1', ',') + ']'
-                FROM (
-                    SELECT identified_column
-                    FROM FilterToSingleTable
-                ) AS cols
-            ),
-            '[]'
-        ) AS TrimLengths,
-        '{}' AS DateFormatAssignments,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']'
-                FROM FilterToRowsWithStringCasting f
-            ), '[]'
-        ) AS ColumnsToCastAsStrings,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'binary'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToBinary,
-        -- Repeat for all other type casting fields:
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'boolean'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToBoolean,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'date'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToDate,
-        -- ...repeat for double, float, integer, long, timestamp...
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'double'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToDouble,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'float'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToFloat,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'integer'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToInteger,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'long'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToLong,
-        COALESCE(
-            (
-                SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                FROM StringCastingWithAdfType f
-                WHERE f.adf_type = 'timestamp'
-            ) + ']', '[]'
-        ) AS ColumnsToCastBackToTimestamp
-    WHERE NOT EXISTS (SELECT 1 FROM AllMaskingParameters);
+        SELECT
+            1 AS output_row,
+            '{}' AS FieldAlgorithmAssignments,
+            '[]' AS ColumnsToMask,
+            '''(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])''' AS DataFactoryTypeMapping,
+            1 AS NumberOfBatches,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('-1', ',') + ']'
+                    FROM (
+                        SELECT identified_column
+                        FROM FilterToSingleTable
+                    ) AS cols
+                ),
+                '[]'
+            ) AS TrimLengths,
+            '{}' AS DateFormatAssignments,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']'
+                    FROM FilterToRowsWithStringCasting f
+                ), '[]'
+            ) AS ColumnsToCastAsStrings,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'binary'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToBinary,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'boolean'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToBoolean,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'date'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToDate,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'double'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToDouble,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'float'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToFloat,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'integer'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToInteger,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'long'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToLong,
+            COALESCE(
+                (
+                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
+                    FROM StringCastingWithAdfType f
+                    WHERE f.adf_type = 'timestamp'
+                ) + ']', '[]'
+            ) AS ColumnsToCastBackToTimestamp
+        WHERE NOT EXISTS (SELECT 1 FROM AllMaskingParameters)
+    )
+    SELECT 
+        output_row,
+        FieldAlgorithmAssignments,
+        ColumnsToMask,
+        DataFactoryTypeMapping,
+        NumberOfBatches,
+        TrimLengths,
+        DateFormatAssignments,
+        CASE 
+            WHEN ColumnsToCastAsStrings = '[]' 
+            THEN '[""]' 
+            ELSE ColumnsToCastAsStrings 
+        END AS ColumnsToCastAsStrings,
+        CASE WHEN ColumnsToCastBackToBinary = '[]' THEN '[""]' ELSE ColumnsToCastBackToBinary END AS ColumnsToCastBackToBinary,
+        CASE WHEN ColumnsToCastBackToBoolean = '[]' THEN '[""]' ELSE ColumnsToCastBackToBoolean END AS ColumnsToCastBackToBoolean,
+        CASE WHEN ColumnsToCastBackToDate = '[]' THEN '[""]' ELSE ColumnsToCastBackToDate END AS ColumnsToCastBackToDate,
+        CASE WHEN ColumnsToCastBackToDouble = '[]' THEN '[""]' ELSE ColumnsToCastBackToDouble END AS ColumnsToCastBackToDouble,
+        CASE WHEN ColumnsToCastBackToFloat = '[]' THEN '[""]' ELSE ColumnsToCastBackToFloat END AS ColumnsToCastBackToFloat,
+        CASE WHEN ColumnsToCastBackToInteger = '[]' THEN '[""]' ELSE ColumnsToCastBackToInteger END AS ColumnsToCastBackToInteger,
+        CASE WHEN ColumnsToCastBackToLong = '[]' THEN '[""]' ELSE ColumnsToCastBackToLong END AS ColumnsToCastBackToLong,
+        CASE WHEN ColumnsToCastBackToTimestamp = '[]' THEN '[""]' ELSE ColumnsToCastBackToTimestamp END AS ColumnsToCastBackToTimestamp
+    FROM FinalMaskingParameters;
 END
 GO
