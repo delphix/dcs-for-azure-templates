@@ -2588,7 +2588,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-07-21T13:04:02Z"
+        "lastPublishTime": "2025-07-21T06:36:06Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -2729,7 +2729,7 @@
       "properties": {
         "activities": [
           {
-            "name": "For Each Constraint to Drop",
+            "name": "For Each Constraint To Drop",
             "description": "Drop constraints for all tables in sink schema",
             "type": "ForEach",
             "dependsOn": [
@@ -3324,7 +3324,7 @@
       "properties": {
         "activities": [
           {
-            "name": "For Each Constraint to Create",
+            "name": "For Each Constraint To Create",
             "description": "Create constraints for all tables in sink schema",
             "type": "ForEach",
             "dependsOn": [
@@ -3437,7 +3437,7 @@
             "type": "Copy",
             "dependsOn": [
               {
-                "activity": "For Each Constraint to Create",
+                "activity": "For Each Constraint To Create",
                 "dependencyConditions": [
                   "Completed"
                 ]
