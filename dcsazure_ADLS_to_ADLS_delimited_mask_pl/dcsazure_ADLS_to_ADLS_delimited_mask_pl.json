@@ -2592,7 +2592,7 @@
           },
           "TARGET_BATCH_SIZE": {
             "type": "Integer",
-            "defaultValue": 2000
+            "defaultValue": 50000
           },
           "DATASET": {
             "type": "String",
@@ -3200,7 +3200,7 @@
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
             "     DF_TRIM_LENGTHS as integer[] ([-1]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
-            "     DF_TARGET_BATCH_SIZE as integer (2000),",
+            "     DF_TARGET_BATCH_SIZE as integer (50000),",
             "     DF_FIELD_DATE_FORMAT as string ('{}')",
             "}",
             "source(useSchema: false,",
@@ -3787,7 +3787,7 @@
             "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
             "     DF_TRIM_LENGTHS as integer[] ([-1]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
-            "     DF_TARGET_BATCH_SIZE as integer (2000),",
+            "     DF_TARGET_BATCH_SIZE as integer (50000),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
             "     DF_FILTER_CONDITION as boolean (true())",
             "}",
