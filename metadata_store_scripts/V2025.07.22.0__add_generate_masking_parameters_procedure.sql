@@ -44,7 +44,7 @@
  *
  * NOTES:
  * - Empty JSON arrays are converted to [""] for ADF UI compatibility
- * - Uses hex-encoded column names to avoid ADF pipeline issues with special or space-containing names
+ * - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
  * - Supports treat_as_string flag for type casting edge cases
  */
 CREATE OR ALTER PROCEDURE generate_masking_parameters
@@ -53,22 +53,15 @@ CREATE OR ALTER PROCEDURE generate_masking_parameters
     @DF_SOURCE_TABLE NVARCHAR(128),
     @DF_DATASET NVARCHAR(128),
     @DF_COLUMN_WIDTH_ESTIMATE INT = 1000,
-    /*
-     * @DF_FILTER_KEY (optional) - Filter key for conditional algorithms.
-     *   - Matches the alias in the conditional algorithm JSON structure.
-     *   - If provided, the procedure filters the ruleset based on this key.
-     *   - If empty, standard masking parameters are generated without filtering.
-     */
-    @DF_FILTER_KEY NVARCHAR(128) = ''
+    @DF_FILTER_KEY NVARCHAR(128) = ''  -- Optional filter key for conditional masking
 AS
 BEGIN
     SET NOCOUNT ON;
 
     /*
-     * FilterToSingleTable - Filters the discovered_ruleset table to only include rows for the specific table being masked.
-     * Applies filters for dataset, database, schema, table name, and ensures assigned_algorithm is not null or empty.
-     * Also extracts date_format and treat_as_string settings from algorithm_metadata JSON.
-     * This is the starting point that narrows down all masking rules to just those applicable to the target table.
+     * FilterToSingleTable - Filters discovered_ruleset to the target table and prepares column metadata.
+     * Extracts date_format and treat_as_string settings from algorithm_metadata JSON.
+     * Creates hex-encoded column names to avoid ADF pipeline issues with special characters.
      */
     WITH FilterToSingleTable AS (
         SELECT 
@@ -85,9 +78,8 @@ BEGIN
           AND r.assigned_algorithm <> ''
     ),
     /*
-     * FilterToDataSourceType - Filters the adf_type_mapping table to only include mappings for the current dataset.
-     * This provides the mapping between database column types and their corresponding ADF data types
-     * needed for proper data flow processing and API response parsing.
+     * FilterToDataSourceType - Maps database column types to ADF data types for the current dataset.
+     * Required for proper data flow processing and API response parsing.
      */
     FilterToDataSourceType AS (
         SELECT 
@@ -96,11 +88,9 @@ BEGIN
         WHERE t.dataset = @DF_DATASET
     ),
     /*
-     * KeyColumn - Identifies and flattens key column definitions for conditional masking.
-     * These columns have assigned_algorithm values as JSON arrays with alias/condition pairs.
-     * Each alias defines a filter condition that determines which rows get specific algorithms.
-     * The key column itself cannot be masked - it controls how other columns are masked.
-     * Expands conditions into individual rows for matching against the filter key.
+     * KeyColumn - Extracts key column conditions for conditional masking.
+     * Parses assigned_algorithm JSON arrays to identify alias/condition pairs.
+     * Key columns control how other columns are masked but cannot be masked themselves.
      */
     KeyColumn AS (
         SELECT 
@@ -117,10 +107,9 @@ BEGIN
           AND JSON_VALUE(fts.assigned_algorithm, '$[0].alias') IS NOT NULL
     ),
     /*
-     * ConditionalAlgorithm - Identifies and flattens conditional algorithm assignments.
-     * These columns reference a key column and specify which algorithm to apply for each alias/condition.
-     * Contains JSON objects with key_column and conditions properties for conditional masking.
-     * Expands conditions into individual rows with alias/algorithm pairs for matching with key conditions.
+     * ConditionalAlgorithm - Parses conditional algorithm assignments from JSON structures.
+     * Expands conditions into individual rows with alias/algorithm pairs.
+     * Handles columns that reference key columns for conditional masking logic.
      */
     ConditionalAlgorithm AS (
         SELECT 
@@ -143,23 +132,9 @@ BEGIN
           )
     ),
     /*
-     * JoinConditionalAlgorithms - Links key conditions with their algorithm assignments.
-     * Matches alias/condition pairs with alias/algorithm pairs to establish complete conditional masking rules.
-     */
-    JoinConditionalAlgorithms AS (
-        SELECT 
-            kc.*,
-            ca.key_column,
-            ca.[algorithm]
-        FROM KeyColumn kc
-        INNER JOIN ConditionalAlgorithm ca 
-            ON kc.identified_column = ca.key_column
-            AND kc.[alias] = ca.[alias]
-    ),
-    /*
-     * ConditionalFiltering - Resolves the final algorithm for each column and filters to valid rules.
-     * Selects conditional algorithms when filter key matches, otherwise uses standard algorithms.
-     * Filters out null/empty algorithms and ensures only resolved (non-JSON) assignments remain.
+     * ConditionalFiltering - Resolves final algorithm for each column based on filter key.
+     * Selects conditional algorithms when @DF_FILTER_KEY matches, otherwise uses standard algorithms.
+     * Filters out JSON structures and ensures only resolved algorithm names remain.
      */
     ConditionalFiltering AS (
         SELECT
@@ -175,6 +150,7 @@ BEGIN
                 f.identified_column_max_length,
                 f.row_count,
                 f.ordinal_position,
+                f.encoded_column_name,
                 CASE 
                     -- Replace algorithm from conditional settings when key matches and format is appropriate
                     WHEN @DF_FILTER_KEY <> '' AND f.assigned_algorithm LIKE '{%}' THEN 
@@ -202,8 +178,8 @@ BEGIN
           AND ISJSON(resolved.assigned_algorithm) = 0
     ),
     /*
-     * RulesetWithTypes - Adds ADF type mapping, column width estimates, and treat_as_string flags.
-     * Joins resolved rules with type information and computes additional parameters needed for ADF processing.
+     * RulesetWithTypes - Combines resolved rules with ADF type mappings and column parameters.
+     * Calculates column width estimates and preserves treat_as_string settings.
      */
     RulesetWithTypes AS (
         SELECT 
@@ -221,9 +197,9 @@ BEGIN
             ON cf.identified_column = f.identified_column
     ),
     /*
-     * GenerateMaskParameters - Creates core masking parameters for ADF dataflows with batch count validation.
-     * Aggregates column rules into JSON structures: FieldAlgorithmAssignments, ColumnsToMask, 
-     * DataFactoryTypeMapping, NumberOfBatches (with minimum of 1), and TrimLengths.
+     * GenerateMaskParameters - Creates core masking parameters and calculates batch count.
+     * Generates JSON structures required by ADF: FieldAlgorithmAssignments, ColumnsToMask,
+     * DataFactoryTypeMapping, NumberOfBatches (minimum 1), and TrimLengths.
      */
     GenerateMaskParameters AS (
         SELECT
@@ -263,8 +239,8 @@ BEGIN
         FROM RulesetWithTypes
     ),
     /*
-     * DateFormatResolution - Resolves final date format for each column.
-     * Prioritizes conditional formats (based on filter key) over standard formats from algorithm_metadata.
+     * DateFormatResolution - Resolves date formats with conditional/standard priority.
+     * Uses conditional date format when @DF_FILTER_KEY matches, otherwise falls back to standard format.
      */
     DateFormatResolution AS (
         SELECT
@@ -290,9 +266,19 @@ BEGIN
         WHERE f.date_format IS NOT NULL OR f.algorithm_metadata IS NOT NULL
     ),
     /*
-     * GenerateDateFormatAssignments - Creates JSON mapping using pre-computed encoded column names.
-     * Returns empty JSON object {} if no date formats are found.
+     * StringCastingWithAdfType - Identifies columns requiring string casting and their target ADF types.
+     * Used to generate ColumnsToCastBackTo* arrays for proper type conversion after masking.
      */
+    StringCastingWithAdfType AS (
+        SELECT
+            f.*,
+            t.adf_type
+        FROM FilterToSingleTable f
+        INNER JOIN FilterToDataSourceType t
+            ON f.identified_column_type = t.dataset_type
+        WHERE f.treat_as_string = 1
+    ),
+    -- Create JSON mapping for date format assignments
     GenerateDateFormatAssignments AS (
         SELECT
             COALESCE(
@@ -305,28 +291,11 @@ BEGIN
         FROM DateFormatResolution dfr
         WHERE dfr.final_date_format IS NOT NULL
     ),
-    /*
-     * StringCastingWithAdfType - Adds ADF type information to string casting columns.
-     * Determines what type columns should be cast back to after string processing.
-     */
-    StringCastingWithAdfType AS (
-        SELECT
-            f.*,
-            t.adf_type
-        FROM FilterToSingleTable f
-        INNER JOIN FilterToDataSourceType t
-            ON f.identified_column_type = t.dataset_type
-        WHERE f.treat_as_string = 1
-    ),
-    /*
-     * AggregateColumnsToCastBackParameters - Creates ColumnsToCastBackTo* arrays for all ADF types.
-     * Also creates ColumnsToCastAsStrings array from columns with treat_as_string flag.
-     * Combines with DateFormatAssignments and ensures all parameters have valid default values.
-     * Generates JSON arrays grouped by target ADF type (binary, boolean, date, etc.).
-     */
+    -- Aggregate casting parameters and date format assignments
     AggregateColumnsToCastBackParameters AS (
         SELECT
-            d.DateFormatAssignments,
+            -- Get DateFormatAssignments as a scalar subquery
+            (SELECT DateFormatAssignments FROM GenerateDateFormatAssignments) AS DateFormatAssignments,
             COALESCE('[' + STRING_AGG('"' + s.identified_column + '"', ',') + ']', '[]') AS ColumnsToCastAsStrings,
             COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'binary' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToBinary,
             COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'boolean' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToBoolean,
@@ -336,13 +305,9 @@ BEGIN
             COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'integer' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToInteger,
             COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'long' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToLong,
             COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'timestamp' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToTimestamp
-        FROM GenerateDateFormatAssignments d
-        CROSS JOIN StringCastingWithAdfType s
+        FROM StringCastingWithAdfType s
     ),
-    /*
-     * AllMaskingParameters - Consolidates all masking parameters into the final result.
-     * Combines core parameters with casting defaults and adjusted batch numbers.
-     */
+    -- Consolidate all masking parameters
     AllMaskingParameters AS (
         SELECT
             g.*,
@@ -351,9 +316,9 @@ BEGIN
         CROSS JOIN AggregateColumnsToCastBackParameters a
     ),
     /*
-     * FinalMaskingParameters - Ensures procedure always returns exactly one record.
-     * Returns actual parameters if they exist, otherwise returns default/empty values.
-     * Prevents lookup activity failures when no masking rules are found.
+     * FinalMaskingParameters - Ensures exactly one record is always returned.
+     * Returns actual parameters if rules exist, otherwise returns default/empty values.
+     * Prevents ADF lookup activity failures when no masking rules are found.
      */
     FinalMaskingParameters AS (
         SELECT 
@@ -449,9 +414,8 @@ BEGIN
         NumberOfBatches,
         TrimLengths,
         DateFormatAssignments,
-        -- Stored Procedure version for debugging    
         StoredProcedureVersion = 'V2025.07.22.0',
-        -- ADF UI shows validation errors when empty arrays [] are used, so convert to [""] for compatibility
+        -- Convert empty arrays to [""] for ADF UI compatibility
         CASE 
             WHEN ColumnsToCastAsStrings = '[]' 
             THEN '[""]' 
