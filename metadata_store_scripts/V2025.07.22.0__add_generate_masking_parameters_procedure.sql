@@ -67,12 +67,15 @@ BEGIN
     /*
      * FilterToSingleTable - Filters the discovered_ruleset table to only include rows for the specific table being masked.
      * Applies filters for dataset, database, schema, table name, and ensures assigned_algorithm is not null or empty.
+     * Also extracts date_format and treat_as_string settings from algorithm_metadata JSON.
      * This is the starting point that narrows down all masking rules to just those applicable to the target table.
      */
     WITH FilterToSingleTable AS (
         SELECT 
             r.*,
-            CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, r.identified_column), 2)) AS encoded_column_name
+            CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, r.identified_column), 2)) AS encoded_column_name,
+            JSON_VALUE(r.algorithm_metadata, '$.date_format') AS date_format,
+            CAST(JSON_VALUE(r.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
         FROM discovered_ruleset r
         WHERE r.dataset = @DF_DATASET
           AND r.specified_database = @DF_SOURCE_DB
@@ -93,25 +96,44 @@ BEGIN
         WHERE t.dataset = @DF_DATASET
     ),
     /*
-     * KeyColumn - Identifies rows containing key column definitions for conditional masking.
+     * KeyColumn - Identifies and flattens key column definitions for conditional masking.
      * These columns have assigned_algorithm values as JSON arrays with alias/condition pairs.
      * Each alias defines a filter condition that determines which rows get specific algorithms.
      * The key column itself cannot be masked - it controls how other columns are masked.
+     * Expands conditions into individual rows for matching against the filter key.
      */
     KeyColumn AS (
-        SELECT fts.*
+        SELECT 
+            fts.*,
+            c.[alias],
+            c.[condition]
         FROM FilterToSingleTable fts
+        CROSS APPLY OPENJSON(fts.assigned_algorithm, '$')
+        WITH (
+            [alias] NVARCHAR(255) '$.alias',
+            [condition] NVARCHAR(MAX) '$.condition'
+        ) AS c
         WHERE ISJSON(fts.assigned_algorithm) = 1
           AND JSON_VALUE(fts.assigned_algorithm, '$[0].alias') IS NOT NULL
     ),
     /*
-     * ConditionalAlgorithm - Identifies columns with conditional algorithm assignments.
+     * ConditionalAlgorithm - Identifies and flattens conditional algorithm assignments.
      * These columns reference a key column and specify which algorithm to apply for each alias/condition.
      * Contains JSON objects with key_column and conditions properties for conditional masking.
+     * Expands conditions into individual rows with alias/algorithm pairs for matching with key conditions.
      */
     ConditionalAlgorithm AS (
-        SELECT fts.*
+        SELECT 
+            fts.*,
+            JSON_VALUE(fts.assigned_algorithm, '$.key_column') AS key_column,
+            c.[alias],
+            c.[algorithm]
         FROM FilterToSingleTable fts
+        CROSS APPLY OPENJSON(JSON_QUERY(fts.assigned_algorithm, '$.conditions'))
+        WITH (
+            [alias] NVARCHAR(255) '$.alias',
+            [algorithm] NVARCHAR(255) '$.algorithm'
+        ) AS c
         WHERE ISJSON(fts.assigned_algorithm) = 1 
           AND JSON_VALUE(fts.assigned_algorithm, '$.key_column') IS NOT NULL
           AND JSON_QUERY(fts.assigned_algorithm, '$.conditions') IS NOT NULL
@@ -121,196 +143,87 @@ BEGIN
           )
     ),
     /*
-     * StandardAlgorithm - Identifies columns with simple, non-conditional algorithm assignments.
-     * These contain string-based algorithm values applied directly to their columns.
-     */
-    StandardAlgorithm AS (
-        SELECT fts.*
-        FROM FilterToSingleTable fts
-        WHERE ISJSON(fts.assigned_algorithm) = 0
-    ),
-    /*
-     * ParseKeyColumn - Extracts the JSON array from key column definitions.
-     * Prepares alias/condition pairs for individual processing.
-     */
-    ParseKeyColumn AS (
-        SELECT 
-            k.*,
-            JSON_QUERY(k.assigned_algorithm, '$') AS conditions_set
-        FROM KeyColumn k
-    ),
-    /*
-     * FlattenKeyConditions - Expands key column conditions into individual rows.
-     * Each row contains one alias/condition pair for matching against the filter key.
-     */
-    FlattenKeyConditions AS (
-        SELECT 
-            k.*,
-            c.[alias],
-            c.[condition]
-        FROM ParseKeyColumn k
-        CROSS APPLY OPENJSON(k.conditions_set)
-        WITH (
-            [alias] NVARCHAR(255) '$.alias',
-            [condition] NVARCHAR(MAX) '$.condition'
-        ) AS c
-    ),
-    /*
-     * ParseAlgorithm - Extracts key_column and conditions from conditional algorithm JSON.
-     * Prepares structured data for algorithm assignment processing.
-     */
-    ParseAlgorithm AS (
-        SELECT
-            ca.*,
-            JSON_VALUE(ca.assigned_algorithm, '$.key_column') AS key_column,
-            JSON_QUERY(ca.assigned_algorithm, '$.conditions') AS conditions
-        FROM ConditionalAlgorithm ca
-    ),
-    /*
-     * FlattenAlgorithmAssignments - Expands conditional algorithm assignments into individual rows.
-     * Each row contains one alias/algorithm pair for matching with key conditions.
-     */
-    FlattenAlgorithmAssignments AS (
-        SELECT
-            pa.*,
-            c.[alias],
-            c.[algorithm]
-        FROM ParseAlgorithm pa
-        CROSS APPLY OPENJSON(pa.conditions)
-        WITH (
-            [alias] NVARCHAR(255) '$.alias',
-            [algorithm] NVARCHAR(255) '$.algorithm'
-        ) AS c
-    ),
-    /*
      * JoinConditionalAlgorithms - Links key conditions with their algorithm assignments.
      * Matches alias/condition pairs with alias/algorithm pairs to establish complete conditional masking rules.
      */
     JoinConditionalAlgorithms AS (
         SELECT 
-            fkc.*,
-            fa.key_column,
-            fa.[algorithm]
-        FROM FlattenKeyConditions fkc
-        INNER JOIN FlattenAlgorithmAssignments fa 
-            ON fkc.identified_column = fa.key_column
-            AND fkc.[alias] = fa.[alias]
+            kc.*,
+            ca.key_column,
+            ca.[algorithm]
+        FROM KeyColumn kc
+        INNER JOIN ConditionalAlgorithm ca 
+            ON kc.identified_column = ca.key_column
+            AND kc.[alias] = ca.[alias]
     ),
     /*
-     * FilterToConditionKey - Selects conditional rules matching the specified filter key.
-     * Filters to only the alias/algorithm pairs that apply to the current masking context.
-     */
-    FilterToConditionKey AS (
-        SELECT
-            fa.dataset,
-            fa.specified_database,
-            fa.specified_schema,
-            fa.identified_table,
-            fa.identified_column,
-            fa.identified_column_type,
-            fa.identified_column_max_length,
-            fa.row_count,
-            fa.ordinal_position,
-            fa.[algorithm] AS assigned_algorithm
-        FROM JoinConditionalAlgorithms jca
-        INNER JOIN FlattenAlgorithmAssignments fa 
-            ON jca.key_column = fa.key_column 
-            AND jca.[alias] = fa.[alias]
-        WHERE jca.[alias] = @DF_FILTER_KEY
-          AND fa.[algorithm] IS NOT NULL 
-          AND fa.[algorithm] <> ''
-    ),
-    /*
-     * ConditionalFiltering - Resolves the final algorithm for each column.
+     * ConditionalFiltering - Resolves the final algorithm for each column and filters to valid rules.
      * Selects conditional algorithms when filter key matches, otherwise uses standard algorithms.
+     * Filters out null/empty algorithms and ensures only resolved (non-JSON) assignments remain.
      */
     ConditionalFiltering AS (
         SELECT
-            f.dataset,
-            f.specified_database,
-            f.specified_schema,
-            f.identified_table,
-            f.identified_column,
-            f.identified_column_type,
-            f.identified_column_max_length,
-            f.row_count,
-            f.ordinal_position,
-            CASE 
-                -- Replace algorithm from conditional settings when key matches and format is appropriate
-                WHEN @DF_FILTER_KEY <> '' AND f.assigned_algorithm LIKE '{%}' THEN 
-                    (
-                        SELECT TOP 1 c.algorithm 
-                        FROM OPENJSON(f.assigned_algorithm)
-                        WITH (
-                            key_column NVARCHAR(255) '$.key_column',
-                            conditions NVARCHAR(MAX) '$.conditions' AS JSON
-                        ) x
-                        CROSS APPLY OPENJSON(x.conditions)
-                        WITH (
-                            alias NVARCHAR(255) '$.alias',
-                            algorithm NVARCHAR(255) '$.algorithm'
-                        ) c
-                        WHERE c.alias = @DF_FILTER_KEY
-                    )
-                -- For non-conditional algorithms or when no filter key is provided, use the original
-                ELSE f.assigned_algorithm 
-            END AS assigned_algorithm
-        FROM FilterToSingleTable f
+            resolved.*
+        FROM (
+            SELECT
+                f.dataset,
+                f.specified_database,
+                f.specified_schema,
+                f.identified_table,
+                f.identified_column,
+                f.identified_column_type,
+                f.identified_column_max_length,
+                f.row_count,
+                f.ordinal_position,
+                CASE 
+                    -- Replace algorithm from conditional settings when key matches and format is appropriate
+                    WHEN @DF_FILTER_KEY <> '' AND f.assigned_algorithm LIKE '{%}' THEN 
+                        (
+                            SELECT TOP 1 c.algorithm 
+                            FROM OPENJSON(f.assigned_algorithm)
+                            WITH (
+                                key_column NVARCHAR(255) '$.key_column',
+                                conditions NVARCHAR(MAX) '$.conditions' AS JSON
+                            ) x
+                            CROSS APPLY OPENJSON(x.conditions)
+                            WITH (
+                                alias NVARCHAR(255) '$.alias',
+                                algorithm NVARCHAR(255) '$.algorithm'
+                            ) c
+                            WHERE c.alias = @DF_FILTER_KEY
+                        )
+                    -- For non-conditional algorithms or when no filter key is provided, use the original
+                    ELSE f.assigned_algorithm 
+                END AS assigned_algorithm
+            FROM FilterToSingleTable f
+        ) resolved
+        WHERE resolved.assigned_algorithm IS NOT NULL
+          AND resolved.assigned_algorithm <> ''
+          AND ISJSON(resolved.assigned_algorithm) = 0
     ),
     /*
-     * UnionAllRules - Consolidates resolved masking rules ready for processing.
-     * Filters out null/empty algorithms and ensures only resolved (non-JSON) assignments remain.
-     */
-    UnionAllRules AS (
-        SELECT cf.* 
-        FROM ConditionalFiltering cf
-        WHERE cf.assigned_algorithm IS NOT NULL
-          AND cf.assigned_algorithm <> ''
-          AND ISJSON(cf.assigned_algorithm) = 0
-    ),
-    /*
-     * RulesetWithTypes - Adds ADF type mapping and encoded column names to masking rules.
-     * Joins resolved rules with type information needed for ADF processing.
+     * RulesetWithTypes - Adds ADF type mapping, column width estimates, and treat_as_string flags.
+     * Joins resolved rules with type information and computes additional parameters needed for ADF processing.
      */
     RulesetWithTypes AS (
         SELECT 
-            u.*,
-            t.adf_type
-        FROM UnionAllRules u
-        INNER JOIN FilterToDataSourceType t
-            ON u.identified_column_type = t.dataset_type
-    ),
-    /*
-     * ParseMetadata - Extracts date_format and treat_as_string settings from algorithm_metadata.
-     * Parses JSON configuration flags that control column processing during masking.
-     */
-    ParseMetadata AS (
-        SELECT
-            f.*,
-            JSON_VALUE(f.algorithm_metadata, '$.date_format') AS date_format,
-            CAST(JSON_VALUE(f.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
-        FROM FilterToSingleTable f
-    ),
-    /*
-     * RulesetWithAlgorithmTypeMapping - Prepares rules for final parameter aggregation.
-     * Adds column width estimates and treat_as_string flags.
-     */
-    RulesetWithAlgorithmTypeMapping AS (
-        SELECT
-            r.*,
+            cf.*,
+            t.adf_type,
             CASE 
-                WHEN r.identified_column_max_length > 0 THEN r.identified_column_max_length + 4
+                WHEN cf.identified_column_max_length > 0 THEN cf.identified_column_max_length + 4
                 ELSE @DF_COLUMN_WIDTH_ESTIMATE
             END AS column_width_estimate,
-            pm.treat_as_string as treat_as_string
-        FROM RulesetWithTypes r
-        LEFT JOIN ParseMetadata pm
-            ON r.identified_column = pm.identified_column
+            f.treat_as_string as treat_as_string
+        FROM ConditionalFiltering cf
+        INNER JOIN FilterToDataSourceType t
+            ON cf.identified_column_type = t.dataset_type
+        LEFT JOIN FilterToSingleTable f
+            ON cf.identified_column = f.identified_column
     ),
     /*
-     * GenerateMaskParameters - Creates core masking parameters for ADF dataflows.
+     * GenerateMaskParameters - Creates core masking parameters for ADF dataflows with batch count validation.
      * Aggregates column rules into JSON structures: FieldAlgorithmAssignments, ColumnsToMask, 
-     * DataFactoryTypeMapping, NumberOfBatches, and TrimLengths.
+     * DataFactoryTypeMapping, NumberOfBatches (with minimum of 1), and TrimLengths.
      */
     GenerateMaskParameters AS (
         SELECT
@@ -339,28 +252,15 @@ BEGIN
                 ) + 
                 ')[])' + '''' 
             ) AS DataFactoryTypeMapping,
-            -- Raw number of batches calculation without minimum enforcement
-            CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) AS NumberOfBatches,
+            -- Apply minimum batch count of 1 directly to calculation
+            CASE 
+                WHEN CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) < 1 
+                THEN 1 
+                ELSE CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9))
+            END AS NumberOfBatches,
             -- Array of column lengths for trimming
             '[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']' AS TrimLengths
-        FROM RulesetWithAlgorithmTypeMapping
-    ),
-    /*
-     * ModifyNumberOfBatches - Ensures batch count meets minimum requirements.
-     * Enforces minimum of 1 batch to prevent zero/negative values.
-     */
-    ModifyNumberOfBatches AS (
-        SELECT
-            FieldAlgorithmAssignments,
-            ColumnsToMask,
-            DataFactoryTypeMapping,
-            -- Apply minimum batch count of 1
-            CASE 
-                WHEN NumberOfBatches < 1 THEN 1 
-                ELSE NumberOfBatches 
-            END AS NumberOfBatches,
-            TrimLengths
-        FROM GenerateMaskParameters
+        FROM RulesetWithTypes
     ),
     /*
      * DateFormatResolution - Resolves final date format for each column.
@@ -368,14 +268,14 @@ BEGIN
      */
     DateFormatResolution AS (
         SELECT
-            p.identified_column,
-            p.encoded_column_name,  -- Already available from ParseMetadata → FilterToSingleTable
+            f.identified_column,
+            f.encoded_column_name,  -- Already available from FilterToSingleTable
             COALESCE(
                 -- Get conditional date format if filter key matches
                 CASE WHEN @DF_FILTER_KEY <> '' THEN 
                     (
                         SELECT TOP 1 c.[date_format]
-                        FROM OPENJSON(p.algorithm_metadata, '$.conditions')
+                        FROM OPENJSON(f.algorithm_metadata, '$.conditions')
                         WITH (
                             [alias] NVARCHAR(255) '$.alias',
                             [date_format] NVARCHAR(255) '$.date_format'
@@ -384,10 +284,10 @@ BEGIN
                     )
                 ELSE NULL END,
                 -- Fall back to standard date format
-                p.date_format
+                f.date_format
             ) AS final_date_format
-        FROM ParseMetadata p
-        WHERE p.date_format IS NOT NULL OR p.algorithm_metadata IS NOT NULL
+        FROM FilterToSingleTable f
+        WHERE f.date_format IS NOT NULL OR f.algorithm_metadata IS NOT NULL
     ),
     /*
      * GenerateDateFormatAssignments - Creates JSON mapping using pre-computed encoded column names.
@@ -406,16 +306,6 @@ BEGIN
         WHERE dfr.final_date_format IS NOT NULL
     ),
     /*
-     * FilterToRowsWithStringCasting - Identifies columns requiring string casting.
-     * Filters to columns with treat_as_string flag set to true.
-     */
-    FilterToRowsWithStringCasting AS (
-        SELECT
-            p.*
-        FROM ParseMetadata p
-        WHERE p.treat_as_string = 1
-    ),
-    /*
      * StringCastingWithAdfType - Adds ADF type information to string casting columns.
      * Determines what type columns should be cast back to after string processing.
      */
@@ -423,69 +313,31 @@ BEGIN
         SELECT
             f.*,
             t.adf_type
-        FROM FilterToRowsWithStringCasting f
+        FROM FilterToSingleTable f
         INNER JOIN FilterToDataSourceType t
             ON f.identified_column_type = t.dataset_type
+        WHERE f.treat_as_string = 1
     ),
     /*
      * AggregateColumnsToCastBackParameters - Creates ColumnsToCastBackTo* arrays for all ADF types.
+     * Also creates ColumnsToCastAsStrings array from columns with treat_as_string flag.
+     * Combines with DateFormatAssignments and ensures all parameters have valid default values.
      * Generates JSON arrays grouped by target ADF type (binary, boolean, date, etc.).
      */
     AggregateColumnsToCastBackParameters AS (
         SELECT
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'binary' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToBinary,
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'boolean' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToBoolean,
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'date' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToDate,
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'double' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToDouble,
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'float' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToFloat,
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'integer' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToInteger,
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'long' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToLong,
-            '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'timestamp' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToTimestamp
-        FROM StringCastingWithAdfType s
-    ),
-    /*
-     * CombineAllStringCastingParameters - Combines all string casting parameters.
-     * Creates ColumnsToCastAsStrings array and merges with all ColumnsToCastBackTo* arrays.
-     */
-    CombineAllStringCastingParameters AS (
-        SELECT
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']' 
-                    FROM FilterToRowsWithStringCasting f
-                ), '[]'
-            ) AS ColumnsToCastAsStrings,
-            a.*
-        FROM AggregateColumnsToCastBackParameters a
-    ),
-    /*
-     * JoinDateFormatAndStringCastingParameters - Combines date formatting with string casting parameters.
-     * Cross join merges DateFormatAssignments with all string casting parameters.
-     */
-    JoinDateFormatAndStringCastingParameters AS (
-        SELECT
             d.DateFormatAssignments,
-            c.*
-        FROM DateFormatHeaderHandlingNulls d
-        CROSS JOIN CombineAllStringCastingParameters c
-    ),
-    /*
-     * ComputeCastingDefaultsIfMissing - Ensures all casting parameters have valid default values.
-     * Replaces null values with empty JSON arrays to prevent errors and ensure consistency.
-     */
-    ComputeCastingDefaultsIfMissing AS (
-        SELECT
-            DateFormatAssignments,
-            COALESCE(ColumnsToCastAsStrings, '[]') AS ColumnsToCastAsStrings,
-            COALESCE(ColumnsToCastBackToBinary, '[]') AS ColumnsToCastBackToBinary,
-            COALESCE(ColumnsToCastBackToBoolean, '[]') AS ColumnsToCastBackToBoolean,
-            COALESCE(ColumnsToCastBackToDate, '[]') AS ColumnsToCastBackToDate,
-            COALESCE(ColumnsToCastBackToDouble, '[]') AS ColumnsToCastBackToDouble,
-            COALESCE(ColumnsToCastBackToFloat, '[]') AS ColumnsToCastBackToFloat,
-            COALESCE(ColumnsToCastBackToInteger, '[]') AS ColumnsToCastBackToInteger,
-            COALESCE(ColumnsToCastBackToLong, '[]') AS ColumnsToCastBackToLong,
-            COALESCE(ColumnsToCastBackToTimestamp, '[]') AS ColumnsToCastBackToTimestamp
-        FROM JoinDateFormatAndStringCastingParameters
+            COALESCE('[' + STRING_AGG('"' + s.identified_column + '"', ',') + ']', '[]') AS ColumnsToCastAsStrings,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'binary' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToBinary,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'boolean' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToBoolean,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'date' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToDate,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'double' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToDouble,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'float' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToFloat,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'integer' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToInteger,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'long' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToLong,
+            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'timestamp' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToTimestamp
+        FROM GenerateDateFormatAssignments d
+        CROSS JOIN StringCastingWithAdfType s
     ),
     /*
      * AllMaskingParameters - Consolidates all masking parameters into the final result.
@@ -493,10 +345,10 @@ BEGIN
      */
     AllMaskingParameters AS (
         SELECT
-            m.*,
-            c.*
-        FROM ModifyNumberOfBatches m
-        CROSS JOIN ComputeCastingDefaultsIfMissing c
+            g.*,
+            a.*
+        FROM GenerateMaskParameters g
+        CROSS JOIN AggregateColumnsToCastBackParameters a
     ),
     /*
      * FinalMaskingParameters - Ensures procedure always returns exactly one record.
@@ -529,7 +381,7 @@ BEGIN
             COALESCE(
                 (
                     SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']'
-                    FROM FilterToRowsWithStringCasting f
+                    FROM StringCastingWithAdfType f
                 ), '[]'
             ) AS ColumnsToCastAsStrings,
             COALESCE(
