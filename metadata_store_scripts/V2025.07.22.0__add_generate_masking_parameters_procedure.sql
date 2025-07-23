@@ -51,13 +51,15 @@ CREATE OR ALTER PROCEDURE generate_masking_parameters
     @DF_SOURCE_DB NVARCHAR(128),
     @DF_SOURCE_SCHEMA NVARCHAR(128),
     @DF_SOURCE_TABLE NVARCHAR(128),
+    @DF_DATASET NVARCHAR(128),
     @DF_COLUMN_WIDTH_ESTIMATE INT = 1000,
-    -- Optional filter key for conditional algorithms
-    -- It will match the alias in the conditional algorithm JSON structure
-    -- If provided, the procedure will filter the ruleset based on this key
-    -- If empty, it will generate standard masking parameters without filtering
-    @DF_FILTER_KEY NVARCHAR(128) = '',
-    @DF_DATASET NVARCHAR(128) = 'AZURESQL'
+    /*
+     * @DF_FILTER_KEY (optional) - Filter key for conditional algorithms.
+     *   - Matches the alias in the conditional algorithm JSON structure.
+     *   - If provided, the procedure filters the ruleset based on this key.
+     *   - If empty, standard masking parameters are generated without filtering.
+     */
+    @DF_FILTER_KEY NVARCHAR(128) = ''
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -293,12 +295,11 @@ BEGIN
     ),
     /*
      * RulesetWithAlgorithmTypeMapping - Prepares rules for final parameter aggregation.
-     * Adds column width estimates, output row grouping, and treat_as_string flags.
+     * Adds column width estimates and treat_as_string flags.
      */
     RulesetWithAlgorithmTypeMapping AS (
         SELECT
             r.*,
-            1 AS output_row,
             CASE 
                 WHEN r.identified_column_max_length > 0 THEN r.identified_column_max_length + 4
                 ELSE @DF_COLUMN_WIDTH_ESTIMATE
@@ -315,7 +316,6 @@ BEGIN
      */
     GenerateMaskParameters AS (
         SELECT
-            output_row,
             -- JSON object mapping column name to assigned algorithm
             '{' + STRING_AGG(
                 '"' + LOWER(encoded_column_name) + '":"' + assigned_algorithm + '"',
@@ -346,7 +346,6 @@ BEGIN
             -- Array of column lengths for trimming
             '[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']' AS TrimLengths
         FROM RulesetWithAlgorithmTypeMapping
-        GROUP BY output_row
     ),
     /*
      * ModifyNumberOfBatches - Ensures batch count meets minimum requirements.
@@ -354,11 +353,15 @@ BEGIN
      */
     ModifyNumberOfBatches AS (
         SELECT
-            output_row,
+            FieldAlgorithmAssignments,
+            ColumnsToMask,
+            DataFactoryTypeMapping,
+            -- Apply minimum batch count of 1
             CASE 
-                WHEN NumberOfBatches > 0 THEN NumberOfBatches
-                ELSE 1
-            END AS AdjustedNumberOfBatches
+                WHEN NumberOfBatches < 1 THEN 1 
+                ELSE NumberOfBatches 
+            END AS NumberOfBatches,
+            TrimLengths
         FROM GenerateMaskParameters
     ),
     /*
@@ -380,12 +383,11 @@ BEGIN
     ),
     /*
      * DateFormatString - Resolves final date format for each column.
-     * Prioritizes conditional formats over standard formats, adds output_row grouping key.
+     * Prioritizes conditional formats over standard formats.
      */
     DateFormatString AS (
         SELECT
             p.*,
-            1 AS output_row,
             COALESCE(
                 CASE WHEN @DF_FILTER_KEY <> '' THEN 
                     (SELECT TOP 1 conditional_date_format FROM ConditionalDateFormats c WHERE c.identified_column = p.identified_column)
@@ -418,7 +420,6 @@ BEGIN
      */
     NoFormatHeader AS (
         SELECT
-            1 AS output_row,
             '{}' AS NoFormatHeader
     ),
     /*
@@ -427,7 +428,6 @@ BEGIN
      */
     DateFormatHeader AS (
         SELECT
-            1 AS output_row,
             '{' + STRING_AGG(
                 '"' + LOWER(CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, identified_column), 2))) + '":"' + date_format_string + '"',
                 ','
@@ -437,24 +437,21 @@ BEGIN
     ),
     /*
      * JoinDateHeaders - Combines actual date format assignments with default empty object.
-     * Full outer join ensures we always have a result, preventing null values.
+     * Cross join ensures we always have a result, preventing null values.
      */
     JoinDateHeaders AS (
         SELECT
-            COALESCE(d.output_row, n.output_row) AS output_row,
             d.DateFormatAssignments,
             n.NoFormatHeader
         FROM DateFormatHeader d
-        FULL OUTER JOIN NoFormatHeader n ON d.output_row = n.output_row
+        CROSS JOIN NoFormatHeader n
     ),
     /*
      * DateFormatHeaderHandlingNulls - Ensures DateFormatAssignments is never null.
      * Uses COALESCE to prioritize actual assignments over default empty object.
      */
-     */
     DateFormatHeaderHandlingNulls AS (
         SELECT
-            output_row,
             COALESCE(DateFormatAssignments, NoFormatHeader) AS DateFormatAssignments
         FROM JoinDateHeaders
     ),
@@ -464,8 +461,7 @@ BEGIN
      */
     FilterToRowsWithStringCasting AS (
         SELECT
-            p.*,
-            1 AS output_row
+            p.*
         FROM ParseMetadata p
         WHERE p.treat_as_string = 1
     ),
@@ -487,7 +483,6 @@ BEGIN
      */
     AggregateColumnsToCastBackParameters AS (
         SELECT
-            1 AS output_row,
             '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'binary' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToBinary,
             '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'boolean' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToBoolean,
             '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'date' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToDate,
@@ -497,7 +492,6 @@ BEGIN
             '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'long' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToLong,
             '[' + COALESCE(STRING_AGG(CASE WHEN s.adf_type = 'timestamp' THEN '"' + s.identified_column + '"' END, ','), '') + ']' AS ColumnsToCastBackToTimestamp
         FROM StringCastingWithAdfType s
-        GROUP BY output_row
     ),
     /*
      * CombineAllStringCastingParameters - Combines all string casting parameters.
@@ -505,13 +499,10 @@ BEGIN
      */
     CombineAllStringCastingParameters AS (
         SELECT
-            a.output_row,
             COALESCE(
                 (
                     SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']' 
                     FROM FilterToRowsWithStringCasting f
-                    WHERE f.output_row = a.output_row
-                    GROUP BY f.output_row
                 ), '[]'
             ) AS ColumnsToCastAsStrings,
             a.ColumnsToCastBackToBinary,
@@ -526,11 +517,10 @@ BEGIN
     ),
     /*
      * JoinDateFormatAndStringCastingParameters - Combines date formatting with string casting parameters.
-     * Left join merges DateFormatAssignments with all string casting parameters.
+     * Cross join merges DateFormatAssignments with all string casting parameters.
      */
     JoinDateFormatAndStringCastingParameters AS (
         SELECT
-            d.output_row,
             d.DateFormatAssignments,
             c.ColumnsToCastAsStrings,
             c.ColumnsToCastBackToBinary,
@@ -542,7 +532,7 @@ BEGIN
             c.ColumnsToCastBackToLong,
             c.ColumnsToCastBackToTimestamp
         FROM DateFormatHeaderHandlingNulls d
-        LEFT JOIN CombineAllStringCastingParameters c ON d.output_row = c.output_row
+        CROSS JOIN CombineAllStringCastingParameters c
     ),
     /*
      * ComputeCastingDefaultsIfMissing - Ensures all casting parameters have valid default values.
@@ -550,7 +540,6 @@ BEGIN
      */
     ComputeCastingDefaultsIfMissing AS (
         SELECT
-            output_row,
             DateFormatAssignments,
             COALESCE(ColumnsToCastAsStrings, '[]') AS ColumnsToCastAsStrings,
             COALESCE(ColumnsToCastBackToBinary, '[]') AS ColumnsToCastBackToBinary,
@@ -569,11 +558,10 @@ BEGIN
      */
     AllMaskingParameters AS (
         SELECT
-            m.output_row AS output_row,
             m.FieldAlgorithmAssignments,
             m.ColumnsToMask,
             m.DataFactoryTypeMapping,
-            b.AdjustedNumberOfBatches AS NumberOfBatches,
+            m.NumberOfBatches,
             m.TrimLengths,
             c.DateFormatAssignments,
             c.ColumnsToCastAsStrings,
@@ -585,9 +573,9 @@ BEGIN
             c.ColumnsToCastBackToInteger,
             c.ColumnsToCastBackToLong,
             c.ColumnsToCastBackToTimestamp
-        FROM GenerateMaskParameters m
-        INNER JOIN ComputeCastingDefaultsIfMissing c ON m.output_row = c.output_row
-        INNER JOIN ModifyNumberOfBatches b ON m.output_row = b.output_row
+        FROM ModifyNumberOfBatches m
+        CROSS JOIN ComputeCastingDefaultsIfMissing c
+    ),
     /*
      * FinalMaskingParameters - Ensures procedure always returns exactly one record.
      * Returns actual parameters if they exist, otherwise returns default/empty values.
@@ -601,7 +589,6 @@ BEGIN
         UNION ALL
 
         SELECT
-            1 AS output_row,
             '{}' AS FieldAlgorithmAssignments,
             '[]' AS ColumnsToMask,
             '''(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])''' AS DataFactoryTypeMapping,
@@ -682,13 +669,14 @@ BEGIN
         WHERE NOT EXISTS (SELECT 1 FROM AllMaskingParameters)
     )
     SELECT 
-        output_row,
         FieldAlgorithmAssignments,
         ColumnsToMask,
         DataFactoryTypeMapping,
         NumberOfBatches,
         TrimLengths,
         DateFormatAssignments,
+        -- Stored Procedure version for debugging    
+        StoredProcedureVersion = 'V2025.07.22.0',
         -- ADF UI shows validation errors when empty arrays [] are used, so convert to [""] for compatibility
         CASE 
             WHEN ColumnsToCastAsStrings = '[]' 
