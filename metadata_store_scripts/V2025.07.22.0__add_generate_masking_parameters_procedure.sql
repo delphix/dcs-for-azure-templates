@@ -71,7 +71,8 @@ BEGIN
      */
     WITH FilterToSingleTable AS (
         SELECT 
-            r.*
+            r.*,
+            CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, r.identified_column), 2)) AS encoded_column_name
         FROM discovered_ruleset r
         WHERE r.dataset = @DF_DATASET
           AND r.specified_database = @DF_SOURCE_DB
@@ -276,8 +277,7 @@ BEGIN
     RulesetWithTypes AS (
         SELECT 
             u.*,
-            t.adf_type,
-            CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, u.identified_column), 2)) AS encoded_column_name
+            t.adf_type
         FROM UnionAllRules u
         INNER JOIN FilterToDataSourceType t
             ON u.identified_column_type = t.dataset_type
@@ -365,95 +365,47 @@ BEGIN
         FROM GenerateMaskParameters
     ),
     /*
-     * ConditionalDateFormats - Extracts date formats specific to the current filter key.
-     * Parses algorithm_metadata JSON for conditional date formatting based on aliases.
+     * DateFormatResolution - Resolves final date format for each column.
+     * Prioritizes conditional formats (based on filter key) over standard formats from algorithm_metadata.
      */
-    ConditionalDateFormats AS (
+    DateFormatResolution AS (
         SELECT
             p.identified_column,
-            c.[date_format] AS conditional_date_format
-        FROM ParseMetadata p
-        OUTER APPLY OPENJSON(p.algorithm_metadata, '$.conditions')
-        WITH (
-            [alias] NVARCHAR(255) '$.alias',
-            [date_format] NVARCHAR(255) '$.date_format'
-        ) AS c
-        WHERE (@DF_FILTER_KEY <> '' AND c.[alias] = @DF_FILTER_KEY)
-           OR @DF_FILTER_KEY = ''
-    ),
-    /*
-     * DateFormatString - Resolves final date format for each column.
-     * Prioritizes conditional formats over standard formats.
-     */
-    DateFormatString AS (
-        SELECT
-            p.*,
+            p.encoded_column_name,  -- Already available from ParseMetadata → FilterToSingleTable
             COALESCE(
+                -- Get conditional date format if filter key matches
                 CASE WHEN @DF_FILTER_KEY <> '' THEN 
-                    (SELECT TOP 1 conditional_date_format FROM ConditionalDateFormats c WHERE c.identified_column = p.identified_column)
-                ELSE NULL END, 
+                    (
+                        SELECT TOP 1 c.[date_format]
+                        FROM OPENJSON(p.algorithm_metadata, '$.conditions')
+                        WITH (
+                            [alias] NVARCHAR(255) '$.alias',
+                            [date_format] NVARCHAR(255) '$.date_format'
+                        ) AS c
+                        WHERE c.[alias] = @DF_FILTER_KEY
+                    )
+                ELSE NULL END,
+                -- Fall back to standard date format
                 p.date_format
-            ) AS date_format_string
+            ) AS final_date_format
         FROM ParseMetadata p
+        WHERE p.date_format IS NOT NULL OR p.algorithm_metadata IS NOT NULL
     ),
     /*
-     * DateFormatWithValues - Filters to columns with specified date formats.
-     * Isolates columns requiring special date formatting during masking.
+     * GenerateDateFormatAssignments - Creates JSON mapping using pre-computed encoded column names.
+     * Returns empty JSON object {} if no date formats are found.
      */
-    DateFormatWithValues AS (
-        SELECT dfs.* 
-        FROM DateFormatString dfs
-        WHERE dfs.date_format_string IS NOT NULL
-    ),
-    /*
-     * DateFormatWithoutValues - Filters to columns without specified date formats.
-     * Complementary to DateFormatWithValues for columns using default date processing.
-     */
-    DateFormatWithoutValues AS (
-        SELECT dfs.* 
-        FROM DateFormatString dfs
-        WHERE dfs.date_format_string IS NULL
-    ),
-    /*
-     * NoFormatHeader - Provides default empty JSON object for date format assignments.
-     * Fallback to ensure DateFormatAssignments always has a valid value.
-     */
-    NoFormatHeader AS (
+    GenerateDateFormatAssignments AS (
         SELECT
-            '{}' AS NoFormatHeader
-    ),
-    /*
-     * DateFormatHeader - Creates JSON mapping of encoded column names to date formats.
-     * Aggregates columns with date formats into DateFormatAssignments parameter.
-     */
-    DateFormatHeader AS (
-        SELECT
-            '{' + STRING_AGG(
-                '"' + LOWER(CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, identified_column), 2))) + '":"' + date_format_string + '"',
-                ','
-            ) + '}' AS DateFormatAssignments
-        FROM DateFormatWithValues
-        WHERE date_format_string IS NOT NULL
-    ),
-    /*
-     * JoinDateHeaders - Combines actual date format assignments with default empty object.
-     * Cross join ensures we always have a result, preventing null values.
-     */
-    JoinDateHeaders AS (
-        SELECT
-            d.DateFormatAssignments,
-            n.NoFormatHeader
-        FROM DateFormatHeader d
-        CROSS JOIN NoFormatHeader n
-    ),
-    /*
-     * DateFormatHeaderHandlingNulls - Ensures DateFormatAssignments is never null.
-     * Uses COALESCE to prioritize actual assignments over default empty object.
-     */
-    DateFormatHeaderHandlingNulls AS (
-        SELECT
-            COALESCE(DateFormatAssignments, NoFormatHeader) AS DateFormatAssignments
-        FROM JoinDateHeaders
+            COALESCE(
+                '{' + STRING_AGG(
+                    '"' + LOWER(dfr.encoded_column_name) + '":"' + dfr.final_date_format + '"',
+                    ','
+                ) + '}', 
+                '{}'
+            ) AS DateFormatAssignments
+        FROM DateFormatResolution dfr
+        WHERE dfr.final_date_format IS NOT NULL
     ),
     /*
      * FilterToRowsWithStringCasting - Identifies columns requiring string casting.
