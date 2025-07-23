@@ -88,9 +88,7 @@ BEGIN
      */
     FilterToDataSourceType AS (
         SELECT 
-            t.dataset,
-            t.dataset_type,
-            t.adf_type
+            t.*
         FROM adf_type_mapping t
         WHERE t.dataset = @DF_DATASET
     ),
@@ -457,14 +455,7 @@ BEGIN
                     FROM FilterToRowsWithStringCasting f
                 ), '[]'
             ) AS ColumnsToCastAsStrings,
-            a.ColumnsToCastBackToBinary,
-            a.ColumnsToCastBackToBoolean,
-            a.ColumnsToCastBackToDate,
-            a.ColumnsToCastBackToDouble,
-            a.ColumnsToCastBackToFloat,
-            a.ColumnsToCastBackToInteger,
-            a.ColumnsToCastBackToLong,
-            a.ColumnsToCastBackToTimestamp
+            a.*
         FROM AggregateColumnsToCastBackParameters a
     ),
     /*
@@ -474,15 +465,7 @@ BEGIN
     JoinDateFormatAndStringCastingParameters AS (
         SELECT
             d.DateFormatAssignments,
-            c.ColumnsToCastAsStrings,
-            c.ColumnsToCastBackToBinary,
-            c.ColumnsToCastBackToBoolean,
-            c.ColumnsToCastBackToDate,
-            c.ColumnsToCastBackToDouble,
-            c.ColumnsToCastBackToFloat,
-            c.ColumnsToCastBackToInteger,
-            c.ColumnsToCastBackToLong,
-            c.ColumnsToCastBackToTimestamp
+            c.*
         FROM DateFormatHeaderHandlingNulls d
         CROSS JOIN CombineAllStringCastingParameters c
     ),
@@ -510,21 +493,8 @@ BEGIN
      */
     AllMaskingParameters AS (
         SELECT
-            m.FieldAlgorithmAssignments,
-            m.ColumnsToMask,
-            m.DataFactoryTypeMapping,
-            m.NumberOfBatches,
-            m.TrimLengths,
-            c.DateFormatAssignments,
-            c.ColumnsToCastAsStrings,
-            c.ColumnsToCastBackToBinary,
-            c.ColumnsToCastBackToBoolean,
-            c.ColumnsToCastBackToDate,
-            c.ColumnsToCastBackToDouble,
-            c.ColumnsToCastBackToFloat,
-            c.ColumnsToCastBackToInteger,
-            c.ColumnsToCastBackToLong,
-            c.ColumnsToCastBackToTimestamp
+            m.*,
+            c.*
         FROM ModifyNumberOfBatches m
         CROSS JOIN ComputeCastingDefaultsIfMissing c
     ),
