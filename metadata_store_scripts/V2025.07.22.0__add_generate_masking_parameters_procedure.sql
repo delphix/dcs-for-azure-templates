@@ -45,7 +45,7 @@
  * NOTES:
  * - Empty JSON arrays are converted to [""] for ADF UI compatibility
  * - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
- * - Supports treat_as_string flag for type casting edge cases
+ * - Supports treat_as_string flag for type casting feature
  */
 CREATE OR ALTER PROCEDURE generate_masking_parameters
     @source_database NVARCHAR(128),
@@ -58,7 +58,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- base_ruleset_filter - Filters discovered_ruleset to target table and adds ADF type mappings.
+    -- base_ruleset_filter - Filter to target table, add ADF type mappings
     WITH base_ruleset_filter AS (
         SELECT 
             r.*,
@@ -74,11 +74,7 @@ BEGIN
           AND r.assigned_algorithm IS NOT NULL
           AND r.assigned_algorithm <> ''
     ),
-    /*
-     * ruleset_computed - Adds computed columns for encoding and metadata extraction.
-     * Extracts date_format and treat_as_string settings from algorithm_metadata JSON.
-     * Creates hex-encoded column names to avoid ADF pipeline issues with special characters.
-     */
+    -- ruleset_computed - Add encoded column names and extract JSON metadata
     ruleset_computed AS (
         SELECT 
             r.*,
@@ -87,7 +83,7 @@ BEGIN
             CAST(JSON_VALUE(r.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
         FROM base_ruleset_filter r
     ),
-    -- conditional_algorithm_extraction - Extracts conditional algorithms when filter key matches.
+    -- conditional_algorithm_extraction - Extract conditional algorithms for matching filter key
     conditional_algorithm_extraction AS (
         SELECT 
             r.*,
@@ -108,7 +104,7 @@ BEGIN
           AND c.alias = @filter_key
           AND @filter_key <> ''
     ),
-    -- standard_algorithm_handling - Handles standard (non-conditional) algorithms.
+    -- standard_algorithm_handling - Handle non-conditional algorithms
     standard_algorithm_handling AS (
         SELECT 
             r.*,
@@ -117,7 +113,7 @@ BEGIN
         WHERE ISJSON(r.assigned_algorithm) = 0
            OR @filter_key = ''
     ),
-    -- algorithm_resolution - Combines conditional and standard algorithms into final result.
+    -- algorithm_resolution - Combine conditional and standard algorithms
     algorithm_resolution AS (
         SELECT 
             dataset, specified_database, specified_schema, identified_table,
@@ -138,10 +134,7 @@ BEGIN
           AND resolved_algorithm <> ''
           AND ISJSON(resolved_algorithm) = 0
     ),
-    /*
-     * ruleset_with_types - Combines resolved rules with ADF type mappings and column parameters.
-     * Calculates column width estimates and preserves treat_as_string settings.
-     */
+    -- ruleset_with_types - Join with ADF types, calculate column width estimates
     ruleset_with_types AS (
         SELECT 
             ar.*,
@@ -155,21 +148,17 @@ BEGIN
         INNER JOIN ruleset_computed f
             ON ar.identified_column = f.identified_column
     ),
-    /*
-     * generate_mask_parameters - Creates core masking parameters and calculates batch count.
-     * Generates JSON structures required by ADF: FieldAlgorithmAssignments, ColumnsToMask,
-     * DataFactoryTypeMapping, NumberOfBatches (minimum 1), and TrimLengths.
-     */
+    -- generate_mask_parameters - Create core masking parameters with fallback defaults
     generate_mask_parameters AS (
         SELECT
-            -- JSON object mapping column name to assigned algorithm
+            -- JSON mapping: encoded column name -> algorithm
             COALESCE('{' + STRING_AGG(
                 '"' + LOWER(encoded_column_name) + '":"' + assigned_algorithm + '"',
                 ','
             ) + '}', '{}') AS FieldAlgorithmAssignments,
-            -- List of columns to mask as JSON array
+            -- JSON array of column names to mask
             COALESCE(JSON_QUERY('[' + STRING_AGG('"' + identified_column + '"', ',') + ']'), '[]') AS ColumnsToMask,
-            -- Data factory type mapping string for parsing API response
+            -- ADF data flow expression for DCS masking API response parsing
             '''' + 
             '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long' +
             COALESCE(
@@ -187,17 +176,17 @@ BEGIN
                 ''
             ) + 
             ')[])' + '''' AS DataFactoryTypeMapping,
-            -- Calculate optimal batch count with minimum of 1
+            -- Optimal batch count (minimum 1)
             COALESCE(CASE 
                 WHEN CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) < 1 
                 THEN 1 
                 ELSE CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9))
             END, 1) AS NumberOfBatches,
-            -- Array of column lengths for trimming
+            -- JSON array of column max lengths
             COALESCE('[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']', '[]') AS TrimLengths
         FROM ruleset_with_types
     ),
-    -- conditional_date_formats - Extracts conditional date formats when filter key is specified.
+    -- conditional_date_formats - Extract conditional date formats for filter key
     conditional_date_formats AS (
         SELECT
             f.identified_column,
@@ -214,7 +203,7 @@ BEGIN
           AND c.alias = @filter_key
           AND c.date_format IS NOT NULL
     ),
-    -- date_format_resolution - Combines conditional and standard date formats with clear precedence.
+    -- date_format_resolution - Merge conditional and standard date formats
     date_format_resolution AS (
         SELECT
             f.identified_column,
@@ -226,7 +215,7 @@ BEGIN
         WHERE f.date_format IS NOT NULL 
            OR cdf.conditional_date_format IS NOT NULL
     ),
-    -- Create JSON mapping for date format parameters
+    -- date_format_parameters - Create JSON mapping with fallback default
     date_format_parameters AS (
         SELECT
             COALESCE(
@@ -239,7 +228,7 @@ BEGIN
         FROM date_format_resolution dfr
         WHERE dfr.final_date_format IS NOT NULL
     ),
-    -- Aggregate casting parameters
+    -- type_casting_parameters - Create casting arrays with fallback defaults
     type_casting_parameters AS (
         SELECT
             COALESCE('[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']', '[""]') AS ColumnsToCastAsStrings,
@@ -254,7 +243,7 @@ BEGIN
         FROM ruleset_computed f
         WHERE f.treat_as_string = 1
     )
-    -- Final result combining all masking parameters
+    -- Combine all parameters
     SELECT 
         g.FieldAlgorithmAssignments,
         g.ColumnsToMask,
