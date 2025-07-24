@@ -262,7 +262,6 @@ BEGIN
         g.NumberOfBatches,
         g.TrimLengths,
         df.DateFormatAssignments,
-        StoredProcedureVersion = 'V2025.07.22.0',
         a.ColumnsToCastAsStrings,
         a.ColumnsToCastBackToBinary,
         a.ColumnsToCastBackToBoolean,
@@ -271,7 +270,8 @@ BEGIN
         a.ColumnsToCastBackToFloat,
         a.ColumnsToCastBackToInteger,
         a.ColumnsToCastBackToLong,
-        a.ColumnsToCastBackToTimestamp
+        a.ColumnsToCastBackToTimestamp,
+        StoredProcedureVersion = 'V2025.07.22.0'
     FROM generate_mask_parameters g,
          date_format_assignments df,
          type_casting_parameters a;
