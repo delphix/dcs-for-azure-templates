@@ -287,92 +287,26 @@ BEGIN
     -- Consolidate all masking parameters with fallback behavior
     all_masking_parameters AS (
         SELECT
-            g.*,
-            a.*
-        FROM generate_mask_parameters g
-        CROSS JOIN aggregate_columns_to_cast_back_parameters a
-        
-        UNION ALL
-
-        SELECT
-            '{}' AS FieldAlgorithmAssignments,
-            '[]' AS ColumnsToMask,
-            '''(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])''' AS DataFactoryTypeMapping,
-            1 AS NumberOfBatches,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('-1', ',') + ']'
-                    FROM (
-                        SELECT identified_column
-                        FROM ruleset_computed
-                    ) AS cols
-                ),
-                '[]'
-            ) AS TrimLengths,
-            '{}' AS DateFormatAssignments,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']'
-                    FROM string_casting_with_adf_type f
-                ), '[]'
-            ) AS ColumnsToCastAsStrings,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'binary'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToBinary,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'boolean'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToBoolean,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'date'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToDate,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'double'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToDouble,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'float'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToFloat,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'integer'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToInteger,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'long'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToLong,
-            COALESCE(
-                (
-                    SELECT '[' + STRING_AGG('"' + f.identified_column + '"', ',')
-                    FROM string_casting_with_adf_type f
-                    WHERE f.adf_type = 'timestamp'
-                ) + ']', '[]'
-            ) AS ColumnsToCastBackToTimestamp
-        WHERE NOT EXISTS (SELECT 1 FROM generate_mask_parameters)
+            COALESCE(g.FieldAlgorithmAssignments, '{}') AS FieldAlgorithmAssignments,
+            COALESCE(g.ColumnsToMask, '[]') AS ColumnsToMask,
+            COALESCE(g.DataFactoryTypeMapping, 
+                '''(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'''
+            ) AS DataFactoryTypeMapping,
+            COALESCE(g.NumberOfBatches, 1) AS NumberOfBatches,
+            COALESCE(g.TrimLengths, '[]') AS TrimLengths,
+            COALESCE(a.DateFormatAssignments, '{}') AS DateFormatAssignments,
+            COALESCE(a.ColumnsToCastAsStrings, '[""]') AS ColumnsToCastAsStrings,
+            COALESCE(a.ColumnsToCastBackToBinary, '[""]') AS ColumnsToCastBackToBinary,
+            COALESCE(a.ColumnsToCastBackToBoolean, '[""]') AS ColumnsToCastBackToBoolean,
+            COALESCE(a.ColumnsToCastBackToDate, '[""]') AS ColumnsToCastBackToDate,
+            COALESCE(a.ColumnsToCastBackToDouble, '[""]') AS ColumnsToCastBackToDouble,
+            COALESCE(a.ColumnsToCastBackToFloat, '[""]') AS ColumnsToCastBackToFloat,
+            COALESCE(a.ColumnsToCastBackToInteger, '[""]') AS ColumnsToCastBackToInteger,
+            COALESCE(a.ColumnsToCastBackToLong, '[""]') AS ColumnsToCastBackToLong,
+            COALESCE(a.ColumnsToCastBackToTimestamp, '[""]') AS ColumnsToCastBackToTimestamp
+        FROM (SELECT 1 as dummy) d  -- Ensures always one row
+        LEFT JOIN generate_mask_parameters g ON 1=1
+        LEFT JOIN aggregate_columns_to_cast_back_parameters a ON 1=1
     )
     SELECT 
         FieldAlgorithmAssignments,
