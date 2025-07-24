@@ -226,8 +226,8 @@ BEGIN
         WHERE f.date_format IS NOT NULL 
            OR cdf.conditional_date_format IS NOT NULL
     ),
-    -- Create JSON mapping for date format assignments
-    date_format_assignments AS (
+    -- Create JSON mapping for date format parameters
+    date_format_parameters AS (
         SELECT
             COALESCE(
                 '{' + STRING_AGG(
@@ -242,15 +242,15 @@ BEGIN
     -- Aggregate casting parameters
     type_casting_parameters AS (
         SELECT
-            '["' + COALESCE(STRING_AGG('"' + f.identified_column + '"', ','), '') + '"]' AS ColumnsToCastAsStrings,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'binary' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToBinary,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'boolean' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToBoolean,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'date' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToDate,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'double' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToDouble,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'float' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToFloat,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'integer' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToInteger,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'long' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToLong,
-            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'timestamp' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToTimestamp
+            COALESCE('[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']', '[""]') AS ColumnsToCastAsStrings,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'binary' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToBinary,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'boolean' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToBoolean,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'date' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToDate,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'double' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToDouble,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'float' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToFloat,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'integer' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToInteger,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'long' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToLong,
+            COALESCE('[' + STRING_AGG(CASE WHEN f.adf_type = 'timestamp' THEN '"' + f.identified_column + '"' END, ',') + ']', '[""]') AS ColumnsToCastBackToTimestamp
         FROM ruleset_computed f
         WHERE f.treat_as_string = 1
     )
@@ -273,7 +273,7 @@ BEGIN
         a.ColumnsToCastBackToTimestamp,
         StoredProcedureVersion = 'V2025.07.22.0'
     FROM generate_mask_parameters g,
-         date_format_assignments df,
+         date_format_parameters df,
          type_casting_parameters a;
 END
 GO
