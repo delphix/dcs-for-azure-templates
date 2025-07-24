@@ -6,12 +6,12 @@
  * a specific table using Delphix Compliance Services APIs within Azure Data Factory pipelines.
  *
  * PARAMETERS:
- * @source_database        - Source database name
- * @source_schema    - Source schema name  
- * @source_table     - Source table name
- * @column_width_estimate - Estimated column width for batch calculations (default: 1000)
- * @filter_key       - Optional filter key for conditional masking (default: '')
- * @dataset          - Dataset type identifier (default: 'AZURESQL')
+ * @source_database       -  Source database name
+ * @source_schema         -  Source schema name  
+ * @source_table          -  Source table name
+ * @column_width_estimate -  Estimated column width for batch calculations (default: 1000)
+ * @filter_key            -  Optional filter key for conditional masking (default: '')
+ * @dataset               -  Dataset type identifier (default: 'AZURESQL')
  *
  * OPERATING MODES:
  * 1. Standard Mode (@filter_key = ''): 
@@ -46,7 +46,6 @@
  * - Empty JSON arrays are converted to [""] for ADF UI compatibility
  * - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
  * - Supports treat_as_string flag for type casting edge cases
- * - Optimized for maintainability: Removed unused CTEs, simplified conditional logic, extracted batch calculations
  */
 CREATE OR ALTER PROCEDURE generate_masking_parameters
     @source_database NVARCHAR(128),
@@ -59,10 +58,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    /*
-     * base_ruleset_filter - Filters discovered_ruleset to target table and adds ADF type mappings.
-     * Applies WHERE conditions and joins with adf_type_mapping for complete base dataset.
-     */
+    -- base_ruleset_filter - Filters discovered_ruleset to target table and adds ADF type mappings.
     WITH base_ruleset_filter AS (
         SELECT 
             r.*,
@@ -91,10 +87,7 @@ BEGIN
             CAST(JSON_VALUE(r.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
         FROM base_ruleset_filter r
     ),
-    /*
-     * conditional_algorithm_extraction - Extracts conditional algorithms when filter key matches.
-     * Streamlined conditional algorithm parsing with single-purpose logic.
-     */
+    -- conditional_algorithm_extraction - Extracts conditional algorithms when filter key matches.
     conditional_algorithm_extraction AS (
         SELECT 
             r.*,
@@ -115,10 +108,7 @@ BEGIN
           AND c.alias = @filter_key
           AND @filter_key <> ''
     ),
-    /*
-     * standard_algorithm_handling - Handles standard (non-conditional) algorithms.
-     * Processes simple algorithm assignments and non-conditional scenarios.
-     */
+    -- standard_algorithm_handling - Handles standard (non-conditional) algorithms.
     standard_algorithm_handling AS (
         SELECT 
             r.*,
@@ -127,10 +117,7 @@ BEGIN
         WHERE ISJSON(r.assigned_algorithm) = 0
            OR @filter_key = ''
     ),
-    /*
-     * algorithm_resolution - Combines conditional and standard algorithms into final result.
-     * Uses clear data flow pattern with UNION ALL for different algorithm sources.
-     */
+    -- algorithm_resolution - Combines conditional and standard algorithms into final result.
     algorithm_resolution AS (
         SELECT 
             dataset, specified_database, specified_schema, identified_table,
@@ -210,10 +197,7 @@ BEGIN
             COALESCE('[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']', '[]') AS TrimLengths
         FROM ruleset_with_types
     ),
-    /*
-     * conditional_date_formats - Extracts conditional date formats when filter key is specified.
-     * Separated conditional date format extraction for cleaner logic.
-     */
+    -- conditional_date_formats - Extracts conditional date formats when filter key is specified.
     conditional_date_formats AS (
         SELECT
             f.identified_column,
@@ -230,10 +214,7 @@ BEGIN
           AND c.alias = @filter_key
           AND c.date_format IS NOT NULL
     ),
-    /*
-     * date_format_resolution - Combines conditional and standard date formats with clear precedence.
-     * Simplified logic using clear conditional vs standard separation.
-     */
+    -- date_format_resolution - Combines conditional and standard date formats with clear precedence.
     date_format_resolution AS (
         SELECT
             f.identified_column,
