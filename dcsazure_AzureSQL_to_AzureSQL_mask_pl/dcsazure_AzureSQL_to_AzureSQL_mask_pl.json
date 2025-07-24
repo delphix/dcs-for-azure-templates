@@ -1069,42 +1069,42 @@
                         "type": "Expression"
                       },
                       "storedProcedureParameters": {
-                        "DF_COLUMN_WIDTH_ESTIMATE": {
+                        "column_width_estimate": {
                           "type": "Int32",
                           "value": {
                             "value": "@variables('TARGET_BATCH_SIZE')",
                             "type": "Expression"
                           }
                         },
-                        "DF_DATASET": {
+                        "dataset": {
                           "type": "String",
                           "value": {
                             "value": "@variables('DATASET')",
                             "type": "Expression"
                           }
                         },
-                        "DF_FILTER_KEY": {
+                        "filter_key": {
                           "type": "String",
                           "value": {
                             "value": "@item().filter_alias",
                             "type": "Expression"
                           }
                         },
-                        "DF_SOURCE_DB": {
+                        "source_database": {
                           "type": "String",
                           "value": {
                             "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                             "type": "Expression"
                           }
                         },
-                        "DF_SOURCE_SCHEMA": {
+                        "source_schema": {
                           "type": "String",
                           "value": {
                             "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
                             "type": "Expression"
                           }
                         },
-                        "DF_SOURCE_TABLE": {
+                        "source_table": {
                           "type": "String",
                           "value": {
                             "value": "@item().source_table",
@@ -2588,7 +2588,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-07-21T06:36:06Z"
+        "lastPublishTime": "2025-07-21T13:04:02Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
