@@ -80,7 +80,11 @@ BEGIN
             r.*,
             CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, r.identified_column), 2)) AS encoded_column_name,
             JSON_VALUE(r.algorithm_metadata, '$.date_format') AS date_format,
-            CAST(JSON_VALUE(r.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
+            CAST(JSON_VALUE(r.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string,
+            CASE 
+                WHEN ISJSON(r.assigned_algorithm) = 1 THEN JSON_VALUE(r.assigned_algorithm, '$.key_column')
+                ELSE NULL
+            END AS key_column_name
         FROM base_ruleset_filter r
     ),
     -- conditional_algorithm_extraction - Extract conditional algorithms for matching filter key
@@ -147,41 +151,31 @@ BEGIN
         FROM algorithm_resolution ar
         INNER JOIN ruleset_computed f
             ON ar.identified_column = f.identified_column
+        WHERE (
+            f.key_column_name IS NULL
+            OR f.identified_column <> f.key_column_name
+        )
     ),
     -- generate_mask_parameters - Create core masking parameters with fallback defaults
     generate_mask_parameters AS (
         SELECT
             -- JSON mapping: encoded column name -> algorithm
-            COALESCE('{' + STRING_AGG(
-                '"' + LOWER(encoded_column_name) + '":"' + assigned_algorithm + '"',
-                ','
-            ) + '}', '{}') AS FieldAlgorithmAssignments,
+            COALESCE('{' + STRING_AGG('"' + LOWER(encoded_column_name) + '":"' + assigned_algorithm + '"', ',') + '}', '{}') AS FieldAlgorithmAssignments,
             -- JSON array of column names to mask
             COALESCE(JSON_QUERY('[' + STRING_AGG('"' + identified_column + '"', ',') + ']'), '[]') AS ColumnsToMask,
             -- ADF data flow expression for DCS masking API response parsing
-            '''' + 
+            '''' +
             '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long' +
-            COALESCE(
-                ', ' + STRING_AGG(
-                    LOWER(CONCAT(
-                        encoded_column_name, 
-                        ' as ', 
-                        CASE 
-                            WHEN treat_as_string = 1 THEN 'string'
-                            ELSE adf_type
-                        END
-                    )), 
-                    ', '
-                ),
-                ''
-            ) + 
+            COALESCE(', ' + STRING_AGG(LOWER(CONCAT(encoded_column_name, ' as ', CASE WHEN treat_as_string = 1 THEN 'string' ELSE adf_type END)), ', '), '') +
             ')[])' + '''' AS DataFactoryTypeMapping,
             -- Optimal batch count (minimum 1)
-            COALESCE(CASE 
-                WHEN CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) < 1 
-                THEN 1 
-                ELSE CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9))
-            END, 1) AS NumberOfBatches,
+            COALESCE(
+                CASE WHEN CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) < 1 
+                     THEN 1 
+                     ELSE CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) 
+                END, 
+                1
+            ) AS NumberOfBatches,
             -- JSON array of column max lengths
             COALESCE('[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']', '[]') AS TrimLengths
         FROM ruleset_with_types
