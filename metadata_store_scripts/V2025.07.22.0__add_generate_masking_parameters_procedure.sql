@@ -176,18 +176,17 @@ BEGIN
     generate_mask_parameters AS (
         SELECT
             -- JSON object mapping column name to assigned algorithm
-            '{' + STRING_AGG(
+            COALESCE('{' + STRING_AGG(
                 '"' + LOWER(encoded_column_name) + '":"' + assigned_algorithm + '"',
                 ','
-            ) + '}' AS FieldAlgorithmAssignments,
+            ) + '}', '{}') AS FieldAlgorithmAssignments,
             -- List of columns to mask as JSON array
-            JSON_QUERY('[' + STRING_AGG('"' + identified_column + '"', ',') + ']') AS ColumnsToMask,
+            COALESCE(JSON_QUERY('[' + STRING_AGG('"' + identified_column + '"', ',') + ']'), '[]') AS ColumnsToMask,
             -- Data factory type mapping string for parsing API response
-            (
-                '''' + 
-                '(timestamp as date, status as string, message as string, trace_id as string, ' + 
-                'items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, ' +
-                STRING_AGG(
+            '''' + 
+            '(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long' +
+            COALESCE(
+                ', ' + STRING_AGG(
                     LOWER(CONCAT(
                         encoded_column_name, 
                         ' as ', 
@@ -197,17 +196,18 @@ BEGIN
                         END
                     )), 
                     ', '
-                ) + 
-                ')[])' + '''' 
-            ) AS DataFactoryTypeMapping,
+                ),
+                ''
+            ) + 
+            ')[])' + '''' AS DataFactoryTypeMapping,
             -- Calculate optimal batch count with minimum of 1
-            CASE 
+            COALESCE(CASE 
                 WHEN CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) < 1 
                 THEN 1 
                 ELSE CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9))
-            END AS NumberOfBatches,
+            END, 1) AS NumberOfBatches,
             -- Array of column lengths for trimming
-            '[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']' AS TrimLengths
+            COALESCE('[' + STRING_AGG(CAST(identified_column_max_length AS NVARCHAR(10)), ',') + ']', '[]') AS TrimLengths
         FROM ruleset_with_types
     ),
     /*
@@ -245,18 +245,8 @@ BEGIN
         WHERE f.date_format IS NOT NULL 
            OR cdf.conditional_date_format IS NOT NULL
     ),
-    /*
-     * string_casting_with_adf_type - Identifies columns requiring string casting and their target ADF types.
-     * Used to generate ColumnsToCastBackTo* arrays for proper type conversion after masking.
-     */
-    string_casting_with_adf_type AS (
-        SELECT
-            f.*
-        FROM ruleset_computed f
-        WHERE f.treat_as_string = 1
-    ),
     -- Create JSON mapping for date format assignments
-    generate_date_format_assignments AS (
+    date_format_assignments AS (
         SELECT
             COALESCE(
                 '{' + STRING_AGG(
@@ -268,63 +258,41 @@ BEGIN
         FROM date_format_resolution dfr
         WHERE dfr.final_date_format IS NOT NULL
     ),
-    -- Aggregate casting parameters and date format assignments
-    aggregate_columns_to_cast_back_parameters AS (
+    -- Aggregate casting parameters
+    type_casting_parameters AS (
         SELECT
-            -- Get DateFormatAssignments as a scalar subquery
-            (SELECT DateFormatAssignments FROM generate_date_format_assignments) AS DateFormatAssignments,
-            COALESCE(NULLIF('[' + STRING_AGG('"' + s.identified_column + '"', ',') + ']', '[]'), '[""]') AS ColumnsToCastAsStrings,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'binary' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToBinary,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'boolean' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToBoolean,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'date' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToDate,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'double' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToDouble,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'float' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToFloat,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'integer' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToInteger,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'long' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToLong,
-            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'timestamp' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToTimestamp
-        FROM string_casting_with_adf_type s
-    ),
-    -- Consolidate all masking parameters with fallback behavior
-    all_masking_parameters AS (
-        SELECT
-            COALESCE(g.FieldAlgorithmAssignments, '{}') AS FieldAlgorithmAssignments,
-            COALESCE(g.ColumnsToMask, '[]') AS ColumnsToMask,
-            COALESCE(g.DataFactoryTypeMapping, 
-                '''(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'''
-            ) AS DataFactoryTypeMapping,
-            COALESCE(g.NumberOfBatches, 1) AS NumberOfBatches,
-            COALESCE(g.TrimLengths, '[]') AS TrimLengths,
-            COALESCE(a.DateFormatAssignments, '{}') AS DateFormatAssignments,
-            COALESCE(a.ColumnsToCastAsStrings, '[""]') AS ColumnsToCastAsStrings,
-            COALESCE(a.ColumnsToCastBackToBinary, '[""]') AS ColumnsToCastBackToBinary,
-            COALESCE(a.ColumnsToCastBackToBoolean, '[""]') AS ColumnsToCastBackToBoolean,
-            COALESCE(a.ColumnsToCastBackToDate, '[""]') AS ColumnsToCastBackToDate,
-            COALESCE(a.ColumnsToCastBackToDouble, '[""]') AS ColumnsToCastBackToDouble,
-            COALESCE(a.ColumnsToCastBackToFloat, '[""]') AS ColumnsToCastBackToFloat,
-            COALESCE(a.ColumnsToCastBackToInteger, '[""]') AS ColumnsToCastBackToInteger,
-            COALESCE(a.ColumnsToCastBackToLong, '[""]') AS ColumnsToCastBackToLong,
-            COALESCE(a.ColumnsToCastBackToTimestamp, '[""]') AS ColumnsToCastBackToTimestamp
-        FROM (SELECT 1 as dummy) d  -- Ensures always one row
-        LEFT JOIN generate_mask_parameters g ON 1=1
-        LEFT JOIN aggregate_columns_to_cast_back_parameters a ON 1=1
+            '["' + COALESCE(STRING_AGG('"' + f.identified_column + '"', ','), '') + '"]' AS ColumnsToCastAsStrings,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'binary' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToBinary,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'boolean' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToBoolean,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'date' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToDate,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'double' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToDouble,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'float' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToFloat,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'integer' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToInteger,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'long' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToLong,
+            '["' + COALESCE(STRING_AGG(CASE WHEN f.adf_type = 'timestamp' THEN '"' + f.identified_column + '"' END, ','), '') + '"]' AS ColumnsToCastBackToTimestamp
+        FROM ruleset_computed f
+        WHERE f.treat_as_string = 1
     )
+    -- Final result combining all masking parameters
     SELECT 
-        FieldAlgorithmAssignments,
-        ColumnsToMask,
-        DataFactoryTypeMapping,
-        NumberOfBatches,
-        TrimLengths,
-        DateFormatAssignments,
+        g.FieldAlgorithmAssignments,
+        g.ColumnsToMask,
+        g.DataFactoryTypeMapping,
+        g.NumberOfBatches,
+        g.TrimLengths,
+        df.DateFormatAssignments,
         StoredProcedureVersion = 'V2025.07.22.0',
-        ColumnsToCastAsStrings,
-        ColumnsToCastBackToBinary,
-        ColumnsToCastBackToBoolean,
-        ColumnsToCastBackToDate,
-        ColumnsToCastBackToDouble,
-        ColumnsToCastBackToFloat,
-        ColumnsToCastBackToInteger,
-        ColumnsToCastBackToLong,
-        ColumnsToCastBackToTimestamp
-    FROM all_masking_parameters;
+        a.ColumnsToCastAsStrings,
+        a.ColumnsToCastBackToBinary,
+        a.ColumnsToCastBackToBoolean,
+        a.ColumnsToCastBackToDate,
+        a.ColumnsToCastBackToDouble,
+        a.ColumnsToCastBackToFloat,
+        a.ColumnsToCastBackToInteger,
+        a.ColumnsToCastBackToLong,
+        a.ColumnsToCastBackToTimestamp
+    FROM generate_mask_parameters g,
+         date_format_assignments df,
+         type_casting_parameters a;
 END
 GO
