@@ -46,6 +46,7 @@
  * - Empty JSON arrays are converted to [""] for ADF UI compatibility
  * - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
  * - Supports treat_as_string flag for type casting edge cases
+ * - Optimized for maintainability: Removed unused CTEs, simplified conditional logic, extracted batch calculations
  */
 CREATE OR ALTER PROCEDURE generate_masking_parameters
     @source_database NVARCHAR(128),
@@ -91,52 +92,8 @@ BEGIN
         FROM base_ruleset_filter r
     ),
     /*
-     * key_column - Extracts key column conditions for conditional masking.
-     * Parses assigned_algorithm JSON arrays to identify alias/condition pairs.
-     * Key columns control how other columns are masked but cannot be masked themselves.
-     */
-    key_column AS (
-        SELECT 
-            fts.*,
-            c.[alias],
-            c.[condition]
-        FROM ruleset_computed fts
-        CROSS APPLY OPENJSON(fts.assigned_algorithm, '$')
-        WITH (
-            [alias] NVARCHAR(255) '$.alias',
-            [condition] NVARCHAR(MAX) '$.condition'
-        ) AS c
-        WHERE ISJSON(fts.assigned_algorithm) = 1
-          AND JSON_VALUE(fts.assigned_algorithm, '$[0].alias') IS NOT NULL
-    ),
-    /*
-     * conditional_algorithm - Parses conditional algorithm assignments from JSON structures.
-     * Expands conditions into individual rows with alias/algorithm pairs.
-     * Handles columns that reference key columns for conditional masking logic.
-     */
-    conditional_algorithm AS (
-        SELECT 
-            fts.*,
-            JSON_VALUE(fts.assigned_algorithm, '$.key_column') AS key_column,
-            c.[alias],
-            c.[algorithm]
-        FROM ruleset_computed fts
-        CROSS APPLY OPENJSON(JSON_QUERY(fts.assigned_algorithm, '$.conditions'))
-        WITH (
-            [alias] NVARCHAR(255) '$.alias',
-            [algorithm] NVARCHAR(255) '$.algorithm'
-        ) AS c
-        WHERE ISJSON(fts.assigned_algorithm) = 1 
-          AND JSON_VALUE(fts.assigned_algorithm, '$.key_column') IS NOT NULL
-          AND JSON_QUERY(fts.assigned_algorithm, '$.conditions') IS NOT NULL
-          AND EXISTS (
-            SELECT 1
-            FROM OPENJSON(JSON_QUERY(fts.assigned_algorithm, '$.conditions'))
-          )
-    ),
-    /*
      * conditional_algorithm_extraction - Extracts conditional algorithms when filter key matches.
-     * Uses clear conditional handling approach for better separation of concerns.
+     * Streamlined conditional algorithm parsing with single-purpose logic.
      */
     conditional_algorithm_extraction AS (
         SELECT 
@@ -243,7 +200,7 @@ BEGIN
                 ) + 
                 ')[])' + '''' 
             ) AS DataFactoryTypeMapping,
-            -- Apply minimum batch count of 1 directly to calculation
+            -- Calculate optimal batch count with minimum of 1
             CASE 
                 WHEN CEILING((MAX(row_count) * (SUM(column_width_estimate) + LOG10(MAX(row_count)) + 1)) / (2000000 * 0.9)) < 1 
                 THEN 1 
@@ -254,31 +211,39 @@ BEGIN
         FROM ruleset_with_types
     ),
     /*
-     * date_format_resolution - Resolves date formats with conditional/standard priority.
-     * Uses conditional date format when @filter_key matches, otherwise falls back to standard format.
+     * conditional_date_formats - Extracts conditional date formats when filter key is specified.
+     * Separated conditional date format extraction for cleaner logic.
+     */
+    conditional_date_formats AS (
+        SELECT
+            f.identified_column,
+            f.encoded_column_name,
+            c.date_format AS conditional_date_format
+        FROM ruleset_computed f
+        CROSS APPLY OPENJSON(f.algorithm_metadata, '$.conditions')
+        WITH (
+            alias NVARCHAR(255) '$.alias',
+            date_format NVARCHAR(255) '$.date_format'
+        ) AS c
+        WHERE @filter_key <> ''
+          AND f.algorithm_metadata IS NOT NULL
+          AND c.alias = @filter_key
+          AND c.date_format IS NOT NULL
+    ),
+    /*
+     * date_format_resolution - Combines conditional and standard date formats with clear precedence.
+     * Simplified logic using clear conditional vs standard separation.
      */
     date_format_resolution AS (
         SELECT
             f.identified_column,
-            f.encoded_column_name,  -- Already available from RulesetComputed
-            COALESCE(
-                -- Get conditional date format if filter key matches
-                CASE WHEN @filter_key <> '' THEN 
-                    (
-                        SELECT TOP 1 c.[date_format]
-                        FROM OPENJSON(f.algorithm_metadata, '$.conditions')
-                        WITH (
-                            [alias] NVARCHAR(255) '$.alias',
-                            [date_format] NVARCHAR(255) '$.date_format'
-                        ) AS c
-                        WHERE c.[alias] = @filter_key
-                    )
-                ELSE NULL END,
-                -- Fall back to standard date format
-                f.date_format
-            ) AS final_date_format
+            f.encoded_column_name,
+            COALESCE(cdf.conditional_date_format, f.date_format) AS final_date_format
         FROM ruleset_computed f
-        WHERE f.date_format IS NOT NULL OR f.algorithm_metadata IS NOT NULL
+        LEFT JOIN conditional_date_formats cdf 
+            ON f.identified_column = cdf.identified_column
+        WHERE f.date_format IS NOT NULL 
+           OR cdf.conditional_date_format IS NOT NULL
     ),
     /*
      * string_casting_with_adf_type - Identifies columns requiring string casting and their target ADF types.
@@ -308,34 +273,24 @@ BEGIN
         SELECT
             -- Get DateFormatAssignments as a scalar subquery
             (SELECT DateFormatAssignments FROM generate_date_format_assignments) AS DateFormatAssignments,
-            COALESCE('[' + STRING_AGG('"' + s.identified_column + '"', ',') + ']', '[]') AS ColumnsToCastAsStrings,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'binary' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToBinary,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'boolean' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToBoolean,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'date' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToDate,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'double' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToDouble,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'float' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToFloat,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'integer' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToInteger,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'long' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToLong,
-            COALESCE('[' + STRING_AGG(CASE WHEN s.adf_type = 'timestamp' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]') AS ColumnsToCastBackToTimestamp
+            COALESCE(NULLIF('[' + STRING_AGG('"' + s.identified_column + '"', ',') + ']', '[]'), '[""]') AS ColumnsToCastAsStrings,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'binary' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToBinary,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'boolean' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToBoolean,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'date' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToDate,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'double' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToDouble,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'float' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToFloat,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'integer' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToInteger,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'long' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToLong,
+            COALESCE(NULLIF('[' + STRING_AGG(CASE WHEN s.adf_type = 'timestamp' THEN '"' + s.identified_column + '"' END, ',') + ']', '[]'), '[""]') AS ColumnsToCastBackToTimestamp
         FROM string_casting_with_adf_type s
     ),
-    -- Consolidate all masking parameters
+    -- Consolidate all masking parameters with fallback behavior
     all_masking_parameters AS (
         SELECT
             g.*,
             a.*
         FROM generate_mask_parameters g
         CROSS JOIN aggregate_columns_to_cast_back_parameters a
-    ),
-    /*
-     * final_masking_parameters - Ensures exactly one record is always returned.
-     * Returns actual parameters if rules exist, otherwise returns default/empty values.
-     * Prevents ADF lookup activity failures when no masking rules are found.
-     */
-    final_masking_parameters AS (
-        SELECT 
-            amp.*
-        FROM all_masking_parameters amp
         
         UNION ALL
 
@@ -417,7 +372,7 @@ BEGIN
                     WHERE f.adf_type = 'timestamp'
                 ) + ']', '[]'
             ) AS ColumnsToCastBackToTimestamp
-        WHERE NOT EXISTS (SELECT 1 FROM all_masking_parameters)
+        WHERE NOT EXISTS (SELECT 1 FROM generate_mask_parameters)
     )
     SELECT 
         FieldAlgorithmAssignments,
@@ -427,52 +382,15 @@ BEGIN
         TrimLengths,
         DateFormatAssignments,
         StoredProcedureVersion = 'V2025.07.22.0',
-        -- Convert empty arrays to [""] for ADF UI compatibility
-        CASE 
-            WHEN ColumnsToCastAsStrings = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastAsStrings 
-        END AS ColumnsToCastAsStrings,
-        CASE 
-            WHEN ColumnsToCastBackToBinary = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToBinary 
-        END AS ColumnsToCastBackToBinary,
-        CASE 
-            WHEN ColumnsToCastBackToBoolean = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToBoolean 
-        END AS ColumnsToCastBackToBoolean,
-        CASE 
-            WHEN ColumnsToCastBackToDate = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToDate 
-        END AS ColumnsToCastBackToDate,
-        CASE 
-            WHEN ColumnsToCastBackToDouble = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToDouble 
-        END AS ColumnsToCastBackToDouble,
-        CASE 
-            WHEN ColumnsToCastBackToFloat = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToFloat 
-        END AS ColumnsToCastBackToFloat,
-        CASE 
-            WHEN ColumnsToCastBackToInteger = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToInteger 
-        END AS ColumnsToCastBackToInteger,
-        CASE 
-            WHEN ColumnsToCastBackToLong = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToLong 
-        END AS ColumnsToCastBackToLong,
-        CASE 
-            WHEN ColumnsToCastBackToTimestamp = '[]' 
-            THEN '[""]' 
-            ELSE ColumnsToCastBackToTimestamp 
-        END AS ColumnsToCastBackToTimestamp
-    FROM final_masking_parameters;
+        ColumnsToCastAsStrings,
+        ColumnsToCastBackToBinary,
+        ColumnsToCastBackToBoolean,
+        ColumnsToCastBackToDate,
+        ColumnsToCastBackToDouble,
+        ColumnsToCastBackToFloat,
+        ColumnsToCastBackToInteger,
+        ColumnsToCastBackToLong,
+        ColumnsToCastBackToTimestamp
+    FROM all_masking_parameters;
 END
 GO
