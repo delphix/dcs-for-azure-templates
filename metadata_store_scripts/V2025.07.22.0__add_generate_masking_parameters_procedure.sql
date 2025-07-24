@@ -62,30 +62,25 @@ BEGIN
      * FilterToSingleTable - Filters discovered_ruleset to the target table and prepares column metadata.
      * Extracts date_format and treat_as_string settings from algorithm_metadata JSON.
      * Creates hex-encoded column names to avoid ADF pipeline issues with special characters.
+     * Includes ADF type mappings for proper data flow processing and API response parsing.
      */
     WITH FilterToSingleTable AS (
         SELECT 
             r.*,
+            t.adf_type,
             CONCAT('x', CONVERT(varchar(max), CONVERT(varbinary, r.identified_column), 2)) AS encoded_column_name,
             JSON_VALUE(r.algorithm_metadata, '$.date_format') AS date_format,
             CAST(JSON_VALUE(r.algorithm_metadata, '$.treat_as_string') AS BIT) AS treat_as_string
         FROM discovered_ruleset r
+        INNER JOIN adf_type_mapping t
+            ON r.identified_column_type = t.dataset_type 
+            AND r.dataset = t.dataset
         WHERE r.dataset = @DF_DATASET
           AND r.specified_database = @DF_SOURCE_DB
           AND r.specified_schema = @DF_SOURCE_SCHEMA
           AND r.identified_table = @DF_SOURCE_TABLE
           AND r.assigned_algorithm IS NOT NULL
           AND r.assigned_algorithm <> ''
-    ),
-    /*
-     * FilterToDataSourceType - Maps database column types to ADF data types for the current dataset.
-     * Required for proper data flow processing and API response parsing.
-     */
-    FilterToDataSourceType AS (
-        SELECT 
-            t.*
-        FROM adf_type_mapping t
-        WHERE t.dataset = @DF_DATASET
     ),
     /*
      * KeyColumn - Extracts key column conditions for conditional masking.
@@ -184,16 +179,14 @@ BEGIN
     RulesetWithTypes AS (
         SELECT 
             cf.*,
-            t.adf_type,
+            f.adf_type,
             CASE 
                 WHEN cf.identified_column_max_length > 0 THEN cf.identified_column_max_length + 4
                 ELSE @DF_COLUMN_WIDTH_ESTIMATE
             END AS column_width_estimate,
             f.treat_as_string as treat_as_string
         FROM ConditionalFiltering cf
-        INNER JOIN FilterToDataSourceType t
-            ON cf.identified_column_type = t.dataset_type
-        LEFT JOIN FilterToSingleTable f
+        INNER JOIN FilterToSingleTable f
             ON cf.identified_column = f.identified_column
     ),
     /*
@@ -271,11 +264,8 @@ BEGIN
      */
     StringCastingWithAdfType AS (
         SELECT
-            f.*,
-            t.adf_type
+            f.*
         FROM FilterToSingleTable f
-        INNER JOIN FilterToDataSourceType t
-            ON f.identified_column_type = t.dataset_type
         WHERE f.treat_as_string = 1
     ),
     -- Create JSON mapping for date format assignments
