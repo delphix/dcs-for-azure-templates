@@ -218,7 +218,7 @@ BEGIN
             -- ADF data flow expression for DCS masking API response parsing
             ''''
             + '(timestamp as date, status as string, message as string, trace_id as string, '
-            + 'items as (delphix_compliance_service_batch_id as long'
+            + 'items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long'
             + COALESCE(
                 ', '
                 + STRING_AGG(
