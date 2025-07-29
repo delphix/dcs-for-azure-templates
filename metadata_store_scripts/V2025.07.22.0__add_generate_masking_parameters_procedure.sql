@@ -1,52 +1,52 @@
 /*
-* generate_masking_parameters - Generates masking parameters for Azure Data Factory dataflows.
-*
-* This stored procedure replaces the ADF dataflows generating masking parameters
-* for improved performance and maintainability. It generates all necessary parameters for masking
-* a specific table using Delphix Compliance Services APIs within Azure Data Factory pipelines.
-*
-* PARAMETERS:
-* @source_database - Source database name
-* @source_schema - Source schema name
-* @source_table - Source table name
-* @column_width_estimate - Estimated column width for batch calculations (default: 1000)
-* @filter_key - Optional filter key for conditional masking (default: '')
-* @dataset - Dataset type identifier (default: 'AZURESQL')
-*
-* OPERATING MODES:
-* 1. Standard Mode (@filter_key = ''):
-*   - Generates standard masking parameters for all columns with assigned algorithms
-*   - Uses unconditional algorithms and default date formats
-*
-* 2. Conditional Mode (@filter_key provided):
-*   - Applies conditional masking based on key column values
-*   - Uses alias-specific algorithms and date formats
-*   - Filters rules to match the specified condition alias
-*
-* OUTPUT PARAMETERS:
-* - FieldAlgorithmAssignments: JSON mapping of encoded column names to masking algorithms
-* - ColumnsToMask: JSON array of column names requiring masking
-* - DataFactoryTypeMapping: ADF schema definition for API response parsing
-* - NumberOfBatches: Calculated batch count for optimal processing
-* - TrimLengths: JSON array of column max lengths for output trimming
-* - DateFormatAssignments: JSON mapping of columns to their date format strings
-* - ColumnsToCastAsStrings: JSON array of columns requiring string casting
-* - ColumnsToCastBackTo*: JSON arrays of columns to cast back to specific ADF types
-*
-* DEPENDENCIES:
-* - discovered_ruleset table: Contains masking rules and algorithm assignments
-* - adf_type_mapping table: Maps database types to ADF types
-* - Supports conditional masking via JSON structures in assigned_algorithm column
-*
-* FALLBACK BEHAVIOR:
-* Always returns exactly one record. If no masking rules exist, returns default/empty
-* values to prevent ADF lookup activity failures.
-*
-* NOTES:
-* - Empty JSON arrays are converted to [""] for ADF UI compatibility
-* - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
-* - Supports treat_as_string flag for type casting feature
-*/
+ * generate_masking_parameters - Generates masking parameters for Azure Data Factory dataflows.
+ *
+ * This stored procedure replaces the ADF dataflows generating masking parameters
+ * for improved performance and maintainability. It generates all necessary parameters for masking
+ * a specific table using Delphix Compliance Services APIs within Azure Data Factory pipelines.
+ *
+ * PARAMETERS:
+ * @source_database - Source database name
+ * @source_schema - Source schema name
+ * @source_table - Source table name
+ * @column_width_estimate - Estimated column width for batch calculations (default: 1000)
+ * @filter_key - Optional filter key for conditional masking (default: '')
+ * @dataset - Dataset type identifier (default: 'AZURESQL')
+ *
+ * OPERATING MODES:
+ * 1. Standard Mode (@filter_key = ''):
+ *   - Generates standard masking parameters for all columns with assigned algorithms
+ *   - Uses unconditional algorithms and default date formats
+ *
+ * 2. Conditional Mode (@filter_key provided):
+ *   - Applies conditional masking based on key column values
+ *   - Uses alias-specific algorithms and date formats
+ *   - Filters rules to match the specified condition alias
+ *
+ * OUTPUT PARAMETERS:
+ * - FieldAlgorithmAssignments: JSON mapping of encoded column names to masking algorithms
+ * - ColumnsToMask: JSON array of column names requiring masking
+ * - DataFactoryTypeMapping: ADF schema definition for API response parsing
+ * - NumberOfBatches: Calculated batch count for optimal processing
+ * - TrimLengths: JSON array of column max lengths for output trimming
+ * - DateFormatAssignments: JSON mapping of columns to their date format strings
+ * - ColumnsToCastAsStrings: JSON array of columns requiring string casting
+ * - ColumnsToCastBackTo*: JSON arrays of columns to cast back to specific ADF types
+ *
+ * DEPENDENCIES:
+ * - discovered_ruleset table: Contains masking rules and algorithm assignments
+ * - adf_type_mapping table: Maps database types to ADF types
+ * - Supports conditional masking via JSON structures in assigned_algorithm column
+ *
+ * FALLBACK BEHAVIOR:
+ * Always returns exactly one record. If no masking rules exist, returns default/empty
+ * values to prevent ADF lookup activity failures.
+ *
+ * NOTES:
+ * - Empty JSON arrays are converted to [""] for ADF UI compatibility
+ * - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
+ * - Supports treat_as_string flag for type casting feature
+ */
 CREATE OR ALTER PROCEDURE generate_masking_parameters
     @source_database NVARCHAR(128),
     @source_schema NVARCHAR(128),
@@ -89,12 +89,12 @@ BEGIN
                     2
                 )
             ) AS encoded_column_name,
-            JSON_VALUE(r.algorithm_metadata, '$.date_format') AS date_format,
+            JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
             CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
             CASE
                 WHEN ISJSON(r.assigned_algorithm) = 1
                     THEN JSON_VALUE(r.assigned_algorithm, '$.key_column')
-            END AS key_column_name
+            END AS [key_column_name]
         FROM base_ruleset_filter AS r
     ),
 
@@ -102,24 +102,27 @@ BEGIN
     conditional_algorithm_extraction AS (
         SELECT
             r.*,
-            c.algorithm AS resolved_algorithm
+            x.[key_column],
+            x.[conditions],
+            c.[condition_alias],
+            c.[algorithm] AS resolved_algorithm
         FROM ruleset_computed AS r
         CROSS APPLY
             OPENJSON (r.assigned_algorithm)
             WITH (
-                key_column NVARCHAR(255) '$.key_column',
-                conditions NVARCHAR(MAX) '$.conditions' AS JSON
+                [key_column] NVARCHAR(255) '$.key_column',
+                [conditions] NVARCHAR(MAX) '$.conditions' AS JSON
             ) AS x
         CROSS APPLY
-            OPENJSON (x.conditions)
+            OPENJSON (x.[conditions])
             WITH (
-                condition_alias NVARCHAR(255) '$.alias',
-                algorithm NVARCHAR(255) '$.algorithm'
+                [condition_alias] NVARCHAR(255) '$.alias',
+                [algorithm] NVARCHAR(255) '$.algorithm'
             ) AS c
         WHERE
             ISJSON(r.assigned_algorithm) = 1
             AND JSON_VALUE(r.assigned_algorithm, '$.key_column') IS NOT NULL
-            AND c.condition_alias = @filter_key
+            AND c.[condition_alias] = @filter_key
             AND @filter_key <> ''
     ),
 
@@ -185,8 +188,8 @@ BEGIN
         INNER JOIN ruleset_computed AS f
             ON ar.identified_column = f.identified_column
         WHERE (
-            f.key_column_name IS NULL
-            OR f.identified_column <> f.key_column_name
+            f.[key_column_name] IS NULL
+            OR f.identified_column <> f.[key_column_name]
         )
     ),
 
@@ -214,7 +217,8 @@ BEGIN
             ) AS columnstomask,
             -- ADF data flow expression for DCS masking API response parsing
             ''''
-            + '(timestamp as date, status as string, message as string, trace_id as string, items as (delphix_compliance_service_batch_id as long'
+            + '(timestamp as date, status as string, message as string, trace_id as string, '
+            + 'items as (delphix_compliance_service_batch_id as long'
             + COALESCE(
                 ', '
                 + STRING_AGG(
@@ -268,19 +272,20 @@ BEGIN
         SELECT
             f.identified_column,
             f.encoded_column_name,
-            c.date_format AS conditional_date_format
+            c.[condition_alias],
+            c.[date_format] AS conditional_date_format
         FROM ruleset_computed AS f
         CROSS APPLY
             OPENJSON (f.algorithm_metadata, '$.conditions')
             WITH (
-                condition_alias NVARCHAR(255) '$.alias',
-                date_format NVARCHAR(255) '$.date_format'
+                [condition_alias] NVARCHAR(255) '$.alias',
+                [date_format] NVARCHAR(255) '$.date_format'
             ) AS c
         WHERE
             @filter_key <> ''
             AND f.algorithm_metadata IS NOT NULL
-            AND c.condition_alias = @filter_key
-            AND c.date_format IS NOT NULL
+            AND c.[condition_alias] = @filter_key
+            AND c.[date_format] IS NOT NULL
     ),
 
     -- date_format_resolution - Merge conditional and standard date formats
@@ -288,12 +293,12 @@ BEGIN
         SELECT
             f.identified_column,
             f.encoded_column_name,
-            COALESCE(cdf.conditional_date_format, f.date_format) AS final_date_format
+            COALESCE(cdf.conditional_date_format, f.[date_format]) AS final_date_format
         FROM ruleset_computed AS f
         LEFT JOIN conditional_date_formats AS cdf
             ON f.identified_column = cdf.identified_column
         WHERE
-            f.date_format IS NOT NULL
+            f.[date_format] IS NOT NULL
             OR cdf.conditional_date_format IS NOT NULL
     ),
 

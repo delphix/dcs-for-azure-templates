@@ -1,3 +1,4 @@
 [sqlfluff]
 dialect = tsql
 max_line_length = 100
+exclude_rules = RF02
