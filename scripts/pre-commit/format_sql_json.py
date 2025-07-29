@@ -18,14 +18,26 @@ def format_sql(modified_sql_files: tp.List[Path]):
         try:
             subprocess.run(
                 ["sqlfluff", "format", str(sql_file)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
                 check=True,
             )
+            # On success, do not print anything
         except subprocess.CalledProcessError as e:
-            logger.error(f"Error formatting SQL file {sql_file}: {e}")
+            logger.error(f"Error formatting SQL file {sql_file}:")
+            if e.stdout:
+                print(e.stdout)
+            if e.stderr:
+                print(e.stderr)
+            
+            print(
+                f"\nSome errors may not be shown by 'sqlfluff format'.\n"
+                f"To see all parsing and linting errors, run:\n"
+                f"  sqlfluff parse {sql_file}\n"
+                f"  sqlfluff lint {sql_file}\n"
+            )
             raise e
-
 
 def format_json(modified_json_files: tp.List[Path]):
     for json_file in modified_json_files:
