@@ -452,6 +452,10 @@ is maintained.
 ### Load Testing
 
 1. Verify that discovery pipeline can sample source dataset with many tables in a schema and each table having 
-large amount of varying data (1K, 2K, 5K etc).
+large amount of varying data (10K, 100K, 1M etc).
 2. Verify that the masking pipeline can mask many tables with large number of varying data.
 
+> [!NOTE]
+> It is important to test with **variable data volumes** to understand how the runtime performance of
+> discovery and masking pipelines scales with increasing data size. The test should include masking
+> at least **one million rows per table**, as real customer environments often contain millions of rows per table.
