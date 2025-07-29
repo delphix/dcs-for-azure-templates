@@ -234,7 +234,7 @@ BEGIN
                 ''
             )
             + ')[])'
-            + '''' AS datafactorytypemapping,   -- Optimal batch count (minimum 1)
+            + '''' AS datafactorytypemapping,
             COALESCE(
                 CASE
                     WHEN
@@ -258,12 +258,12 @@ BEGIN
                         / (2000000 * 0.9)
                     )
                 END, 1
-            ) AS [NumberOfBatches],   -- JSON array of column max lengths
+            ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1)
             COALESCE(
                 '[' + STRING_AGG(
                     CONVERT(NVARCHAR(10), identified_column_max_length), ','
                 ) + ']', '[]'
-            ) AS [TrimLengths]
+            ) AS [TrimLengths]   -- JSON array of column max lengths
         FROM ruleset_with_types
     ),
 
