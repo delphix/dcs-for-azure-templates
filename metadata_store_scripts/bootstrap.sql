@@ -1612,7 +1612,11 @@ BEGIN
         SELECT
             COALESCE(
                 '{' + STRING_AGG(
-                    '"' + LOWER(encoded_column_name) + '":"' + final_date_format + '"',
+                    '"'
+                    + LOWER(encoded_column_name)
+                    + '":"'
+                    + REPLACE(final_date_format, '''', '\''')
+                    + '"',
                     ','
                 ) + '}',
                 '{}'
