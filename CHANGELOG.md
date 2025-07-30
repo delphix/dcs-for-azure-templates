@@ -2,8 +2,7 @@
 
 # 0.0.28
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
-  * Improved pipeline performance by 41%
-  * Unified conditional and non-conditional masking logic into single stored procedure
+  * Unified and optimized conditional and non-conditional masking parameter generation in a single stored procedure
 * Fixed type casting bug where `treat_as_string` flag caused zero rows in sink table (#65)  
 * Add SQLFluff configuration for T-SQL formatting standards
 
