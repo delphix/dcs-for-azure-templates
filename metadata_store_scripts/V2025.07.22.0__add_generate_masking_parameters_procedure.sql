@@ -99,7 +99,7 @@ BEGIN
             AND r.assigned_algorithm <> ''
             -- Exclude key columns for conditional masking: key columns have 
             -- assigned_algorithm as a JSON array
-            AND ISJSON(r.assigned_algorithm, 'ARRAY') = 0
+            AND ISJSON(r.assigned_algorithm, ARRAY) = 0
     ),
 
     -- conditional_algorithm_extraction - Extract conditional algorithms for matching filter key
