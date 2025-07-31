@@ -1083,31 +1083,31 @@
                             "type": "Expression"
                           }
                         },
-                        "filter_key": {
+                        "filter_alias": {
                           "type": "String",
                           "value": {
                             "value": "@item().filter_alias",
                             "type": "Expression"
                           }
                         },
-                        "source_database": {
+                        "identified_table": {
+                          "type": "String",
+                          "value": {
+                            "value": "@item().source_table",
+                            "type": "Expression"
+                          }
+                        },
+                        "specified_database": {
                           "type": "String",
                           "value": {
                             "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                             "type": "Expression"
                           }
                         },
-                        "source_schema": {
+                        "specified_schema": {
                           "type": "String",
                           "value": {
                             "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
-                            "type": "Expression"
-                          }
-                        },
-                        "source_table": {
-                          "type": "String",
-                          "value": {
-                            "value": "@item().source_table",
                             "type": "Expression"
                           }
                         }
@@ -2588,7 +2588,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-07-21T13:04:02Z"
+        "lastPublishTime": "2025-07-29T19:40:12Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -3310,7 +3310,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-07-09T05:00:27Z"
+        "lastPublishTime": "2025-07-29T19:40:10Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3734,7 +3734,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-07-09T05:00:27Z"
+        "lastPublishTime": "2025-07-29T19:40:10Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
