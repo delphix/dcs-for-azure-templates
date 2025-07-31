@@ -52,7 +52,8 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2025.07.22.0';
 
-    -- base_ruleset_filter - Filter to target table, add ADF type mappings
+    -- base_ruleset_filter - Filter to target table, add ADF type mappings, 
+    -- compute metadata, and exclude key columns
     WITH base_ruleset_filter AS (
         SELECT
             r.dataset,
@@ -74,7 +75,16 @@ BEGIN
                     CONVERT(VARBINARY, r.identified_column),
                     2
                 )
-            ) AS encoded_column_name
+            ) AS encoded_column_name,
+            -- algorithm_metadata is always expected to be a JSON object (or NULL), 
+            -- so JSON_VALUE is safe without ISJSON/CASE
+            JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
+            CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
+            -- Add column width estimate here
+            CASE
+                WHEN r.identified_column_max_length > 0 THEN r.identified_column_max_length + 4
+                ELSE @column_width_estimate
+            END AS column_width_estimate
         FROM discovered_ruleset AS r
         INNER JOIN adf_type_mapping AS t
             ON
@@ -87,32 +97,22 @@ BEGIN
             AND r.identified_table = @identified_table
             AND r.assigned_algorithm IS NOT NULL
             AND r.assigned_algorithm <> ''
-    ),
-
-    -- ruleset_computed - Add encoded column names and extract JSON metadata
-    ruleset_computed AS (
-        SELECT
-            r.*,
-            JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
-            CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
-            CASE
-                WHEN ISJSON(r.assigned_algorithm) = 1
-                    THEN JSON_VALUE(r.assigned_algorithm, '$.key_column')
-            END AS [key_column_name]
-        FROM base_ruleset_filter AS r
+            -- Exclude key columns for conditional masking: key columns have 
+            -- assigned_algorithm as a JSON array
+            AND ISJSON(r.assigned_algorithm, 'ARRAY') = 0
     ),
 
     -- conditional_algorithm_extraction - Extract conditional algorithms for matching filter key
     conditional_algorithm_extraction AS (
         SELECT
-            r.*,
+            brf.*,
             aa.[key_column],
             aa.[conditions],
             c.[condition_alias],
             c.[algorithm] AS resolved_algorithm
-        FROM ruleset_computed AS r
+        FROM base_ruleset_filter AS brf
         CROSS APPLY
-            OPENJSON (r.assigned_algorithm)
+            OPENJSON (brf.assigned_algorithm)
             WITH (
                 [key_column] NVARCHAR(255) '$.key_column',
                 [conditions] NVARCHAR(MAX) '$.conditions' AS JSON
@@ -124,8 +124,8 @@ BEGIN
                 [algorithm] NVARCHAR(255) '$.algorithm'
             ) AS c
         WHERE
-            ISJSON(r.assigned_algorithm) = 1
-            AND JSON_VALUE(r.assigned_algorithm, '$.key_column') IS NOT NULL
+            ISJSON(brf.assigned_algorithm) = 1
+            AND JSON_VALUE(brf.assigned_algorithm, '$.key_column') IS NOT NULL
             AND c.[condition_alias] = @filter_alias
             AND @filter_alias <> ''
     ),
@@ -133,11 +133,11 @@ BEGIN
     -- standard_algorithm_handling - Handle non-conditional algorithms
     standard_algorithm_handling AS (
         SELECT
-            r.*,
-            r.assigned_algorithm AS resolved_algorithm
-        FROM ruleset_computed AS r
+            brf.*,
+            brf.assigned_algorithm AS resolved_algorithm
+        FROM base_ruleset_filter AS brf
         WHERE
-            ISJSON(r.assigned_algorithm) = 0
+            ISJSON(brf.assigned_algorithm) = 0
             OR @filter_alias = ''
     ),
 
@@ -178,25 +178,6 @@ BEGIN
             AND ISJSON(resolved_algorithm) = 0
     ),
 
-    -- ruleset_with_types - Join with ADF types, calculate column width estimates
-    ruleset_with_types AS (
-        SELECT
-            ar.*,
-            rc.adf_type,
-            rc.treat_as_string,
-            CASE
-                WHEN ar.identified_column_max_length > 0 THEN ar.identified_column_max_length + 4
-                ELSE @column_width_estimate
-            END AS column_width_estimate
-        FROM algorithm_resolution AS ar
-        INNER JOIN ruleset_computed AS rc
-            ON ar.identified_column = rc.identified_column
-        WHERE (
-            rc.[key_column_name] IS NULL
-            OR rc.identified_column <> rc.[key_column_name]
-        )
-    ),
-
     -- generate_mask_parameters - Create core masking parameters with fallback defaults
     generate_mask_parameters AS (
         SELECT
@@ -204,21 +185,21 @@ BEGIN
             COALESCE(
                 '{'
                 + STRING_AGG(
-                    '"' + LOWER(encoded_column_name) + '":"' + assigned_algorithm + '"',
+                    '"' + LOWER(brf.encoded_column_name) + '":"' + ar.assigned_algorithm + '"',
                     ','
                 )
                 + '}',
                 '{}'
-            ) AS fieldalgorithmassignments,
+            ) AS [FieldAlgorithmAssignments],
             -- JSON array of column names to mask
             COALESCE(
                 JSON_QUERY(
                     '['
-                    + STRING_AGG('"' + identified_column + '"', ',')
+                    + STRING_AGG('"' + brf.identified_column + '"', ',')
                     + ']'
                 ),
                 '[]'
-            ) AS columnstomask,
+            ) AS [ColumnsToMask],
             -- ADF data flow expression for DCS masking API response parsing
             ''''
             + '(timestamp as date, status as string, message as string, trace_id as string, '
@@ -228,9 +209,9 @@ BEGIN
                 + STRING_AGG(
                     LOWER(
                         CONCAT(
-                            encoded_column_name,
+                            brf.encoded_column_name,
                             ' as ',
-                            CASE WHEN treat_as_string = 1 THEN 'string' ELSE adf_type END
+                            CASE WHEN brf.treat_as_string = 1 THEN 'string' ELSE brf.adf_type END
                         )
                     ),
                     ', '
@@ -238,25 +219,25 @@ BEGIN
                 ''
             )
             + ')[])'
-            + '''' AS datafactorytypemapping,
+            + '''' AS [DataFactoryTypeMapping],
             COALESCE(
                 CASE
                     WHEN
                         CEILING(
-                            MAX(row_count)
+                            MAX(brf.row_count)
                             * (
-                                SUM(column_width_estimate)
-                                + LOG10(MAX(row_count))
+                                SUM(brf.column_width_estimate)
+                                + LOG10(MAX(brf.row_count))
                                 + 1
                             )
                             / (2000000 * 0.9)
                         ) < 1
                         THEN 1
                     ELSE CEILING(
-                        MAX(row_count)
+                        MAX(brf.row_count)
                         * (
-                            SUM(column_width_estimate)
-                            + LOG10(MAX(row_count))
+                            SUM(brf.column_width_estimate)
+                            + LOG10(MAX(brf.row_count))
                             + 1
                         )
                         / (2000000 * 0.9)
@@ -265,29 +246,31 @@ BEGIN
             ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1)
             COALESCE(
                 '[' + STRING_AGG(
-                    CONVERT(NVARCHAR(10), identified_column_max_length), ','
+                    CONVERT(NVARCHAR(10), brf.identified_column_max_length), ','
                 ) + ']', '[]'
             ) AS [TrimLengths]   -- JSON array of column max lengths
-        FROM ruleset_with_types
+        FROM algorithm_resolution AS ar
+        INNER JOIN base_ruleset_filter AS brf
+            ON ar.identified_column = brf.identified_column
     ),
 
     -- conditional_date_formats - Extract conditional date formats for filter key
     conditional_date_formats AS (
         SELECT
-            rc.identified_column,
-            rc.encoded_column_name,
+            brf.identified_column,
+            brf.encoded_column_name,
             c.[condition_alias],
             c.[date_format] AS conditional_date_format
-        FROM ruleset_computed AS rc
+        FROM base_ruleset_filter AS brf
         CROSS APPLY
-            OPENJSON (rc.algorithm_metadata, '$.conditions')
+            OPENJSON (brf.algorithm_metadata, '$.conditions')
             WITH (
                 [condition_alias] NVARCHAR(255) '$.alias',
                 [date_format] NVARCHAR(255) '$.date_format'
             ) AS c
         WHERE
             @filter_alias <> ''
-            AND rc.algorithm_metadata IS NOT NULL
+            AND brf.algorithm_metadata IS NOT NULL
             AND c.[condition_alias] = @filter_alias
             AND c.[date_format] IS NOT NULL
     ),
@@ -295,14 +278,14 @@ BEGIN
     -- date_format_resolution - Merge conditional and standard date formats
     date_format_resolution AS (
         SELECT
-            rc.identified_column,
-            rc.encoded_column_name,
-            COALESCE(cdf.conditional_date_format, rc.[date_format]) AS final_date_format
-        FROM ruleset_computed AS rc
+            brf.identified_column,
+            brf.encoded_column_name,
+            COALESCE(cdf.conditional_date_format, brf.[date_format]) AS final_date_format
+        FROM base_ruleset_filter AS brf
         LEFT JOIN conditional_date_formats AS cdf
-            ON rc.identified_column = cdf.identified_column
+            ON brf.identified_column = cdf.identified_column
         WHERE
-            rc.[date_format] IS NOT NULL
+            brf.[date_format] IS NOT NULL
             OR cdf.conditional_date_format IS NOT NULL
     ),
 
@@ -365,7 +348,7 @@ BEGIN
                     CASE WHEN adf_type = 'timestamp' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToTimestamp]
-        FROM ruleset_computed
+        FROM base_ruleset_filter AS brf
         WHERE treat_as_string = 1
     )
 
