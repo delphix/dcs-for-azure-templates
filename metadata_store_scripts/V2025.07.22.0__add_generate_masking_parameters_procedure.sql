@@ -55,8 +55,26 @@ BEGIN
     -- base_ruleset_filter - Filter to target table, add ADF type mappings
     WITH base_ruleset_filter AS (
         SELECT
-            r.*,
-            t.adf_type
+            r.dataset,
+            r.specified_database,
+            r.specified_schema,
+            r.identified_table,
+            r.identified_column,
+            r.identified_column_type,
+            r.identified_column_max_length,
+            r.row_count,
+            r.ordinal_position,
+            r.assigned_algorithm,
+            r.algorithm_metadata,
+            t.adf_type,
+            CONCAT(
+                'x',
+                CONVERT(
+                    VARCHAR(MAX),
+                    CONVERT(VARBINARY, r.identified_column),
+                    2
+                )
+            ) AS encoded_column_name
         FROM discovered_ruleset AS r
         INNER JOIN adf_type_mapping AS t
             ON
@@ -75,14 +93,6 @@ BEGIN
     ruleset_computed AS (
         SELECT
             r.*,
-            CONCAT(
-                'x',
-                CONVERT(
-                    VARCHAR(MAX),
-                    CONVERT(VARBINARY, r.identified_column),
-                    2
-                )
-            ) AS encoded_column_name,
             JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
             CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
             CASE
@@ -96,8 +106,8 @@ BEGIN
     conditional_algorithm_extraction AS (
         SELECT
             r.*,
-            x.[key_column],
-            x.[conditions],
+            aa.[key_column],
+            aa.[conditions],
             c.[condition_alias],
             c.[algorithm] AS resolved_algorithm
         FROM ruleset_computed AS r
@@ -106,9 +116,9 @@ BEGIN
             WITH (
                 [key_column] NVARCHAR(255) '$.key_column',
                 [conditions] NVARCHAR(MAX) '$.conditions' AS JSON
-            ) AS x
+            ) AS aa
         CROSS APPLY
-            OPENJSON (x.[conditions])
+            OPENJSON (aa.[conditions])
             WITH (
                 [condition_alias] NVARCHAR(255) '$.alias',
                 [algorithm] NVARCHAR(255) '$.algorithm'
@@ -172,18 +182,18 @@ BEGIN
     ruleset_with_types AS (
         SELECT
             ar.*,
-            f.adf_type,
-            f.treat_as_string,
+            rc.adf_type,
+            rc.treat_as_string,
             CASE
                 WHEN ar.identified_column_max_length > 0 THEN ar.identified_column_max_length + 4
                 ELSE @column_width_estimate
             END AS column_width_estimate
         FROM algorithm_resolution AS ar
-        INNER JOIN ruleset_computed AS f
-            ON ar.identified_column = f.identified_column
+        INNER JOIN ruleset_computed AS rc
+            ON ar.identified_column = rc.identified_column
         WHERE (
-            f.[key_column_name] IS NULL
-            OR f.identified_column <> f.[key_column_name]
+            rc.[key_column_name] IS NULL
+            OR rc.identified_column <> rc.[key_column_name]
         )
     ),
 
@@ -264,20 +274,20 @@ BEGIN
     -- conditional_date_formats - Extract conditional date formats for filter key
     conditional_date_formats AS (
         SELECT
-            f.identified_column,
-            f.encoded_column_name,
+            rc.identified_column,
+            rc.encoded_column_name,
             c.[condition_alias],
             c.[date_format] AS conditional_date_format
-        FROM ruleset_computed AS f
+        FROM ruleset_computed AS rc
         CROSS APPLY
-            OPENJSON (f.algorithm_metadata, '$.conditions')
+            OPENJSON (rc.algorithm_metadata, '$.conditions')
             WITH (
                 [condition_alias] NVARCHAR(255) '$.alias',
                 [date_format] NVARCHAR(255) '$.date_format'
             ) AS c
         WHERE
             @filter_alias <> ''
-            AND f.algorithm_metadata IS NOT NULL
+            AND rc.algorithm_metadata IS NOT NULL
             AND c.[condition_alias] = @filter_alias
             AND c.[date_format] IS NOT NULL
     ),
@@ -285,14 +295,14 @@ BEGIN
     -- date_format_resolution - Merge conditional and standard date formats
     date_format_resolution AS (
         SELECT
-            f.identified_column,
-            f.encoded_column_name,
-            COALESCE(cdf.conditional_date_format, f.[date_format]) AS final_date_format
-        FROM ruleset_computed AS f
+            rc.identified_column,
+            rc.encoded_column_name,
+            COALESCE(cdf.conditional_date_format, rc.[date_format]) AS final_date_format
+        FROM ruleset_computed AS rc
         LEFT JOIN conditional_date_formats AS cdf
-            ON f.identified_column = cdf.identified_column
+            ON rc.identified_column = cdf.identified_column
         WHERE
-            f.[date_format] IS NOT NULL
+            rc.[date_format] IS NOT NULL
             OR cdf.conditional_date_format IS NOT NULL
     ),
 
@@ -301,13 +311,12 @@ BEGIN
         SELECT
             COALESCE(
                 '{' + STRING_AGG(
-                    '"' + LOWER(dfr.encoded_column_name) + '":"' + dfr.final_date_format + '"',
+                    '"' + LOWER(encoded_column_name) + '":"' + final_date_format + '"',
                     ','
                 ) + '}',
                 '{}'
             ) AS [DateFormatAssignments]
-        FROM date_format_resolution AS dfr
-        WHERE dfr.final_date_format IS NOT NULL
+        FROM date_format_resolution
     ),
 
     -- type_casting_parameters - Create casting arrays with fallback defaults
