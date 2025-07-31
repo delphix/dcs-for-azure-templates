@@ -99,8 +99,10 @@ BEGIN
             AND r.assigned_algorithm <> ''
             -- Exclude key columns for conditional masking: key columns have 
             -- assigned_algorithm as a JSON array
-            AND ISJSON(r.assigned_algorithm, 2) = 0
-    ),
+            AND NOT (
+                ISJSON(r.assigned_algorithm) = 1
+                AND (LEFT(LTRIM(r.assigned_algorithm), 1) = '[')
+            ),
 
     -- conditional_algorithm_extraction - Extract conditional algorithms for matching filter key
     conditional_algorithm_extraction AS (
