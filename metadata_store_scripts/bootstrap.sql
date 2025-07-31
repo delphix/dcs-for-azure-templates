@@ -1349,7 +1349,8 @@ BEGIN
             AND NOT (
                 ISJSON(r.assigned_algorithm) = 1
                 AND (LEFT(LTRIM(r.assigned_algorithm), 1) = '[')
-            ),
+            )
+    ),
 
     -- conditional_algorithm_extraction - Extract conditional algorithms for matching filter key
     conditional_algorithm_extraction AS (
