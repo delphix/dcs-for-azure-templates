@@ -1,27 +1,20 @@
 /*
  * generate_masking_parameters - Generates masking parameters for Azure Data Factory dataflows.
  *
- * This stored procedure replaces the ADF dataflows generating masking parameters
- * for improved performance and maintainability. It generates all necessary parameters for masking
- * a specific table using Delphix Compliance Services APIs within Azure Data Factory pipelines.
+ * This stored procedure replaces the ADF dataflows previously used for generating
+ * masking parameters, providing improved performance and maintainability. It reconstructs
+ * the ruleset logic by filtering for the appropriate assigned algorithms and
+ * conditional assignments (where applicable), and generates all necessary parameters
+ * for masking a specific table using Delphix Compliance Services APIs within
+ * Azure Data Factory pipelines.
  *
  * PARAMETERS:
- * @source_database - Source database name
- * @source_schema - Source schema name
- * @source_table - Source table name
+ * @dataset - Dataset type identifier
+ * @specified_database - Source database name
+ * @specified_schema - Source schema name
+ * @identified_table - Source table name
  * @column_width_estimate - Estimated column width for batch calculations (default: 1000)
- * @filter_key - Optional filter key for conditional masking (default: '')
- * @dataset - Dataset type identifier (default: 'AZURESQL')
- *
- * OPERATING MODES:
- * 1. Standard Mode (@filter_key = ''):
- *   - Generates standard masking parameters for all columns with assigned algorithms
- *   - Uses unconditional algorithms and default date formats
- *
- * 2. Conditional Mode (@filter_key provided):
- *   - Applies conditional masking based on key column values
- *   - Uses alias-specific algorithms and date formats
- *   - Filters rules to match the specified condition alias
+ * @filter_alias - Optional filter key for conditional masking (default: '')
  *
  * OUTPUT PARAMETERS:
  * - FieldAlgorithmAssignments: JSON mapping of encoded column names to masking algorithms
@@ -48,15 +41,16 @@
  * - Supports treat_as_string flag for type casting feature
  */
 CREATE OR ALTER PROCEDURE generate_masking_parameters
-    @source_database NVARCHAR(128),
-    @source_schema NVARCHAR(128),
-    @source_table NVARCHAR(128),
     @dataset NVARCHAR(128),
+    @specified_database NVARCHAR(128),
+    @specified_schema NVARCHAR(128),
+    @identified_table NVARCHAR(128),
     @column_width_estimate INT = 1000,
-    @filter_key NVARCHAR(128) = ''  -- Optional filter key for conditional masking
+    @filter_alias NVARCHAR(128) = ''  -- Optional filter key for conditional masking
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2025.07.22.0';
 
     -- base_ruleset_filter - Filter to target table, add ADF type mappings
     WITH base_ruleset_filter AS (
@@ -70,9 +64,9 @@ BEGIN
                 AND r.dataset = t.dataset
         WHERE
             r.dataset = @dataset
-            AND r.specified_database = @source_database
-            AND r.specified_schema = @source_schema
-            AND r.identified_table = @source_table
+            AND r.specified_database = @specified_database
+            AND r.specified_schema = @specified_schema
+            AND r.identified_table = @identified_table
             AND r.assigned_algorithm IS NOT NULL
             AND r.assigned_algorithm <> ''
     ),
@@ -122,8 +116,8 @@ BEGIN
         WHERE
             ISJSON(r.assigned_algorithm) = 1
             AND JSON_VALUE(r.assigned_algorithm, '$.key_column') IS NOT NULL
-            AND c.[condition_alias] = @filter_key
-            AND @filter_key <> ''
+            AND c.[condition_alias] = @filter_alias
+            AND @filter_alias <> ''
     ),
 
     -- standard_algorithm_handling - Handle non-conditional algorithms
@@ -134,7 +128,7 @@ BEGIN
         FROM ruleset_computed AS r
         WHERE
             ISJSON(r.assigned_algorithm) = 0
-            OR @filter_key = ''
+            OR @filter_alias = ''
     ),
 
     -- algorithm_resolution - Combine conditional and standard algorithms
@@ -282,9 +276,9 @@ BEGIN
                 [date_format] NVARCHAR(255) '$.date_format'
             ) AS c
         WHERE
-            @filter_key <> ''
+            @filter_alias <> ''
             AND f.algorithm_metadata IS NOT NULL
-            AND c.[condition_alias] = @filter_key
+            AND c.[condition_alias] = @filter_alias
             AND c.[date_format] IS NOT NULL
     ),
 
@@ -320,50 +314,50 @@ BEGIN
     type_casting_parameters AS (
         SELECT
             COALESCE(
-                '[' + STRING_AGG('"' + f.identified_column + '"', ',') + ']', '[""]'
+                '[' + STRING_AGG('"' + identified_column + '"', ',') + ']', '[""]'
             ) AS [ColumnsToCastAsStrings],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'binary' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'binary' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToBinary],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'boolean' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'boolean' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToBoolean],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'date' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'date' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToDate],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'double' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'double' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToDouble],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'float' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'float' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToFloat],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'integer' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'integer' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToInteger],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'long' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'long' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToLong],
             COALESCE(
                 '[' + STRING_AGG(
-                    CASE WHEN f.adf_type = 'timestamp' THEN '"' + f.identified_column + '"' END, ','
+                    CASE WHEN adf_type = 'timestamp' THEN '"' + identified_column + '"' END, ','
                 ) + ']', '[""]'
             ) AS [ColumnsToCastBackToTimestamp]
-        FROM ruleset_computed AS f
-        WHERE f.treat_as_string = 1
+        FROM ruleset_computed
+        WHERE treat_as_string = 1
     )
 
     -- Combine all parameters
@@ -383,7 +377,7 @@ BEGIN
         a.[ColumnsToCastBackToInteger],
         a.[ColumnsToCastBackToLong],
         a.[ColumnsToCastBackToTimestamp],
-        'V2025.07.22.0' AS [StoredProcedureVersion]
+        @StoredProcedureVersion AS [StoredProcedureVersion]
     FROM generate_mask_parameters AS g,
         date_format_parameters AS df,
         type_casting_parameters AS a;

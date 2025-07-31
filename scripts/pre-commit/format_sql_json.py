@@ -9,6 +9,8 @@ from pathlib import Path
 import typing as tp
 import logging
 
+DIALECT = "tsql"
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger("format_sql_json")
 
@@ -17,7 +19,7 @@ def format_sql(modified_sql_files: tp.List[Path]):
     for sql_file in modified_sql_files:
         try:
             subprocess.run(
-                ["sqlfluff", "format", str(sql_file)],
+                ["sqlfluff", "format", str(sql_file), "--dialect", DIALECT],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
