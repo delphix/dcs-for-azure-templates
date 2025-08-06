@@ -31,9 +31,9 @@
  * - adf_type_mapping table: Maps database types to ADF types
  * - Supports conditional masking via JSON structures in assigned_algorithm column
  *
- * FALLBACK BEHAVIOR:
- * Always returns exactly one record. If no masking rules exist, returns default/empty
- * values to prevent ADF lookup activity failures.
+ * ERROR HANDLING:
+ * If no masking rules exist for the specified table and filter alias, an error is raised and
+ * no record is returned. This prevents silent failures and ensures pipeline errors are visible.
  *
  * NOTES:
  * - Empty JSON arrays are converted to [""] for ADF UI compatibility
