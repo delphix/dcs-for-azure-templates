@@ -51,6 +51,60 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2025.07.22.0';
+    DECLARE @filter_alias_display NVARCHAR(128);
+    SET @filter_alias_display = CASE WHEN @filter_alias = '' THEN 'No filter set' ELSE @filter_alias END;
+
+    -- Check if the discovered_ruleset table has valid entries for the specified parameters
+    IF NOT EXISTS (
+        SELECT 1
+        FROM discovered_ruleset AS r
+        OUTER APPLY (
+            SELECT 1 AS filter_found
+            FROM OPENJSON(r.assigned_algorithm) 
+			WITH (
+			    [key_column] NVARCHAR(255) '$.key_column',
+                [conditions] NVARCHAR(MAX) '$.conditions' AS JSON
+			) AS aa
+			CROSS APPLY OPENJSON (aa.[conditions])
+            WITH (
+                [condition_alias] NVARCHAR(255) '$.alias',
+                [algorithm] NVARCHAR(255) '$.algorithm'
+            ) AS cond
+            WHERE r.assigned_algorithm IS NOT NULL
+            AND r.assigned_algorithm <> ''
+			AND ISJSON(r.assigned_algorithm) = 1
+			AND JSON_VALUE(r.assigned_algorithm, '$.key_column') IS NOT NULL
+			AND cond.[condition_alias] IS NOT NULL
+            AND cond.[condition_alias] = @filter_alias
+        ) AS filter_check
+        WHERE
+            r.dataset = @dataset
+            AND r.specified_database = @specified_database
+            AND r.specified_schema = @specified_schema
+            AND r.identified_table = @identified_table
+            AND r.assigned_algorithm IS NOT NULL
+            AND r.assigned_algorithm <> ''
+            AND NOT (
+                ISJSON(r.assigned_algorithm) = 1
+                AND (LEFT(LTRIM(r.assigned_algorithm), 1) = '[')
+            )
+            AND (
+                @filter_alias = '' 
+                OR filter_check.filter_found = 1
+            )
+    )
+    BEGIN
+        RAISERROR(
+            'No masking rules found for the specified parameters. Ensure the discovered_ruleset table has valid entries for dataset: %s, database: %s, schema: %s, table: %s, filter: %s.',
+            16, 1, -- Severity and State
+            @dataset, 
+            @specified_database, 
+            @specified_schema, 
+            @identified_table, 
+            @filter_alias_display
+        );
+        RETURN;
+    END;
 
     -- base_ruleset_filter - Filter to target table, add ADF type mappings, 
     -- compute metadata, and exclude key columns
