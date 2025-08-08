@@ -26,6 +26,7 @@ repos:
           - PyYAML
           - sqlparse
           - packaging
+          - sqlfluff
       - id: check-version
         name: Check if the version number has been updated in the VERSION.md file.
         entry: python ./scripts/pre-commit/check_version.py

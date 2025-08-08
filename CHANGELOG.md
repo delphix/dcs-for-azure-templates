@@ -1,5 +1,11 @@
 # CHANGELOG
 
+# 0.0.28
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+  * Unified and optimized conditional and non-conditional masking parameter generation in a single stored procedure
+* Fixed type casting bug where `treat_as_string` flag caused zero rows in sink table (#65)  
+* Add SQLFluff configuration for T-SQL formatting standards
+
 # 0.0.27
 * Fixed an issue where many small requests are being sent instead of fewer larger requests in `dcsazure_ADLS_to_ADLS_delimited_mask_pl` and `dcsazure_ADLS_to_ADLS_parquet_mask_pl`.
 
