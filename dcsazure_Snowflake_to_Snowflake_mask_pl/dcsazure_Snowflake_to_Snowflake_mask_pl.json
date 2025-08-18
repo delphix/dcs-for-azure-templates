@@ -1082,28 +1082,28 @@
                             "type": "Expression"
                           }
                         },
-                        "filter_key": {
+                        "filter_alias": {
                           "type": "String",
                           "value": {
                             "value": "@item().filter_alias",
                             "type": "Expression"
                           }
                         },
-                        "source_database": {
+                        "specified_database": {
                           "type": "String",
                           "value": {
                             "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                             "type": "Expression"
                           }
                         },
-                        "source_schema": {
+                        "specified_schema": {
                           "type": "String",
                           "value": {
                             "value": "@pipeline().parameters.P_SOURCE_SCHEMA",
                             "type": "Expression"
                           }
                         },
-                        "source_table": {
+                        "identified_table": {
                           "type": "String",
                           "value": {
                             "value": "@item().source_table",
@@ -2373,7 +2373,7 @@
           "name": "dcsazure_Snowflake_to_Snowflake"
         },
         "annotations": [],
-        "lastPublishTime": "2025-07-30T17:17:55Z"
+        "lastPublishTime": "2025-08-11T09:19:26Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Snowflake_to_Snowflake_mask_metadata_ds')]",
@@ -2524,6 +2524,13 @@
       "dependsOn": []
     },
     {
+      "name": "[concat(parameters('factoryName'), '/default')]",
+      "type": "Microsoft.DataFactory/factories/managedVirtualNetworks",
+      "apiVersion": "2018-06-01",
+      "properties": {},
+      "dependsOn": []
+    },
+    {
       "name": "[concat(parameters('factoryName'), '/dcsazure_Snowflake_to_Snowflake_unfiltered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
@@ -2664,7 +2671,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/maaas-dev04/v1/masking/batchMaskByColumn',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -2879,7 +2886,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/maaas-dev04/v1/masking/batchMaskByColumn',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
