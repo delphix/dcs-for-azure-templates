@@ -27,6 +27,7 @@ RESOURCE_TYPE_ABBR = {
     "pipelines": ("P_", "_pl"),
     "datasets": ("DS_", "_ds"),
     "dataflows": (None, "_df"),
+    "managedVirtualNetworks": (None, "default"),
 }
 
 NON_TEMPLATES_DIR = [

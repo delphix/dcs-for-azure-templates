@@ -95,6 +95,8 @@ def validate_resource_names(file: pathlib.Path, resource_data: tp.List[tp.Any]) 
     for resource in resource_data:
         resource_name = get_name_from_resource(resource["name"])
         resource_abbr = get_type_abbr_from_resource_type(resource["type"])
+        if resource_name == 'default':
+            continue
         if not resource_name.startswith(resource_prefix):
             invalid_resource_names.append(resource_name)
             log.error(

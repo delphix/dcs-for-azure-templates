@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.29
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_Snowflake_to_Snowflake_mask_pl`
+
 # 0.0.28
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
   * Unified and optimized conditional and non-conditional masking parameter generation in a single stored procedure
