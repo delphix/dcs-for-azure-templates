@@ -1,5 +1,11 @@
 # CHANGELOG
 
+# 0.0.30
+* Add support for DCS for Dataverse to Dataverse in place Discovery Pipeline
+  * `dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl`
+* Add support for DCS for Dataverse to Dataverse in place Masking Pipeline
+  * `dcsazure_Dataverse_to_Dataverse_in_place_mask_pl`
+
 # 0.0.29
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_Snowflake_to_Snowflake_mask_pl`
 

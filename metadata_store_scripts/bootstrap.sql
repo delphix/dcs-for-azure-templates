@@ -12,6 +12,7 @@
 -- * V2025.02.04.0__add_azuremi_to_azuremi_support
 -- * V2025.02.24.0__add_azuremi_adf_type_mapping
 -- * V2025.07.22.0__add_generate_masking_parameters_procedure
+-- * V2025.08.28.0__add_dataverse_to_dataverse_in_place_support
 -- The contents of each of those files follows
 
 
@@ -1697,4 +1698,29 @@ BEGIN
         type_casting_parameters AS a;
 END
 GO
+
+
+-- source: V2025.08.28.0__add_dataverse_to_dataverse_in_place_support
+-- Add a default constraint to the 'is_excluded' column in the 'discovered_ruleset' table.
+ALTER TABLE discovered_ruleset
+ADD is_excluded BIT NOT NULL
+CONSTRAINT df_discovered_ruleset_is_excluded DEFAULT (0);
+
+INSERT INTO adf_type_mapping (dataset, dataset_type, adf_type)
+VALUES
+('DATAVERSE', 'BigInt', 'long'),
+('DATAVERSE', 'Boolean', 'boolean'),
+('DATAVERSE', 'DateOnly', 'timestamp'),
+('DATAVERSE', 'DateTime', 'timestamp'),
+('DATAVERSE', 'Decimal', 'double'),
+('DATAVERSE', 'Double', 'double'),
+('DATAVERSE', 'File', 'binary'),
+('DATAVERSE', 'Image', 'binary'),
+('DATAVERSE', 'Integer', 'integer'),
+('DATAVERSE', 'Memo', 'string'),
+('DATAVERSE', 'Money', 'double'),
+('DATAVERSE', 'MultiSelectPicklist', 'string'),
+('DATAVERSE', 'Picklist', 'string'),
+('DATAVERSE', 'String', 'string'),
+('DATAVERSE', 'Uniqueidentifier', 'string');
 
