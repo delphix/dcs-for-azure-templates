@@ -189,6 +189,7 @@ def validate_code_json_content(file: pathlib.Path) -> None:
     validate_resource_names(file, json_content['resources'])
     validate_resource_parameter_names(file, json_content['resources'])
     validate_resource_activity_names(file, json_content['resources'])
+    validate_linked_service_parameters(file, json_content)
 
 
 def validate_pipeline_json_content(files: tp.Set[pathlib.Path]) -> None:
@@ -198,6 +199,40 @@ def validate_pipeline_json_content(files: tp.Set[pathlib.Path]) -> None:
             validate_code_json_content(file)
         elif is_manifest_json(file):
             validate_manifest_json_content(file)
+
+
+def validate_linked_service_parameters(file, json_content) -> None:
+    # Find matching pipeline type based on file path
+    matching_pipeline = None
+    for pipeline_type in helpers.PIPELINE_LINKED_SERVICE_PARAMS:
+        if pipeline_type in file.parts[0]:
+            matching_pipeline = pipeline_type
+            break
+
+    if not matching_pipeline:
+        return
+
+    # Get the expected parameters for this pipeline type
+    expected_params = helpers.PIPELINE_LINKED_SERVICE_PARAMS[matching_pipeline]
+
+    # Count occurrences of each parameter in the JSON content
+    param_counts = {param: 0 for param in expected_params}
+
+    json_str = json.dumps(json_content)
+
+    # Count each linked parameter occurrence
+    for param in expected_params:
+        param_counts[param] = json_str.count(param)
+
+    # Validate the counts
+    for param, count in param_counts.items():
+        if count != expected_params[param]:
+            msg = (
+                f"The LinkedService parameter '{param}' occurrences ({count})"
+                f" in {file.absolute().as_uri()} doesn't match the expected"
+                f" count ({expected_params[param]})."
+            )
+            raise helpers.InvalidLinkedServiceParamCountException(f"\nERROR - {msg}")
 
 
 def filter_json_files(files: tp.Set[pathlib.Path]) -> tp.List[pathlib.Path]:
@@ -262,7 +297,11 @@ def main() -> int:
     except helpers.InvalidTemplateNameException as e:
         log.error(f"{e}\n{NAMING_ERROR}")
         exit_status = 1
-    except (helpers.InvalidResourceNameException, helpers.InvalidParameterNameException) as e:
+    except (
+        helpers.InvalidResourceNameException,
+        helpers.InvalidParameterNameException,
+        helpers.InvalidLinkedServiceParamCountException,
+    ) as e:
         log.error(e)
         exit_status = 1
 
