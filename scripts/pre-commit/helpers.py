@@ -30,6 +30,17 @@ RESOURCE_TYPE_ABBR = {
     "managedVirtualNetworks": (None, "default"),
 }
 
+# LinkedServiceParameters count for each pipeline template, key: pipeline,
+# value: LinkedServiceParameter name and expected count
+PIPELINE_LINKED_SERVICE_PARAMS = {
+    "Snowflake_discovery": {"LS_DATABASE": 2, "LS_WAREHOUSE": 2, "LS_ROLE": 2},
+    "Snowflake_mask": {"LS_DATABASE": 11, "LS_WAREHOUSE": 11, "LS_ROLE": 11},
+    "AzureSQL_discovery": {"LS_DATABASE": 2},
+    "AzureSQL_mask": {"LS_DATABASE": 13},
+    "AzureSQL_MI_discovery": {"LS_DATABASE": 2},
+    "AzureSQL_MI_mask": {"LS_DATABASE": 13},
+}
+
 NON_TEMPLATES_DIR = [
     DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts",
 ]
@@ -97,6 +108,13 @@ class InvalidParameterNameException(Exception):
     """
     pass
 
+
+class InvalidLinkedServiceParamCountException(Exception):
+    """
+    Exception to be raised if the LinkedServiceParameters count in the ADF pipeline's template
+    file are not as per convention.
+    """
+    pass
 
 @dataclasses.dataclass
 class Pipeline:

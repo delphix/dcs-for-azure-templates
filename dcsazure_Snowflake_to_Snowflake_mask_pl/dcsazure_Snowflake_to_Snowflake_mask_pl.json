@@ -222,6 +222,40 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "LS_WAREHOUSE": {
+                                    "value": "@variables('SOURCE_SNOWFLAKE_WAREHOUSE')",
+                                    "type": "Expression"
+                                  },
+                                  "LS_ROLE": {
+                                    "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "LS_WAREHOUSE": {
+                                    "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
+                                    "type": "Expression"
+                                  },
+                                  "LS_ROLE": {
+                                    "value": "@variables('SINK_SNOWFLAKE_ROLE')",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -684,6 +718,40 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "LS_WAREHOUSE": {
+                                    "value": "@variables('SOURCE_SNOWFLAKE_WAREHOUSE')",
+                                    "type": "Expression"
+                                  },
+                                  "LS_ROLE": {
+                                    "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "LS_WAREHOUSE": {
+                                    "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
+                                    "type": "Expression"
+                                  },
+                                  "LS_ROLE": {
+                                    "value": "@variables('SINK_SNOWFLAKE_ROLE')",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -1697,6 +1765,40 @@
                             "datasetParameters": {
                               "SourceData": {},
                               "SinkData": {}
+                            },
+                            "linkedServiceParameters": {
+                              "SourceData": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "LS_WAREHOUSE": {
+                                    "value": "@variables('SOURCE_SNOWFLAKE_WAREHOUSE')",
+                                    "type": "Expression"
+                                  },
+                                  "LS_ROLE": {
+                                    "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "SinkData": {
+                                "linkedService": {
+                                  "LS_DATABASE": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  },
+                                  "LS_WAREHOUSE": {
+                                    "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
+                                    "type": "Expression"
+                                  },
+                                  "LS_ROLE": {
+                                    "value": "@variables('SINK_SNOWFLAKE_ROLE')",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -2083,6 +2185,40 @@
                 "datasetParameters": {
                   "SourceData": {},
                   "SinkData": {}
+                },
+                "linkedServiceParameters": {
+                  "SourceData": {
+                    "linkedService": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                        "type": "Expression"
+                      },
+                      "LS_WAREHOUSE": {
+                        "value": "@variables('SOURCE_SNOWFLAKE_WAREHOUSE')",
+                        "type": "Expression"
+                      },
+                      "LS_ROLE": {
+                        "value": "@variables('SOURCE_SNOWFLAKE_ROLE')",
+                        "type": "Expression"
+                      }
+                    }
+                  },
+                  "SinkData": {
+                    "linkedService": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      },
+                      "LS_WAREHOUSE": {
+                        "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
+                        "type": "Expression"
+                      },
+                      "LS_ROLE": {
+                        "value": "@variables('SINK_SNOWFLAKE_ROLE')",
+                        "type": "Expression"
+                      }
+                    }
+                  }
                 }
               },
               "staging": {},
@@ -2251,7 +2387,21 @@
                   "userProperties": [],
                   "linkedServiceName": {
                     "referenceName": "[parameters('Snowflake_Sink_New')]",
-                    "type": "LinkedServiceReference"
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      },
+                      "LS_WAREHOUSE": {
+                        "value": "@variables('SINK_SNOWFLAKE_WAREHOUSE')",
+                        "type": "Expression"
+                      },
+                      "LS_ROLE": {
+                        "value": "@variables('SINK_SNOWFLAKE_ROLE')",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -2963,7 +3113,21 @@
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('Snowflake_Source_New')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": {
+              "value": "@dataset().DS_DATABASE",
+              "type": "Expression"
+            },
+            "LS_WAREHOUSE": {
+              "value": "@dataset().DS_WAREHOUSE",
+              "type": "Expression"
+            },
+            "LS_ROLE": {
+              "value": "@dataset().DS_ROLE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
@@ -3008,7 +3172,21 @@
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('Snowflake_Sink_New')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "LS_DATABASE": {
+              "value": "@dataset().DS_DATABASE",
+              "type": "Expression"
+            },
+            "LS_WAREHOUSE": {
+              "value": "@dataset().DS_WAREHOUSE",
+              "type": "Expression"
+            },
+            "LS_ROLE": {
+              "value": "@dataset().DS_ROLE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SCHEMA": {
