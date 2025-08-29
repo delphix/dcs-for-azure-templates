@@ -2807,7 +2807,7 @@
       "properties": {
         "activities": [
           {
-            "name": "For Each Constraint to Drop",
+            "name": "For Each Constraint To Drop",
             "description": "Drop constraints for all tables in sink schema",
             "type": "ForEach",
             "dependsOn": [
@@ -3411,7 +3411,7 @@
       "properties": {
         "activities": [
           {
-            "name": "For Each Constraint to Create",
+            "name": "For Each Constraint To Create",
             "description": "Create constraints for all tables in sink schema",
             "type": "ForEach",
             "dependsOn": [
@@ -3530,7 +3530,7 @@
             "type": "Copy",
             "dependsOn": [
               {
-                "activity": "For Each Constraint to Create",
+                "activity": "For Each Constraint To Create",
                 "dependencyConditions": [
                   "Completed"
                 ]

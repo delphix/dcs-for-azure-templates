@@ -46,7 +46,7 @@ NON_TEMPLATES_DIR = [
 #      2.1 (?:_[A-Za-z]+)* allows 0 or more letters, making it optional
 #   3. service - mask or discovery as group 3 --> (mask|discovery)
 #
-TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}([A-Za-z0-9]+)_to_([A-Za-z0-9]+(?:_[A-Za-z]+)*)_(mask|discovery)_pl$"
+TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}([\w]+)_to_([A-Za-z0-9]+(?:_[A-Za-z]+)*)_(mask|discovery)_pl$"
 
 
 class GitCommand:
