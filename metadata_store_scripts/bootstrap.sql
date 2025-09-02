@@ -1540,6 +1540,7 @@ BEGIN
             + '''' AS [DataFactoryTypeMapping],
             COALESCE(
                 CASE
+                    WHEN MAX(brf.row_count) = -1 THEN -1
                     WHEN
                         CEILING(
                             MAX(brf.row_count)
@@ -1561,7 +1562,7 @@ BEGIN
                         / (2000000 * 0.9)
                     )
                 END, 1
-            ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1)
+            ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1, or -1 if row_count is -1)
             COALESCE(
                 '[' + STRING_AGG(
                     CONVERT(NVARCHAR(10), brf.identified_column_max_length), ','
