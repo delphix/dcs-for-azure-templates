@@ -1139,7 +1139,7 @@
                         "column_width_estimate": {
                           "type": "Int32",
                           "value": {
-                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "value": "@variables('COLUMN_WIDTH_ESTIMATE')",
                             "type": "Expression"
                           }
                         },
