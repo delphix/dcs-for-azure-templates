@@ -6,13 +6,13 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "AzureSqlDatabase1": {
+    "Metadata Datastore": {
       "type": "string"
     },
-    "AzureDataLakeStorage1": {
+    "AzureDataLakeStorage_Source": {
       "type": "string"
     },
-    "RestService1": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },
@@ -443,7 +443,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -607,7 +607,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       }
@@ -888,7 +888,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1058,7 +1058,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1541,7 +1541,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1705,7 +1705,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       }
@@ -1943,7 +1943,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2107,7 +2107,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('AzureSqlDatabase1')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2246,7 +2246,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('AzureSqlDatabase1')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2448,7 +2448,7 @@
             },
             "userProperties": [],
             "linkedServiceName": {
-              "referenceName": "[parameters('AzureSqlDatabase1')]",
+              "referenceName": "[parameters('Metadata Datastore')]",
               "type": "LinkedServiceReference"
             },
             "typeProperties": {
@@ -2567,7 +2567,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSqlDatabase1')]",
+          "referenceName": "[parameters('Metadata Datastore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -2683,7 +2683,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2693,7 +2693,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2771,7 +2771,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage1')]",
+          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -2825,7 +2825,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2835,7 +2835,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2846,7 +2846,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('RestService1')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -3049,7 +3049,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -3059,7 +3059,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -3070,7 +3070,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('RestService1')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -3272,7 +3272,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -3282,7 +3282,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage1')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
