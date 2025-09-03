@@ -12,6 +12,9 @@
     "AzureDataLakeStorage_Source": {
       "type": "string"
     },
+    "AzureDataLakeStorage_Sink": {
+      "type": "string"
+    },
     "ProdDCSForAzureService": {
       "type": "string"
     }
@@ -2550,7 +2553,7 @@
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-09-02T09:52:10Z"
+        "lastPublishTime": "2025-09-03T18:22:34Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds')]",
@@ -2693,7 +2696,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2835,7 +2838,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -3059,7 +3062,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -3282,7 +3285,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
+                "referenceName": "[parameters('AzureDataLakeStorage_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
