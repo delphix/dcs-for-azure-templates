@@ -7,6 +7,7 @@ import pathlib
 import re
 import typing as tp
 import json
+import yaml
 
 import helpers
 
@@ -30,6 +31,15 @@ The files do not follow the naming conventions. Use the format below.
 {DISCOVERY_PL_NAME}/{helpers.MANIFEST_FILE}
 {DISCOVERY_PL_NAME}/{helpers.README_FILE}
 """
+
+def load_pipeline_linked_service_params() -> tp.Dict[str, tp.Dict[str, int]]:
+    """
+    Load pipeline linked service parameters from YAML configuration file
+    """
+    yaml_path = pathlib.Path(helpers.PIPELINE_LS_PARAM_YAML_FILE)
+    with open(yaml_path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config['pipeline_linked_service_params']
 
 
 def validate_file_and_directory_names(files: tp.Set[pathlib.Path]) -> None:
@@ -202,9 +212,12 @@ def validate_pipeline_json_content(files: tp.Set[pathlib.Path]) -> None:
 
 
 def validate_linked_service_parameters(file, json_content) -> None:
+    # Load pipeline parameters from YAML file
+    pipeline_params = load_pipeline_linked_service_params()
+
     # Find matching pipeline type based on file path
     matching_pipeline = None
-    for pipeline_type in helpers.PIPELINE_LINKED_SERVICE_PARAMS:
+    for pipeline_type in pipeline_params:
         if pipeline_type in file.parts[0]:
             matching_pipeline = pipeline_type
             break
@@ -213,7 +226,7 @@ def validate_linked_service_parameters(file, json_content) -> None:
         return
 
     # Get the expected parameters for this pipeline type
-    expected_params = helpers.PIPELINE_LINKED_SERVICE_PARAMS[matching_pipeline]
+    expected_params = pipeline_params[matching_pipeline]
 
     # Count occurrences of each parameter in the JSON content
     param_counts = {param: 0 for param in expected_params}

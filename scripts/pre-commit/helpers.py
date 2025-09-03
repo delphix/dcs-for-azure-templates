@@ -19,6 +19,7 @@ METADATA_STORE_PATH = "metadata_store_scripts"
 DOCUMENTATION_PATH = "documentation"
 DOCKER_COMPOSE_FILE = "docker-compose.yaml"
 DOCUMENTATION_FILE = f"{DOCUMENTATION_PATH}/pipelines.md"
+PIPELINE_LS_PARAM_YAML_FILE = "pipeline_template_standard_params.yaml"
 JSON = ".json"
 SQL = ".sql"
 MD = ".md"
@@ -28,17 +29,6 @@ RESOURCE_TYPE_ABBR = {
     "datasets": ("DS_", "_ds"),
     "dataflows": (None, "_df"),
     "managedVirtualNetworks": (None, "default"),
-}
-
-# LinkedServiceParameters count for each pipeline template, key: pipeline,
-# value: LinkedServiceParameter name and expected count
-PIPELINE_LINKED_SERVICE_PARAMS = {
-    "Snowflake_discovery": {"LS_DATABASE": 2, "LS_WAREHOUSE": 2, "LS_ROLE": 2},
-    "Snowflake_mask": {"LS_DATABASE": 11, "LS_WAREHOUSE": 11, "LS_ROLE": 11},
-    "AzureSQL_discovery": {"LS_DATABASE": 2},
-    "AzureSQL_mask": {"LS_DATABASE": 13},
-    "AzureSQL_MI_discovery": {"LS_DATABASE": 2},
-    "AzureSQL_MI_mask": {"LS_DATABASE": 13},
 }
 
 NON_TEMPLATES_DIR = [
