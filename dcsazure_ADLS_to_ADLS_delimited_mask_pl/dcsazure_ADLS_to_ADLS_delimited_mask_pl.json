@@ -145,7 +145,7 @@
                       ]
                     },
                     {
-                      "activity": "stored procedure",
+                      "activity": "Lookup Masking Parameters",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -225,19 +225,19 @@
                                 "type": "Expression"
                               },
                               "DF_FIELD_ALGORITHM_ASSIGNMENT": {
-                                "value": "'@{activity('stored procedure').output.firstRow.FieldAlgorithmAssignments}'",
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}'",
                                 "type": "Expression"
                               },
                               "DF_COLUMNS_TO_MASK": {
-                                "value": "@activity('stored procedure').output.firstRow.ColumnsToMask",
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask",
                                 "type": "Expression"
                               },
                               "DF_BODY_TYPE_MAPPING": {
-                                "value": "@activity('stored procedure').output.firstRow.DataFactoryTypeMapping",
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping",
                                 "type": "Expression"
                               },
                               "DF_TRIM_LENGTHS": {
-                                "value": "@activity('stored procedure').output.firstRow.TrimLengths",
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.TrimLengths",
                                 "type": "Expression"
                               },
                               "DF_FAIL_ON_NONCONFORMANT_DATA": {
@@ -249,14 +249,15 @@
                                 "type": "Expression"
                               },
                               "DF_FIELD_DATE_FORMAT": {
-                                "value": "'@{activity('stored procedure').output.firstRow.DateFormatAssignments}'",
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}'",
                                 "type": "Expression"
                               }
                             },
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            }
+                            },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -349,7 +350,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('stored procedure').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('stored procedure').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('stored procedure').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('stored procedure').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('stored procedure').output.firstRow.DateFormatAssignments}\"\n}\n",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('Lookup Masking Parameters').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}\"\n}\n",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -513,7 +514,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('stored procedure').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('stored procedure').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('stored procedure').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('stored procedure').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('stored procedure').output.firstRow.DateFormatAssignments}\"\n}\n",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('Lookup Masking Parameters').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}\"\n}\n",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -683,19 +684,19 @@
                                 "type": "Expression"
                               },
                               "DF_FIELD_ALGORITHM_ASSIGNMENT": {
-                                "value": "'@{activity('stored procedure').output.firstRow.FieldAlgorithmAssignments\n}'",
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments\n}'",
                                 "type": "Expression"
                               },
                               "DF_COLUMNS_TO_MASK": {
-                                "value": "@activity('stored procedure').output.firstRow.ColumnsToMask",
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask",
                                 "type": "Expression"
                               },
                               "DF_BODY_TYPE_MAPPING": {
-                                "value": "@activity('stored procedure').output.firstRow.DataFactoryTypeMapping",
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping",
                                 "type": "Expression"
                               },
                               "DF_TRIM_LENGTHS": {
-                                "value": "@activity('stored procedure').output.firstRow.TrimLengths",
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.TrimLengths",
                                 "type": "Expression"
                               },
                               "DF_FAIL_ON_NONCONFORMANT_DATA": {
@@ -707,7 +708,7 @@
                                 "type": "Expression"
                               },
                               "DF_FIELD_DATE_FORMAT": {
-                                "value": "'@{activity('stored procedure').output.firstRow.DateFormatAssignments}'",
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}'",
                                 "type": "Expression"
                               },
                               "DF_FILTER_CONDITION": {
@@ -718,7 +719,8 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            }
+                            },
+                            "linkedServiceParameters": {}
                           },
                           "staging": {},
                           "compute": {
@@ -794,7 +796,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('stored procedure').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('stored procedure').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('stored procedure').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('stored procedure').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('stored procedure').output.firstRow.DateFormatAssignments}\"\n}\n",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('Lookup Masking Parameters').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}\"\n}\n",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -964,7 +966,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('stored procedure').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('stored procedure').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('stored procedure').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('stored procedure').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('stored procedure').output.firstRow.DateFormatAssignments}\"\n}\n",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": \"@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}\",\n    \"DF_COLUMNS_TO_MASK\": \"@{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask}\",\n    \"DF_BODY_TYPE_MAPPING\": \"@{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping}\",\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": \"@{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA}\",\n    \"DF_TRIM_LENGTHS\": \"@{activity('Lookup Masking Parameters').output.firstRow.TrimLengths}\",\n    \"DF_FIELD_DATE_FORMAT\": \"@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}\"\n}\n",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1089,7 +1091,7 @@
                   }
                 },
                 {
-                  "name": "stored procedure",
+                  "name": "Lookup Masking Parameters",
                   "type": "Lookup",
                   "dependsOn": [],
                   "policy": {
