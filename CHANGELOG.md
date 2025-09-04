@@ -1,6 +1,6 @@
 # CHANGELOG
 
-# 0.0.29
+# 0.0.30
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_Snowflake_to_Snowflake_mask_pl`
 
 # 0.0.28
