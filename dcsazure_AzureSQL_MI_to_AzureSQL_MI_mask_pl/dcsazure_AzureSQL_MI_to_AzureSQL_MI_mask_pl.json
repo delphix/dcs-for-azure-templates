@@ -1108,7 +1108,7 @@
                         "column_width_estimate": {
                           "type": "Int32",
                           "value": {
-                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "value": "@variables('COLUMN_WIDTH_ESTIMATE')",
                             "type": "Expression"
                           }
                         },
@@ -2660,6 +2660,10 @@
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "generate_masking_parameters"
+          },
+          "COLUMN_WIDTH_ESTIMATE": {
+            "type": "Integer",
+            "defaultValue": 1000
           }
         },
         "folder": {
