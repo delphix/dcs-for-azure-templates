@@ -1,0 +1,30 @@
+#
+# Copyright (c) 2025 by Delphix. All rights reserved.
+#
+
+# LinkedServiceParameters count for each pipeline template
+# Key: pipeline name
+# Value: LinkedServiceParameter name and its expected count
+
+pipeline_linked_service_params:
+  Snowflake_discovery:
+    LS_DATABASE: 2
+    LS_WAREHOUSE: 2
+    LS_ROLE: 2
+
+  Snowflake_mask:
+    LS_DATABASE: 11
+    LS_WAREHOUSE: 11
+    LS_ROLE: 11
+
+  AzureSQL_discovery:
+    LS_DATABASE: 2
+
+  AzureSQL_mask:
+    LS_DATABASE: 13
+
+  AzureSQL_MI_discovery:
+    LS_DATABASE: 2
+
+  AzureSQL_MI_mask:
+    LS_DATABASE: 13

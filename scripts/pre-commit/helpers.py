@@ -19,6 +19,7 @@ METADATA_STORE_PATH = "metadata_store_scripts"
 DOCUMENTATION_PATH = "documentation"
 DOCKER_COMPOSE_FILE = "docker-compose.yaml"
 DOCUMENTATION_FILE = f"{DOCUMENTATION_PATH}/pipelines.md"
+PIPELINE_LS_PARAM_YAML_FILE = "pipeline_template_standard_params.yaml"
 JSON = ".json"
 SQL = ".sql"
 MD = ".md"
@@ -97,6 +98,13 @@ class InvalidParameterNameException(Exception):
     """
     pass
 
+
+class InvalidLinkedServiceParamCountException(Exception):
+    """
+    Exception to be raised if the LinkedServiceParameters count in the ADF pipeline's template
+    file are not as per convention.
+    """
+    pass
 
 @dataclasses.dataclass
 class Pipeline:

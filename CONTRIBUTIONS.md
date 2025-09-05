@@ -40,6 +40,12 @@ this script is added (with the final digit being used to allow multiple versions
 You can leverage the [./scripts/migrations.sh](./scripts/migrations.sh) to automatically add the new versioned migration
 to the [./metadata_store_scripts/bootstrap.sql](./metadata_store_scripts/bootstrap.sql) file.
 
+The templates present in this repository use parameterized linked services for source/sink databases. While modifying
+templates, please ensure that the linked services created to be used in the template for source/sink databases
+are parameterized as configured in the existing template. If you are adding or removing some parameters of any linked
+service, please ensure that the changes are reflected in the
+[pipeline_template_standard_params.yaml](pipeline_template_standard_params.yaml) file. Also, linked service parameters of
+any new template should be added to the same file.
 
 ## Code Style and Standards
 Before committing, you must run the `pre-commit` checks to ensure your changes meet the repository’s standards.
@@ -54,6 +60,7 @@ We use `pre-commit` to enforce coding standards like:
 4. Version numbering.
 5. Validation of `CHANGELOG.md`.
 6. `YAML`/`SQL`/`JSON` validation.
+7. Count of params used in the source/sink database linked services of the pipeline templates.
 
 ### Setup Instructions
 
