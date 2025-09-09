@@ -107,7 +107,7 @@ have customized your metadata store, then these variables may need editing.
     parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
 * `METADATA_CONSTRAINT_TABLE` - This table is used to store the foreign key constraints for each table in the sink schema that are required for masking. The table is queried to drop and recreate those constraints back (default `capture_constraints`).
 * `PIPELINE_FAILED` - This variable is used internally to set the correct pipeline status. It is important to note that, this variable should not be modified when running the pipeline (default `false`).
-* `COLUMN_WIDTH_ESTIMSTES` - This variable is used for getting the size of the columns need to be masked (default `1000`).
+* `COLUMN_WIDTH_ESTIMATE` - This variable is used for getting the size of the columns need to be masked (default `1000`).
 
 ### Parameters
 
