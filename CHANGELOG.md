@@ -1,12 +1,13 @@
 # CHANGELOG
 
+# 0.0.31
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
+* Added a new variable for column width estimates in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
+
 # 0.0.30
 * Re-introduce the parameterization for source and sink database linked services in the Snowflake masking pipeline
 `dcsazure_Snowflake_to_Snowflake_mask_pl`
 * Add a pre-commit check to validate the expected count of LinkedService parameter names in each pipeline
-
-# 0.0.30
-* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
 
 # 0.0.29
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_Snowflake_to_Snowflake_mask_pl`
