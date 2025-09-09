@@ -148,9 +148,11 @@ BEGIN
             -- so JSON_VALUE is safe without ISJSON/CASE
             JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
             CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
-            -- Add column width estimate here
+            -- Add column width estimate, if column max length is known, add 4 bytes of overhead
+            -- Snowflake VARCHAR max length is 16 MB, so cap at 1 MB to avoid excessive estimates
             CASE
-                WHEN r.identified_column_max_length > 0 THEN r.identified_column_max_length + 4
+                WHEN r.identified_column_max_length > 0 AND r.identified_column_max_length < 1048576
+                    THEN r.identified_column_max_length + 4
                 ELSE @column_width_estimate
             END AS column_width_estimate
         FROM discovered_ruleset AS r
@@ -304,7 +306,7 @@ BEGIN
                             / (2000000 * 0.9)
                         ) < 1
                         THEN 1
-                    ELSE CEILING(
+                    ELSE CONVERT(INT, CEILING(
                         MAX(brf.row_count)
                         * (
                             SUM(brf.column_width_estimate)
@@ -312,7 +314,7 @@ BEGIN
                             + 1
                         )
                         / (2000000 * 0.9)
-                    )
+                    ))
                 END, 1
             ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1)
             COALESCE(

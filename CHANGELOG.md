@@ -1,5 +1,11 @@
 # CHANGELOG
 
+# 0.0.31
+* Re-introduce the estimated `NumberOfBatches` calculation in the unconditional masking dataflow to optimize number of
+masking API calls in the Snowflake masking pipeline
+* Introduce a cap of 1 MB on the `column_width_estimate` calculation to avoid extremely large values (Snowflake's
+VARCHAR has 16 MB length) that result in invalid `NumberOfBatches` calculation.
+
 # 0.0.30
 * Re-introduce the parameterization for source and sink database linked services in the Snowflake masking pipeline
 `dcsazure_Snowflake_to_Snowflake_mask_pl`
