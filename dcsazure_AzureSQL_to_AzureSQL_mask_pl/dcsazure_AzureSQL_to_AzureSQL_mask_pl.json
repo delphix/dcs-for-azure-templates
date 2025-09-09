@@ -220,6 +220,18 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_DATABASE": "srusia01-testing"
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_DATABASE": "srusia01-testing"
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -684,6 +696,18 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_DATABASE": "srusia01-testing"
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_DATABASE": "srusia01-testing"
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -2506,16 +2530,20 @@
             "defaultValue": true
           },
           "P_SOURCE_DATABASE": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "srusia01-testing"
           },
           "P_SINK_DATABASE": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "srusia01-testing"
           },
           "P_SOURCE_SCHEMA": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "dbo"
           },
           "P_SINK_SCHEMA": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "dbo"
           },
           "P_REAPPLY_MAPPING": {
             "type": "bool",
@@ -3920,7 +3948,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     entity: '/maaas-dev04/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -4137,7 +4165,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     entity: '/maaas-dev04/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
