@@ -1,7 +1,7 @@
 # CHANGELOG
 
 # 0.0.31
-* Re-introduce parameterization for source and sink ADLS linked services in the masking pipeline `dcsazure_AzureSQL_to_AzureSQL_mask_pl.json` so that multiple linked services are not required. Instead, parameters can be passed within the ADF masking pipeline, allowing the same pipeline to work across different environment
+* Re-introduce parameterization for source and sink Azure ASQ linked services in the masking pipeline `dcsazure_AzureSQL_to_AzureSQL_mask_pl.json` so that multiple linked services are not required. Instead, parameters can be passed within the ADF masking pipeline, allowing the same pipeline to work across different environment
 
 # 0.0.30
 * Re-introduce the parameterization for source and sink database linked services in the Snowflake masking pipeline
