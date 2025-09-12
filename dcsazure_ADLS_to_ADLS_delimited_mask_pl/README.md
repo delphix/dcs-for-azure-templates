@@ -111,8 +111,7 @@ have customized your metadata store, then these variables may need editing.
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
   metadata data store and sets the masked and mapping states on the items processed during execution
   (default `insert_adf_masking_event`).
-* `METADATA_MASKING_PARAMS_PROCEDURE_NAME` - This is the name of the stored procedure used to generate maskingExpand commentComment on line R106Code has comments. Press enter to view.
-    parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
+  parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
 ### Parameters
 
 * `P_COPY_UNMASKED_TABLES` - Bool - This enables the pipeline to copy data from source to destination when a mapping

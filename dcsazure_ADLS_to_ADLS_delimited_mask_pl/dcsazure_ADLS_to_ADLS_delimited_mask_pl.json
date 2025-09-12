@@ -256,8 +256,7 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -684,7 +683,7 @@
                                 "type": "Expression"
                               },
                               "DF_FIELD_ALGORITHM_ASSIGNMENT": {
-                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments\n}'",
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}'",
                                 "type": "Expression"
                               },
                               "DF_COLUMNS_TO_MASK": {
@@ -719,8 +718,7 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
-                            },
-                            "linkedServiceParameters": {}
+                            }
                           },
                           "staging": {},
                           "compute": {
@@ -2495,12 +2493,10 @@
             "defaultValue": true
           },
           "P_SOURCE_CONTAINER": {
-            "type": "string",
-            "defaultValue": "staging-container"
+            "type": "string"
           },
           "P_SINK_CONTAINER": {
-            "type": "string",
-            "defaultValue": "staging-container2"
+            "type": "string"
           },
           "P_SOURCE_DIRECTORY": {
             "type": "string"
@@ -2555,7 +2551,7 @@
           "name": "dcsazure_ADLS_to_ADLS_delimited"
         },
         "annotations": [],
-        "lastPublishTime": "2025-09-03T18:22:34Z"
+        "lastPublishTime": "2025-09-12T09:35:51Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_delimited_metadata_mask_ds')]",
@@ -2970,7 +2966,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: 'v1/masking/batchMaskByColumn',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -3195,7 +3191,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: 'v1/masking/batchMaskByColumn',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
