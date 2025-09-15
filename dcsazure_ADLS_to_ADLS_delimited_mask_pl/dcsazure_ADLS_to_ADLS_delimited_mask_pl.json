@@ -1125,7 +1125,7 @@
                         "specified_schema": {
                           "type": "String",
                           "value": {
-                            "value": "@variables('SPECIFIED_SCHEMA')",
+                            "value": "@{item().source_schema}",
                             "type": "Expression"
                           }
                         },
@@ -1139,7 +1139,7 @@
                         "column_width_estimate": {
                           "type": "Int32",
                           "value": {
-                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "value": "@variables('COLUMN_WIDTH_ESTIMATE')",
                             "type": "Expression"
                           }
                         },
@@ -2538,13 +2538,13 @@
             "type": "String",
             "defaultValue": "insert_adf_masking_event"
           },
-          "SPECIFIED_SCHEMA": {
-            "type": "String",
-            "defaultValue": "/"
-          },
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "generate_masking_parameters"
+          },
+          "COLUMN_WIDTH_ESTIMATE": {
+            "type": "String",
+            "defaultValue": "1000"
           }
         },
         "folder": {
