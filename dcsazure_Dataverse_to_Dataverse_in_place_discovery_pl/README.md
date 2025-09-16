@@ -50,7 +50,7 @@ These linked services types are needed for the following steps:
     * Valid for Advanced Find
     * Customizable
     * Not private
-  * Stores the results in a discovered_ruleset metadata table with a dummy column name `PLACEHOLDER` and ordinal position as `-1`
+  * Stores the results in a discovered_ruleset metadata table with a dummy column name `DCS__PLACEHOLDER` and ordinal position as `-1`
 * Fetch table names
   * Queries the temp metadata table to select only the discovered table names where `ordinal_position = -1`
 * For Each Table  
@@ -78,7 +78,8 @@ If you have configured your database using the metadata store scripts, these var
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the metadata data store and sets the discovery state on the items discovered during execution (default `insert_adf_discovery_event`)
 * `NUMBER_OF_ROWS_TO_PROFILE` - This is the number of rows we should select for profiling, note that raising this value could cause requests to fail (default `1000`)
 * `METADATA_EVENTS_LOG_TABLE` - This is the table to log pipeline run information in the metadata data store (default `adf_events_log`)
-* `API_REQUEST_TIMEOUT` - This is used to set the API timeout for the Dataverse APIs while fetching the metadata (deafult `30`)
+* `API_REQUEST_TIMEOUT` - This is used to set the API timeout for the Dataverse APIs while fetching the metadata (default `30`)
+* `TEMP_COLUMN_NAME` - This is used as the temporary value for identified_column/identified_column_type columns in discovered ruleset table. (default `DCS__PLACEHOLDER`)
 
 ### Parameters
 

@@ -1,10 +1,15 @@
 # CHANGELOG
 
-# 0.0.30
+# 0.0.31
 * Add support for DCS for Dataverse to Dataverse in place Discovery Pipeline
   * `dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl`
 * Add support for DCS for Dataverse to Dataverse in place Masking Pipeline
   * `dcsazure_Dataverse_to_Dataverse_in_place_mask_pl`
+
+# 0.0.30
+* Re-introduce the parameterization for source and sink database linked services in the Snowflake masking pipeline
+`dcsazure_Snowflake_to_Snowflake_mask_pl`
+* Add a pre-commit check to validate the expected count of LinkedService parameter names in each pipeline
 
 # 0.0.29
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_Snowflake_to_Snowflake_mask_pl`

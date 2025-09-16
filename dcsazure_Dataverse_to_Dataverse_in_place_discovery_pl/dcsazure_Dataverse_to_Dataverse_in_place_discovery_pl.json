@@ -6,16 +6,16 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "Metadata_store_LS": {
+    "Metadata Datastore": {
       "type": "string"
     },
-    "CRM_API_LS": {
+    "DataverseService": {
       "type": "string"
     },
-    "DCS_D365_LS": {
+    "Dataverse_Source": {
       "type": "string"
     },
-    "DCSDiscoveryLS": {
+    "DCSForAzureDiscoveryService": {
       "type": "string"
     }
   },
@@ -148,7 +148,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata_store_LS')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -416,7 +416,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata_store_LS')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -533,7 +533,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Metadata_store_LS')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -580,7 +580,7 @@
             },
             "userProperties": [],
             "linkedServiceName": {
-              "referenceName": "[parameters('Metadata_store_LS')]",
+              "referenceName": "[parameters('Metadata Datastore')]",
               "type": "LinkedServiceReference"
             },
             "typeProperties": {
@@ -622,7 +622,7 @@
                   {
                     "name": "identified_column",
                     "value": {
-                      "value": "PLACEHOLDER",
+                      "value": "@variables('TEMP_COLUMN_NAME')",
                       "type": "Expression"
                     }
                   },
@@ -657,7 +657,7 @@
                   {
                     "name": "identified_column_type",
                     "value": {
-                      "value": "PLACEHOLDER",
+                      "value": "@variables('TEMP_COLUMN_NAME')",
                       "type": "Expression"
                     }
                   },
@@ -867,7 +867,7 @@
         "variables": {
           "METADATA_SCHEMA": {
             "type": "String",
-            "defaultValue": "dcsazure_metadata_store"
+            "defaultValue": "dbo"
           },
           "DATASET": {
             "type": "String",
@@ -892,13 +892,17 @@
           "API_REQUEST_TIMEOUT": {
             "type": "Integer",
             "defaultValue": 30
+          },
+          "TEMP_COLUMN_NAME": {
+            "type": "String",
+            "defaultValue": "DCS__PLACEHOLDER"
           }
         },
         "folder": {
           "name": "dcsazure_Dataverse_to_Dataverse_in_place"
         },
         "annotations": [],
-        "lastPublishTime": "2025-08-19T07:46:53Z"
+        "lastPublishTime": "2025-09-12T11:56:30Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Dataverse_to_Dataverse_in_place_discovery_metadata_ds')]",
@@ -914,7 +918,7 @@
       "properties": {
         "description": "DCS Azure - AzureSQL to AzureSQL Discovery metadata dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('Metadata_store_LS')]",
+          "referenceName": "[parameters('Metadata Datastore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -950,7 +954,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('CRM_API_LS')]",
+          "referenceName": "[parameters('DataverseService')]",
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_ORG_NAME": {
@@ -997,7 +1001,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('CRM_API_LS')]",
+                "referenceName": "[parameters('DataverseService')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source"
@@ -1006,7 +1010,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata_store_LS')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink"
@@ -1246,7 +1250,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('DCS_D365_LS')]",
+                "referenceName": "[parameters('Dataverse_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source1MillRowDataSampling",
@@ -1254,7 +1258,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata_store_LS')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead",
@@ -1264,7 +1268,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Metadata_store_LS')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",
@@ -1275,7 +1279,7 @@
             {
               "name": "CallDCSForAzureDiscovery",
               "linkedService": {
-                "referenceName": "[parameters('DCSDiscoveryLS')]",
+                "referenceName": "[parameters('DCSForAzureDiscoveryService')]",
                 "type": "LinkedServiceReference"
               }
             },
