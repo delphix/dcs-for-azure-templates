@@ -2639,7 +2639,7 @@
           },
           "TARGET_BATCH_SIZE": {
             "type": "Integer",
-            "defaultValue": 2000
+            "defaultValue": 50000
           },
           "METADATA_CONSTRAINT_TABLE": {
             "type": "String",
