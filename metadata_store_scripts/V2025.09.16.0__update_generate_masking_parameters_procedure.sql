@@ -40,7 +40,7 @@
  * - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
  * - Supports treat_as_string flag for type casting feature
  */
-CREATE OR ALTER PROCEDURE generate_masking_parameters
+ALTER PROCEDURE generate_masking_parameters
     @dataset NVARCHAR(128),
     @specified_database NVARCHAR(128),
     @specified_schema NVARCHAR(128),
@@ -50,7 +50,7 @@ CREATE OR ALTER PROCEDURE generate_masking_parameters
 AS
 BEGIN
     SET NOCOUNT ON;
-    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2025.07.22.0';
+    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2025.09.16.0';
     DECLARE @filter_alias_display NVARCHAR(128);
     SET
         @filter_alias_display = CASE
@@ -120,7 +120,7 @@ BEGIN
             RETURN;
         END;
 
-    -- base_ruleset_filter - Filter to target table, add ADF type mappings, 
+    -- base_ruleset_filter - Filter to target table, add ADF type mappings,
     -- compute metadata, and exclude key columns
     WITH base_ruleset_filter AS (
         SELECT
@@ -144,13 +144,15 @@ BEGIN
                     2
                 )
             ) AS encoded_column_name,
-            -- algorithm_metadata is always expected to be a JSON object (or NULL), 
+            -- algorithm_metadata is always expected to be a JSON object (or NULL),
             -- so JSON_VALUE is safe without ISJSON/CASE
             JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
             CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
-            -- Add column width estimate here
+            -- Add column width estimate, if column max length is known, add 4 bytes of overhead
+            -- Snowflake VARCHAR max length is 16 MB, so cap at 1 MB to avoid excessive estimates
             CASE
-                WHEN r.identified_column_max_length > 0 THEN r.identified_column_max_length + 4
+                WHEN r.identified_column_max_length > 0 AND r.identified_column_max_length < 1048576
+                    THEN r.identified_column_max_length + 4
                 ELSE @column_width_estimate
             END AS column_width_estimate
         FROM discovered_ruleset AS r
@@ -165,7 +167,7 @@ BEGIN
             AND r.identified_table = @identified_table
             AND r.assigned_algorithm IS NOT NULL
             AND r.assigned_algorithm <> ''
-            -- Exclude key columns for conditional masking: key columns have 
+            -- Exclude key columns for conditional masking: key columns have
             -- assigned_algorithm as a JSON array
             AND NOT (
                 ISJSON(r.assigned_algorithm) = 1
@@ -304,7 +306,7 @@ BEGIN
                             / (2000000 * 0.9)
                         ) < 1
                         THEN 1
-                    ELSE CEILING(
+                    ELSE CONVERT(INT, CEILING(
                         MAX(brf.row_count)
                         * (
                             SUM(brf.column_width_estimate)
@@ -312,7 +314,7 @@ BEGIN
                             + 1
                         )
                         / (2000000 * 0.9)
-                    )
+                    ))
                 END, 1
             ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1)
             COALESCE(

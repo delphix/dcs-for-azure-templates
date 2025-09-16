@@ -4,7 +4,7 @@
 This pipeline will perform masking of your Snowflake Instance.
 
 ### Prerequisites
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.07.22.0`+)
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.09.16.0`+)
 1. Configure the DCS for Azure REST service.
 1. Configure the Snowflake linked service.
   * It is helpful for the linked service to be parameterized with the following parameters:
