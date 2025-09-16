@@ -315,7 +315,7 @@ BEGIN
                         / (2000000 * 0.9)
                     )
                 END, 1
-            ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1, or -1 if row_count is -1)
+            ) AS [NumberOfBatches],   -- Optimal batch count (minimum 1, or -1 when row_count is unavailable)
             COALESCE(
                 '[' + STRING_AGG(
                     CONVERT(NVARCHAR(10), brf.identified_column_max_length), ','
