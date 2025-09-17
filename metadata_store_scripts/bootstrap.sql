@@ -1718,6 +1718,8 @@ GO
  * @identified_table - Source table name
  * @column_width_estimate - Estimated column width for batch calculations (default: 1000)
  * @filter_alias - Optional filter key for conditional masking (default: '')
+ * @capped_identified_column_max_length - Optional, additional capping on
+ *   identified_column_max_length value (defaults to 1MB or 1048576 bytes)
  *
  * OUTPUT PARAMETERS:
  * - FieldAlgorithmAssignments: JSON mapping of encoded column names to masking algorithms
@@ -1749,7 +1751,9 @@ ALTER PROCEDURE generate_masking_parameters
     @specified_schema NVARCHAR(128),
     @identified_table NVARCHAR(128),
     @column_width_estimate INT = 1000,
-    @filter_alias NVARCHAR(128) = ''  -- Optional filter key for conditional masking
+    @filter_alias NVARCHAR(128) = '',  -- Optional filter key for conditional masking
+    -- Additional capping on identified column max length (defaults to 1MB or 1048576 bytes)
+    @capped_identified_column_max_length INT = 1048576
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1854,7 +1858,9 @@ BEGIN
             -- Add column width estimate, if column max length is known, add 4 bytes of overhead
             -- Snowflake VARCHAR max length is 16 MB, so cap at 1 MB to avoid excessive estimates
             CASE
-                WHEN r.identified_column_max_length > 0 AND r.identified_column_max_length < 1048576
+                WHEN
+                    r.identified_column_max_length > 0
+                    AND r.identified_column_max_length <= @capped_identified_column_max_length
                     THEN r.identified_column_max_length + 4
                 ELSE @column_width_estimate
             END AS column_width_estimate
