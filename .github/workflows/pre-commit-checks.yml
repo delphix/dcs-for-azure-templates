@@ -1,0 +1,42 @@
+#
+# Copyright (c) 2025 by Delphix. All rights reserved.
+#
+
+name: Pre-commit Checks
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  pre-commit:
+    name: Run Pre-commit Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install pre-commit
+      run: pip install pre-commit
+    
+    - name: Cache pre-commit hooks
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pre-commit
+        key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pre-commit-
+    
+    - name: Run pre-commit checks
+      run: pre-commit run --all-files --show-diff-on-failure
+      env:
+        PYTHONPATH: ${{ github.workspace }}
