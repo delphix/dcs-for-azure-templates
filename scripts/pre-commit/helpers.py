@@ -42,7 +42,7 @@ NON_TEMPLATES_DIR = [
 # e.g. dcsazure_AzureSQL_to_AzureSQL_mask_pl
 # e.g dcsazure_ADLS_to_ADLS_delimited_discovery_pl
 # Captures:
-#   1. source_db as group 1 --> ([A-Za-z]+)
+#   1. source_db as group 1 --> ([\w]) as we have '_' in source db name
 #   2. sink_db and optional specifier as group 2 --> ([A-Za-z]+(?:_[A-Za-z]+)*)
 #      2.1 (?:_[A-Za-z]+)* allows 0 or more letters, making it optional
 #   3. service - mask or discovery as group 3 --> (mask|discovery)
