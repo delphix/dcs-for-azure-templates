@@ -1,7 +1,7 @@
 # CHANGELOG
 
 # 0.0.31
-* Add GitHub Actions workflow for automated pre-commit validation on pull requests
+* Add GitHub Actions workflow for automated pre-commit validation on pull requests.
 
 # 0.0.30
 * Re-introduce the parameterization for source and sink database linked services in the Snowflake masking pipeline
