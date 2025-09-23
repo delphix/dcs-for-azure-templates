@@ -8,6 +8,8 @@ on:
   pull_request:
     branches: [ main ]
     types: [ opened, synchronize, reopened ]
+  # Allow manual testing
+  workflow_dispatch:
 
 jobs:
   pre-commit:
