@@ -1,4 +1,7 @@
 ## Purpose
+
+[![Pre-commit Checks](https://github.com/purusottamm/dcs-for-azure-templates/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/purusottamm/dcs-for-azure-templates/actions/workflows/pre-commit-checks.yml)
+
 Azure Data Factory supports 100+ connectors, including those for SaaS applications and PaaS databases. Data that resides
 in disparate locations often needs masking in order to be leveraged by engineers for feature development or issue
 triage and debugging. These things must never be done in production as the risk to data exposure is too great. Data
