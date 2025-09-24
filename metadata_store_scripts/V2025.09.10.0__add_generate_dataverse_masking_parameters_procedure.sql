@@ -349,7 +349,7 @@ BEGIN
         a.ColumnsToCastBackToTimestamp,
         ctr.ColumnsToRemove,
         doc.DateOnlyColumns,
-        pic.PrimaryKey,
+        pic.PrimaryKey,   -- Dataverse tables have only one Primary ID, this will never be a comma-separated string
         @StoredProcedureVersion AS StoredProcedureVersion
     FROM generate_mask_parameters AS g,
          date_format_parameters AS df,
