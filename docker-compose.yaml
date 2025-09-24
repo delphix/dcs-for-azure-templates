@@ -58,6 +58,14 @@ services:
              cp LICENSE dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/LICENSE &&
              cp VERSION.md dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/VERSION.md &&
              zip dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl.zip dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl/* &&
+
+             cp LICENSE dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl/LICENSE &&
+             cp VERSION.md dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl/VERSION.md &&
+             zip dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl.zip dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl/* &&
+             
+             cp LICENSE dcsazure_Dataverse_to_Dataverse_in_place_mask_pl/LICENSE &&
+             cp VERSION.md dcsazure_Dataverse_to_Dataverse_in_place_mask_pl/VERSION.md &&
+             zip dcsazure_Dataverse_to_Dataverse_in_place_mask_pl.zip dcsazure_Dataverse_to_Dataverse_in_place_mask_pl/* &&
              
              rm *_pl/LICENSE &&
              rm *_pl/VERSION.md &&

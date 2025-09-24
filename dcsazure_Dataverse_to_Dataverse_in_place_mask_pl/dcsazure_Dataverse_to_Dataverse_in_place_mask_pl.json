@@ -1,0 +1,2128 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "factoryName": {
+      "type": "string",
+      "metadata": "Data Factory name"
+    },
+    "Metadata Datastore": {
+      "type": "string"
+    },
+    "Dataverse_Source": {
+      "type": "string"
+    },
+    "DCSForAzureMaskingService": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+  },
+  "resources": [
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Dataverse_to_Dataverse_in_place_mask_pl')]",
+      "type": "Microsoft.DataFactory/factories/pipelines",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "activities": [
+          {
+            "name": "Select Tables That Require Masking",
+            "description": "Select tables with a data mapping and assigned algorithms, as well as filters that may be needed for conditional masking.",
+            "type": "Lookup",
+            "dependsOn": [
+              {
+                "activity": "Mark Tables Undiscovered",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "WITH\ntables_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE ISJSON(assigned_algorithm) = 1\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_ORG_NAME}'\n\tAND specified_schema = '@{pipeline().parameters.P_ORG_NAME}'\n),\ntables_not_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE assigned_algorithm IS NOT NULL\n\tAND assigned_algorithm != ''\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_ORG_NAME}'\n\tAND specified_schema = '@{pipeline().parameters.P_ORG_NAME}'\n\tEXCEPT\n\tSELECT dataset, specified_database, specified_schema, identified_table\n\tFROM tables_requiring_filters\n\tWHERE dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_ORG_NAME}'\n\tAND specified_schema = '@{pipeline().parameters.P_ORG_NAME}'\n),\nall_filters AS\n(\n\tSELECT DISTINCT\n\t\tJSON_VALUE(kc.value, '$.alias') as filter_alias,\n\t\treplace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n),\ndefault_filters AS\n(\n\tSELECT DISTINCT\n\t\t'default' as filter_alias,\n\t\tSTRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n\tGROUP BY d.identified_table\n),\nsources_and_filters AS (\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN default_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN all_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tdataset,\n\t\tspecified_database,\n\t\tspecified_schema,\n\t\tidentified_table,\n\t\t'',\n\t\t''\n\tFROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_ORG_NAME}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_ORG_NAME}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0  OR dm.masked_status IS NULL)\nUNION\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tCROSS APPLY OPENJSON(dm.masked_status) kc\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_ORG_NAME}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_ORG_NAME}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND ISJSON(dm.masked_status) = 1\n\tAND kc.[key] = rs.filter_alias\n\tAND kc.[value] = 'false'\n\tAND (\n\t\t(filter_alias = 'default' AND  \n\t\t\tidentified_table IN (\n\t\t\t\tSELECT DISTINCT\n\t\t\t\t\tidentified_table\n\t\t\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n\t\t\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\t\t\tWHERE\n\t\t\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\t\t\tAND JSON_VALUE(kc.value, '$.alias') = 'default'\n\t\t\t)\n\t\t)\n\t\tOR\n\t\t(filter_alias != 'default')\n\t)\n",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_Dataverse_to_Dataverse_in_place_mask_metadata_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@variables('METADATA_SCHEMA')",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@variables('METADATA_RULESET_TABLE')",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
+          },
+          {
+            "name": "For Each Table To Mask",
+            "type": "ForEach",
+            "dependsOn": [
+              {
+                "activity": "Configure Masked Status",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "items": {
+                "value": "@activity('Select Tables That Require Masking').output.value",
+                "type": "Expression"
+              },
+              "isSequential": false,
+              "activities": [
+                {
+                  "name": "Check For Conditional Masking",
+                  "description": "Identify whether the table needs to be masked with conditional masking",
+                  "type": "IfCondition",
+                  "dependsOn": [
+                    {
+                      "activity": "Lookup Masking Parameters",
+                      "dependencyConditions": [
+                        "Succeeded"
+                      ]
+                    }
+                  ],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "expression": {
+                      "value": "@greater(length(item().filter_alias),0)",
+                      "type": "Expression"
+                    },
+                    "ifFalseActivities": [
+                      {
+                        "name": "Perform Masking Per Table No Filter",
+                        "description": "Perform masking for the entire table",
+                        "type": "ExecuteDataFlow",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.23:59:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "dataflow": {
+                            "referenceName": "dcsazure_Dataverse_to_Dataverse_in_place_unfiltered_mask_df",
+                            "type": "DataFlowReference",
+                            "parameters": {
+                              "runId": {
+                                "value": "'@{pipeline().RunId}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_SCHEMA": {
+                                "value": "'@{item().source_schema}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_TABLE": {
+                                "value": "'@{item().source_table}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_SCHEMA": {
+                                "value": "'@{item().sink_schema}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_TABLE": {
+                                "value": "'@{item().sink_table}'",
+                                "type": "Expression"
+                              },
+                              "DF_FIELD_ALGORITHM_ASSIGNMENT": {
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}'",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_MASK": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask",
+                                "type": "Expression"
+                              },
+                              "DF_BODY_TYPE_MAPPING": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping",
+                                "type": "Expression"
+                              },
+                              "DF_NUMBER_OF_ROWS_PER_BATCH": {
+                                "value": "@variables('TARGET_BATCH_SIZE')",
+                                "type": "Expression"
+                              },
+                              "DF_TRIM_LENGTHS": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.TrimLengths",
+                                "type": "Expression"
+                              },
+                              "DF_FAIL_ON_NONCONFORMANT_DATA": {
+                                "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA",
+                                "type": "Expression"
+                              },
+                              "DF_FIELD_DATE_FORMAT": {
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}'",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_AS_STRINGS": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BINARY": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DATE": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_FLOAT": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_INTEGER": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_LONG": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_REMOVE": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove",
+                                "type": "Expression"
+                              },
+                              "DF_DATE_ONLY_COLUMNS": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns",
+                                "type": "Expression"
+                              },
+                              "DF_PRIMARY_KEY": {
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}'",
+                                "type": "Expression"
+                              },
+                              "DF_CREATED_BEFORE": {
+                                "value": "'@{formatDateTime(pipeline().parameters.P_CREATED_BEFORE,'yyyy-MM-dd')}'",
+                                "type": "Expression"
+                              },
+                              "DF_CREATED_AFTER": {
+                                "value": "'@{formatDateTime(pipeline().parameters.P_CREATED_AFTER,'yyyy-MM-dd')}'",
+                                "type": "Expression"
+                              }
+                            },
+                            "datasetParameters": {
+                              "Source": {},
+                              "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_ORG_NAME": {
+                                    "value": "@pipeline().parameters.P_ORG_NAME",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_ORG_NAME": {
+                                    "value": "@pipeline().parameters.P_ORG_NAME",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "staging": {},
+                          "integrationRuntime": {
+                            "referenceName": "DCSMaskingRuntime",
+                            "type": "IntegrationRuntimeReference"
+                          },
+                          "traceLevel": "None",
+                          "cacheSinks": {
+                            "firstRowOnly": true
+                          }
+                        }
+                      },
+                      {
+                        "name": "Update Masked State No Filter",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Perform Masking Per Table No Filter",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table No Filter').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "error_message": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table No Filter').ExecutionEndTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table No Filter').ExecutionStartTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "filter_alias": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "filter_condition": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "pipeline_success": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Update Masked State No Filter Failed",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Perform Masking Per Table No Filter",
+                            "dependencyConditions": [
+                              "Failed"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table No Filter').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table No Filter').Error.message",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table No Filter').ExecutionEndTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table No Filter').ExecutionStartTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "filter_alias": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "filter_condition": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "pipeline_success": {
+                              "value": "false",
+                              "type": "Boolean"
+                            },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Fail After Updating Masked State No Filter",
+                        "type": "Fail",
+                        "dependsOn": [
+                          {
+                            "activity": "Update Masked State No Filter Failed",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "message": {
+                            "value": "Failed to mask @{item().source_table}",
+                            "type": "Expression"
+                          },
+                          "errorCode": "500"
+                        }
+                      }
+                    ],
+                    "ifTrueActivities": [
+                      {
+                        "name": "Perform Masking Per Table With Filter",
+                        "description": "Perform masking for the part of this table that satisfies the specified filter",
+                        "type": "ExecuteDataFlow",
+                        "dependsOn": [],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "dataflow": {
+                            "referenceName": "dcsazure_Dataverse_to_Dataverse_in_place_filtered_mask_df",
+                            "type": "DataFlowReference",
+                            "parameters": {
+                              "runId": {
+                                "value": "'@{pipeline().RunId}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_SCHEMA": {
+                                "value": "'@{item().source_schema}'",
+                                "type": "Expression"
+                              },
+                              "DF_SOURCE_TABLE": {
+                                "value": "'@{item().source_table}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_SCHEMA": {
+                                "value": "'@{item().sink_schema}'",
+                                "type": "Expression"
+                              },
+                              "DF_SINK_TABLE": {
+                                "value": "'@{item().sink_table}'",
+                                "type": "Expression"
+                              },
+                              "DF_FIELD_ALGORITHM_ASSIGNMENT": {
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}'",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_MASK": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask",
+                                "type": "Expression"
+                              },
+                              "DF_BODY_TYPE_MAPPING": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping",
+                                "type": "Expression"
+                              },
+                              "DF_NUMBER_OF_ROWS_PER_BATCH": {
+                                "value": "@variables('TARGET_BATCH_SIZE')",
+                                "type": "Expression"
+                              },
+                              "DF_TRIM_LENGTHS": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.TrimLengths",
+                                "type": "Expression"
+                              },
+                              "DF_FAIL_ON_NONCONFORMANT_DATA": {
+                                "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA",
+                                "type": "Expression"
+                              },
+                              "DF_FIELD_DATE_FORMAT": {
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}'",
+                                "type": "Expression"
+                              },
+                              "DF_FILTER_CONDITION": {
+                                "value": "@item().filter_value",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_AS_STRINGS": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BINARY": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DATE": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_FLOAT": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_INTEGER": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_LONG": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp",
+                                "type": "Expression"
+                              },
+                              "DF_COLUMNS_TO_REMOVE": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove",
+                                "type": "Expression"
+                              },
+                              "DF_DATE_ONLY_COLUMNS": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns",
+                                "type": "Expression"
+                              },
+                              "DF_PRIMARY_KEY": {
+                                "value": "'@{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}'",
+                                "type": "Expression"
+                              },
+                              "DF_CREATED_BEFORE": {
+                                "value": "'@{formatDateTime(pipeline().parameters.P_CREATED_BEFORE,'yyyy-MM-dd')\n}'",
+                                "type": "Expression"
+                              },
+                              "DF_CREATED_AFTER": {
+                                "value": "'@{formatDateTime(pipeline().parameters.P_CREATED_AFTER,'yyyy-MM-dd')}'",
+                                "type": "Expression"
+                              }
+                            },
+                            "datasetParameters": {
+                              "Source": {},
+                              "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "LS_ORG_NAME": {
+                                    "value": "@pipeline().parameters.P_ORG_NAME",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "LS_ORG_NAME": {
+                                    "value": "@pipeline().parameters.P_ORG_NAME",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "staging": {},
+                          "integrationRuntime": {
+                            "referenceName": "DCSMaskingRuntime",
+                            "type": "IntegrationRuntimeReference"
+                          },
+                          "traceLevel": "Fine"
+                        }
+                      },
+                      {
+                        "name": "Update Masked State With Filter",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Perform Masking Per Table With Filter",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table With Filter').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "error_message": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table With Filter').ExecutionEndTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table With Filter').ExecutionStartTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "filter_alias": {
+                              "value": {
+                                "value": "@item().filter_alias",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "filter_condition": {
+                              "value": {
+                                "value": "@item().filter_value",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "pipeline_success": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Update Masked State With Filter Failed",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                          {
+                            "activity": "Perform Masking Per Table With Filter",
+                            "dependencyConditions": [
+                              "Failed"
+                            ]
+                          }
+                        ],
+                        "policy": {
+                          "timeout": "0.12:00:00",
+                          "retry": 0,
+                          "retryIntervalInSeconds": 30,
+                          "secureOutput": false,
+                          "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                          "storedProcedureName": {
+                            "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_EVENT_PROCEDURE_NAME')}",
+                            "type": "Expression"
+                          },
+                          "storedProcedureParameters": {
+                            "activity_run_id": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table With Filter').ActivityRunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "error_message": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table With Filter').Error.message",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "execution_end_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table With Filter').ExecutionEndTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "execution_start_time": {
+                              "value": {
+                                "value": "@activity('Perform Masking Per Table With Filter').ExecutionStartTime",
+                                "type": "Expression"
+                              },
+                              "type": "DateTimeOffset"
+                            },
+                            "filter_alias": {
+                              "value": {
+                                "value": "@item().filter_alias",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "filter_condition": {
+                              "value": {
+                                "value": "@item().filter_value",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "input_parameters": {
+                              "value": {
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "is_masking_activity": {
+                              "value": "true",
+                              "type": "Boolean"
+                            },
+                            "pipeline_name": {
+                              "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "pipeline_run_id": {
+                              "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                              },
+                              "type": "Guid"
+                            },
+                            "pipeline_success": {
+                              "value": "false",
+                              "type": "Boolean"
+                            },
+                            "sink_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "sink_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "sink_table": {
+                              "value": {
+                                "value": "@item().sink_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_database": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_dataset": {
+                              "value": {
+                                "value": "@variables('DATASET')",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_metadata": {
+                              "value": null,
+                              "type": "String"
+                            },
+                            "source_schema": {
+                              "value": {
+                                "value": "@pipeline().parameters.P_ORG_NAME",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            },
+                            "source_table": {
+                              "value": {
+                                "value": "@item().source_table",
+                                "type": "Expression"
+                              },
+                              "type": "String"
+                            }
+                          }
+                        },
+                        "linkedServiceName": {
+                          "referenceName": "[parameters('Metadata Datastore')]",
+                          "type": "LinkedServiceReference"
+                        }
+                      },
+                      {
+                        "name": "Fail After Updating Masked State With Filter",
+                        "type": "Fail",
+                        "dependsOn": [
+                          {
+                            "activity": "Update Masked State With Filter Failed",
+                            "dependencyConditions": [
+                              "Succeeded"
+                            ]
+                          }
+                        ],
+                        "userProperties": [],
+                        "typeProperties": {
+                          "message": {
+                            "value": "Failed to mask @{item().source_table} with filter alias @{item().filter_alias}",
+                            "type": "Expression"
+                          },
+                          "errorCode": "500"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "Lookup Masking Parameters",
+                  "description": "Lookup Masking Parameters",
+                  "type": "Lookup",
+                  "dependsOn": [],
+                  "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "source": {
+                      "type": "AzureSqlSource",
+                      "sqlReaderStoredProcedureName": {
+                        "value": "@{variables('METADATA_SCHEMA')}.@{variables('METADATA_MASKING_PARAMS_PROCEDURE_NAME')}",
+                        "type": "Expression"
+                      },
+                      "storedProcedureParameters": {
+                        "column_width_estimate": {
+                          "type": "Int32",
+                          "value": {
+                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "type": "Expression"
+                          }
+                        },
+                        "dataset": {
+                          "type": "String",
+                          "value": {
+                            "value": "@variables('DATASET')",
+                            "type": "Expression"
+                          }
+                        },
+                        "filter_alias": {
+                          "type": "String",
+                          "value": {
+                            "value": "@item().filter_alias",
+                            "type": "Expression"
+                          }
+                        },
+                        "identified_table": {
+                          "type": "String",
+                          "value": {
+                            "value": "@item().source_table",
+                            "type": "Expression"
+                          }
+                        },
+                        "specified_database": {
+                          "type": "String",
+                          "value": {
+                            "value": "@pipeline().parameters.P_ORG_NAME",
+                            "type": "Expression"
+                          }
+                        },
+                        "specified_schema": {
+                          "type": "String",
+                          "value": {
+                            "value": "@pipeline().parameters.P_ORG_NAME",
+                            "type": "Expression"
+                          }
+                        }
+                      },
+                      "queryTimeout": "02:00:00",
+                      "partitionOption": "None"
+                    },
+                    "dataset": {
+                      "referenceName": "dcsazure_Dataverse_to_Dataverse_in_place_mask_metadata_ds",
+                      "type": "DatasetReference",
+                      "parameters": {
+                        "DS_METADATA_SCHEMA": {
+                          "value": "@variables('METADATA_SCHEMA')",
+                          "type": "Expression"
+                        },
+                        "DS_METADATA_TABLE": {
+                          "value": "@variables('METADATA_RULESET_TABLE')",
+                          "type": "Expression"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "Configure Masked Status",
+            "description": "Configure Masked Status for a given table in the Source-to-Sink mapping table if it is not set. Masked Status will not be set if the table has not been masked before or if P_REAPPLY_MASKING parameter is set to true.",
+            "type": "Script",
+            "dependsOn": [
+              {
+                "activity": "Select Tables That Require Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "linkedServiceName": {
+              "referenceName": "[parameters('Metadata Datastore')]",
+              "type": "LinkedServiceReference"
+            },
+            "typeProperties": {
+              "scripts": [
+                {
+                  "type": "Query",
+                  "text": {
+                    "value": "WITH\n    tables_requiring_filters AS (\n        SELECT DISTINCT\n            dataset, specified_database, specified_schema, identified_table\n        FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n        WHERE ISJSON(assigned_algorithm) = 1\n            AND dataset = '@{variables('DATASET')}'\n            AND specified_database = '@{pipeline().parameters.P_ORG_NAME}'\n            AND specified_schema = '@{pipeline().parameters.P_ORG_NAME}'\n    ), all_filters AS (\n        SELECT DISTINCT\n            JSON_VALUE(kc.value, '$.alias') as filter_alias,\n            identified_table\n        FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n            CROSS APPLY OPENJSON(d.assigned_algorithm) kc\n        WHERE\n            ISJSON(d.assigned_algorithm,ARRAY) = 1\n            AND\n            d.identified_table in (\n                SELECT identified_table FROM tables_requiring_filters\n            )\n    ), sources_and_filters AS (\n        SELECT\n            dataset,\n            specified_database,\n            specified_schema,\n            tables_requiring_filters.identified_table,\n            JSON_OBJECTAGG(filter_alias:CAST(0 as BIT)) AS masked_status\n        FROM tables_requiring_filters\n            INNER JOIN all_filters\n            ON tables_requiring_filters.identified_table = all_filters.identified_table\n        GROUP BY dataset, specified_database, specified_schema, tables_requiring_filters.identified_table\n    )\n    UPDATE @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\n    SET masked_status = sf.masked_status\n    FROM sources_and_filters sf\n    INNER JOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm ON\n        dm.source_dataset = sf.dataset AND\n        dm.source_database = sf.specified_database AND\n        dm.source_schema = sf.specified_schema AND\n        dm.source_table = sf.identified_table\n    WHERE\n        dm.masked_status IS NULL\n        AND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n",
+                    "type": "Expression"
+                  }
+                }
+              ],
+              "scriptBlockExecutionTimeout": "02:00:00"
+            }
+          },
+          {
+            "name": "Mark Tables Undiscovered",
+            "description": "Mark all tables in this database and schema as undiscovered so that we can re-discover sensitive data in them",
+            "type": "Script",
+            "dependsOn": [],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "linkedServiceName": {
+              "referenceName": "[parameters('Metadata Datastore')]",
+              "type": "LinkedServiceReference"
+            },
+            "typeProperties": {
+              "scripts": [
+                {
+                  "type": "Query",
+                  "text": {
+                    "value": "UPDATE\n    @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')}\nSET\n    mapping_complete = CAST(0 AS BIT),\n    masked_status = NULL\nWHERE\n    UPPER(source_dataset) = UPPER('@{variables('DATASET')}')\n    AND UPPER(source_database) = UPPER('@{pipeline().parameters.P_ORG_NAME}')\n    AND UPPER(source_schema) = UPPER('@{pipeline().parameters.P_ORG_NAME}')\n    AND LOWER('@{pipeline().parameters.P_FIRST_RUN_AFTER_REFRESH}') = 'true'",
+                    "type": "Expression"
+                  }
+                }
+              ],
+              "scriptBlockExecutionTimeout": "02:00:00"
+            }
+          }
+        ],
+        "policy": {
+          "elapsedTimeMetric": {}
+        },
+        "parameters": {
+          "P_FAIL_ON_NONCONFORMANT_DATA": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_ORG_NAME": {
+            "type": "string"
+          },
+          "P_FIRST_RUN_AFTER_REFRESH": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_CREATED_BEFORE": {
+            "type": "string",
+            "defaultValue": "9999-12-31"
+          },
+          "P_CREATED_AFTER": {
+            "type": "string",
+            "defaultValue": "1753-01-01"
+          }
+        },
+        "variables": {
+          "METADATA_SCHEMA": {
+            "type": "String",
+            "defaultValue": "dbo"
+          },
+          "METADATA_RULESET_TABLE": {
+            "type": "String",
+            "defaultValue": "discovered_ruleset"
+          },
+          "METADATA_SOURCE_TO_SINK_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_data_mapping"
+          },
+          "METADATA_ADF_TYPE_MAPPING_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_type_mapping"
+          },
+          "DATASET": {
+            "type": "String",
+            "defaultValue": "DATAVERSE"
+          },
+          "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
+            "type": "String",
+            "defaultValue": "%"
+          },
+          "METADATA_EVENT_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "insert_adf_masking_event"
+          },
+          "TARGET_BATCH_SIZE": {
+            "type": "Integer",
+            "defaultValue": 4000
+          },
+          "METADATA_EVENTS_LOG_TABLE": {
+            "type": "String",
+            "defaultValue": "adf_events_log"
+          },
+          "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
+            "type": "String",
+            "defaultValue": "generate_dataverse_masking_parameters"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_Dataverse_to_Dataverse_in_place"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-09-12T08:46:07Z"
+      },
+      "dependsOn": [
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Dataverse_to_Dataverse_in_place_mask_metadata_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Dataverse_to_Dataverse_in_place_unfiltered_mask_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Dataverse_to_Dataverse_in_place_filtered_mask_df')]"
+      ]
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Dataverse_to_Dataverse_in_place_mask_metadata_ds')]",
+      "type": "Microsoft.DataFactory/factories/datasets",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "linkedServiceName": {
+          "referenceName": "[parameters('Metadata Datastore')]",
+          "type": "LinkedServiceReference"
+        },
+        "parameters": {
+          "DS_METADATA_SCHEMA": {
+            "type": "string"
+          },
+          "DS_METADATA_TABLE": {
+            "type": "string"
+          }
+        },
+        "folder": {
+          "name": "dcsazure_Dataverse_to_Dataverse_in_place"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [],
+        "typeProperties": {
+          "schema": {
+            "value": "@dataset().DS_METADATA_SCHEMA",
+            "type": "Expression"
+          },
+          "table": {
+            "value": "@dataset().DS_METADATA_TABLE",
+            "type": "Expression"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Dataverse_to_Dataverse_in_place_unfiltered_mask_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_Dataverse_to_Dataverse_in_place"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Dataverse_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "Source",
+              "description": "Select source data at DF_SOURCE_SCHEMA.DF_SOURCE_TABLE using an inline dataset"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Dataverse_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "Sink"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "DCSForAzureAPI",
+              "linkedService": {
+                "referenceName": "[parameters('DCSForAzureMaskingService')]",
+                "type": "LinkedServiceReference"
+              }
+            },
+            {
+              "name": "AddSortKey",
+              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SORT_ID that consists of SHA of the data across all columns in the table - every row will have this value and it cannot be null"
+            },
+            {
+              "name": "SortBySortKey",
+              "description": "Sort the table by the value in DELPHIX_COMPLIANCE_SERVICE_SORT_ID, as we need the table to be in a particular order before we apply a surrogate key"
+            },
+            {
+              "name": "CreateSurrogateKey",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_BATCH_ID column that increments by 1 and starts at 1 after applying the sorting"
+            },
+            {
+              "name": "WrapValuesInArray",
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become [], and encode the column names to handle body type mapping changes"
+            },
+            {
+              "name": "AggregateColumnsByBatch",
+              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID with integer division by DF_NUMBER_OF_ROWS_PER_BATCH - so there will be a targeted number of total rows in each aggregation, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
+            },
+            {
+              "name": "FlattenValuesOutOfArray",
+              "description": "For each column we wish to mask, flatten the value out of the array, in the case where the value was previously [], it becomes null"
+            },
+            {
+              "name": "AssertNoFailures",
+              "description": "Confirm that we received a 200 response status from the API request"
+            },
+            {
+              "name": "FlattenAggregateData",
+              "description": "Unroll the API response body into decoded named columns"
+            },
+            {
+              "name": "TrimMaskedStrings",
+              "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
+            },
+            {
+              "name": "CastColumnsBackAsRequired",
+              "description": "For columns that need to be cast back to a compatible type, cast them back"
+            },
+            {
+              "name": "RemoveColumns",
+              "description": "Remove columns that are not required for mapping"
+            },
+            {
+              "name": "SelectPrimaryKeyColumn"
+            },
+            {
+              "name": "JoinMaskedColumnsandPrimaryKey"
+            },
+            {
+              "name": "AlterRowCondition"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_SINK_SCHEMA as string (''),",
+            "     DF_SINK_TABLE as string (''),",
+            "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
+            "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
+            "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
+            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
+            "     DF_TRIM_LENGTHS as integer[] ([1000]),",
+            "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
+            "     DF_FIELD_DATE_FORMAT as string ('{}'),",
+            "     DF_COLUMNS_TO_CAST_AS_STRINGS as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BINARY as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DATE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_REMOVE as string[] ([\"\"]),",
+            "     DF_DATE_ONLY_COLUMNS as string[] ([\"\"]),",
+            "     DF_PRIMARY_KEY as string (''),",
+            "     DF_CREATED_BEFORE as string (''),",
+            "     DF_CREATED_AFTER as string ('')",
+            "}",
+            "source(output(",
+            "          accountcategorycode as integer,",
+            "          accountcategorycodename as string,",
+            "          accountclassificationcode as integer,",
+            "          accountclassificationcodename as string,",
+            "          accountid as string,",
+            "          accountnumber as string,",
+            "          accountratingcode as integer,",
+            "          accountratingcodename as string,",
+            "          address1_addressid as string,",
+            "          address1_addresstypecode as integer,",
+            "          address1_addresstypecodename as string,",
+            "          address1_city as string,",
+            "          address1_composite as string,",
+            "          address1_country as string,",
+            "          address1_county as string,",
+            "          address1_fax as string,",
+            "          address1_freighttermscode as integer,",
+            "          address1_freighttermscodename as string,",
+            "          address1_latitude as double,",
+            "          address1_line1 as string,",
+            "          address1_line2 as string,",
+            "          address1_line3 as string,",
+            "          address1_longitude as double,",
+            "          address1_name as string,",
+            "          address1_postalcode as string,",
+            "          address1_postofficebox as string,",
+            "          address1_primarycontactname as string,",
+            "          address1_shippingmethodcode as integer,",
+            "          address1_shippingmethodcodename as string,",
+            "          address1_stateorprovince as string,",
+            "          address1_telephone1 as string,",
+            "          address1_telephone2 as string,",
+            "          address1_telephone3 as string,",
+            "          address1_upszone as string,",
+            "          address1_utcoffset as integer,",
+            "          address2_addressid as string,",
+            "          address2_addresstypecode as integer,",
+            "          address2_addresstypecodename as string,",
+            "          address2_city as string,",
+            "          address2_composite as string,",
+            "          address2_country as string,",
+            "          address2_county as string,",
+            "          address2_fax as string,",
+            "          address2_freighttermscode as integer,",
+            "          address2_freighttermscodename as string,",
+            "          address2_latitude as double,",
+            "          address2_line1 as string,",
+            "          address2_line2 as string,",
+            "          address2_line3 as string,",
+            "          address2_longitude as double,",
+            "          address2_name as string,",
+            "          address2_postalcode as string,",
+            "          address2_postofficebox as string,",
+            "          address2_primarycontactname as string,",
+            "          address2_shippingmethodcode as integer,",
+            "          address2_shippingmethodcodename as string,",
+            "          address2_stateorprovince as string,",
+            "          address2_telephone1 as string,",
+            "          address2_telephone2 as string,",
+            "          address2_telephone3 as string,",
+            "          address2_upszone as string,",
+            "          address2_utcoffset as integer,",
+            "          adx_createdbyipaddress as string,",
+            "          adx_createdbyusername as string,",
+            "          adx_modifiedbyipaddress as string,",
+            "          adx_modifiedbyusername as string,",
+            "          aging30 as decimal(38,2),",
+            "          aging30_base as decimal(38,4),",
+            "          aging60 as decimal(38,2),",
+            "          aging60_base as decimal(38,4),",
+            "          aging90 as decimal(38,2),",
+            "          aging90_base as decimal(38,4),",
+            "          businesstypecode as integer,",
+            "          businesstypecodename as string,",
+            "          crcd4_lastcontacted as timestamp,",
+            "          createdbyexternalpartyname as string,",
+            "          createdbyexternalpartyyominame as string,",
+            "          createdbyname as string,",
+            "          createdbyyominame as string,",
+            "          createdon as timestamp,",
+            "          createdonbehalfbyname as string,",
+            "          createdonbehalfbyyominame as string,",
+            "          creditlimit as decimal(38,2),",
+            "          creditlimit_base as decimal(38,4),",
+            "          creditonhold as boolean,",
+            "          creditonholdname as string,",
+            "          customersizecode as integer,",
+            "          customersizecodename as string,",
+            "          customertypecode as integer,",
+            "          customertypecodename as string,",
+            "          dd_branch as string,",
+            "          dd_corporatehierarchy as string,",
+            "          dd_demofieldname as string,",
+            "          dd_demofieldyominame as string,",
+            "          dd_department as string,",
+            "          dd_registrationsourceidname as string,",
+            "          defaultpricelevelidname as string,",
+            "          description as string,",
+            "          donotbulkemail as boolean,",
+            "          donotbulkemailname as string,",
+            "          donotbulkpostalmail as boolean,",
+            "          donotbulkpostalmailname as string,",
+            "          donotemail as boolean,",
+            "          donotemailname as string,",
+            "          donotfax as boolean,",
+            "          donotfaxname as string,",
+            "          donotphone as boolean,",
+            "          donotphonename as string,",
+            "          donotpostalmail as boolean,",
+            "          donotpostalmailname as string,",
+            "          donotsendmarketingmaterialname as string,",
+            "          donotsendmm as boolean,",
+            "          emailaddress1 as string,",
+            "          emailaddress2 as string,",
+            "          emailaddress3 as string,",
+            "          entityimage as string,",
+            "          entityimage_timestamp as long,",
+            "          entityimage_url as string,",
+            "          entityimageid as string,",
+            "          exchangerate as decimal(38,12),",
+            "          fax as string,",
+            "          followemail as boolean,",
+            "          followemailname as string,",
+            "          ftpsiteurl as string,",
+            "          importsequencenumber as integer,",
+            "          industrycode as integer,",
+            "          industrycodename as string,",
+            "          isprivate as boolean,",
+            "          isprivatename as string,",
+            "          lastonholdtime as timestamp,",
+            "          lastusedincampaign as timestamp,",
+            "          marketcap as decimal(38,2),",
+            "          marketcap_base as decimal(38,4),",
+            "          marketingonly as boolean,",
+            "          marketingonlyname as string,",
+            "          masteraccountidname as string,",
+            "          masteraccountidyominame as string,",
+            "          merged as boolean,",
+            "          mergedname as string,",
+            "          modifiedbyexternalpartyname as string,",
+            "          modifiedbyexternalpartyyominame as string,",
+            "          modifiedbyname as string,",
+            "          modifiedbyyominame as string,",
+            "          modifiedon as timestamp,",
+            "          modifiedonbehalfbyname as string,",
+            "          modifiedonbehalfbyyominame as string,",
+            "          msa_managingpartneridname as string,",
+            "          msa_managingpartneridyominame as string,",
+            "          msdyn_accountkpiidname as string,",
+            "          msdyn_billingaccountname as string,",
+            "          msdyn_billingaccountyominame as string,",
+            "          msdyn_gdproptout as boolean,",
+            "          msdyn_gdproptoutname as string,",
+            "          msdyn_preferredresourcename as string,",
+            "          msdyn_primarytimezone as integer,",
+            "          msdyn_salesaccelerationinsightidname as string,",
+            "          msdyn_salestaxcodename as string,",
+            "          msdyn_segmentidname as string,",
+            "          msdyn_serviceterritoryname as string,",
+            "          msdyn_taxexempt as boolean,",
+            "          msdyn_taxexemptname as string,",
+            "          msdyn_taxexemptnumber as string,",
+            "          msdyn_travelcharge as decimal(38,2),",
+            "          msdyn_travelcharge_base as decimal(38,2),",
+            "          msdyn_travelchargetype as integer,",
+            "          msdyn_travelchargetypename as string,",
+            "          msdyn_workhourtemplatename as string,",
+            "          msdyn_workorderinstructions as string,",
+            "          name as string,",
+            "          numberofemployees as integer,",
+            "          onholdtime as integer,",
+            "          opendeals as integer,",
+            "          opendeals_date as timestamp,",
+            "          opendeals_state as integer,",
+            "          openrevenue as decimal(38,2),",
+            "          openrevenue_base as decimal(38,2),",
+            "          openrevenue_date as timestamp,",
+            "          openrevenue_state as integer,",
+            "          originatingleadidname as string,",
+            "          originatingleadidyominame as string,",
+            "          overriddencreatedon as timestamp,",
+            "          owneridname as string,",
+            "          owneridtype as string,",
+            "          owneridyominame as string,",
+            "          ownershipcode as integer,",
+            "          ownershipcodename as string,",
+            "          owningbusinessunitname as string,",
+            "          parentaccountidname as string,",
+            "          parentaccountidyominame as string,",
+            "          participatesinworkflow as boolean,",
+            "          participatesinworkflowname as string,",
+            "          paymenttermscode as integer,",
+            "          paymenttermscodename as string,",
+            "          preferredappointmentdaycode as integer,",
+            "          preferredappointmentdaycodename as string,",
+            "          preferredappointmenttimecode as integer,",
+            "          preferredappointmenttimecodename as string,",
+            "          preferredcontactmethodcode as integer,",
+            "          preferredcontactmethodcodename as string,",
+            "          preferredequipmentidname as string,",
+            "          preferredserviceidname as string,",
+            "          preferredsystemuseridname as string,",
+            "          preferredsystemuseridyominame as string,",
+            "          primarycontactidname as string,",
+            "          primarycontactidyominame as string,",
+            "          primarysatoriid as string,",
+            "          primarytwitterid as string,",
+            "          processid as string,",
+            "          revenue as decimal(38,2),",
+            "          revenue_base as decimal(38,4),",
+            "          sharesoutstanding as integer,",
+            "          shippingmethodcode as integer,",
+            "          shippingmethodcodename as string,",
+            "          sic as string,",
+            "          slainvokedidname as string,",
+            "          slaname as string,",
+            "          stageid as string,",
+            "          statecode as integer,",
+            "          statecodename as string,",
+            "          statuscode as integer,",
+            "          statuscodename as string,",
+            "          stockexchange as string,",
+            "          teamsfollowed as integer,",
+            "          telephone1 as string,",
+            "          telephone2 as string,",
+            "          telephone3 as string,",
+            "          territorycode as integer,",
+            "          territorycodename as string,",
+            "          territoryidname as string,",
+            "          tickersymbol as string,",
+            "          timespentbymeonemailandmeetings as string,",
+            "          timezoneruleversionnumber as integer,",
+            "          transactioncurrencyidname as string,",
+            "          traversedpath as string,",
+            "          utcconversiontimezonecode as integer,",
+            "          versionnumber as long,",
+            "          websiteurl as string,",
+            "          yominame as string,",
+            "          msdyn_segmentid as string,",
+            "          modifiedbyexternalparty as string,",
+            "          msdyn_salestaxcode as string,",
+            "          msdyn_salesaccelerationinsightid as string,",
+            "          parentaccountid as string,",
+            "          msdyn_workhourtemplate as string,",
+            "          createdonbehalfby as string,",
+            "          msdyn_accountkpiid as string,",
+            "          msdyn_preferredresource as string,",
+            "          createdbyexternalparty as string,",
+            "          territoryid as string,",
+            "          masterid as string,",
+            "          owninguser as string,",
+            "          preferredsystemuserid as string,",
+            "          msa_managingpartnerid as string,",
+            "          primarycontactid as string,",
+            "          slainvokedid as string,",
+            "          modifiedby as string,",
+            "          preferredequipmentid as string,",
+            "          msdyn_billingaccount as string,",
+            "          slaid as string,",
+            "          preferredserviceid as string,",
+            "          transactioncurrencyid as string,",
+            "          modifiedonbehalfby as string,",
+            "          ownerid as string,",
+            "          {@odata.etag} as string,",
+            "          createdby as string,",
+            "          owningbusinessunit as string,",
+            "          dd_registrationsourceid as string,",
+            "          defaultpricelevelid as string,",
+            "          msdyn_serviceterritory as string,",
+            "          owningteam as string,",
+            "          originatingleadid as string,",
+            "          dd_demofield as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     store: 'dynamics',",
+            "     format: 'dynamicsformat',",
+            "     entity: ($DF_SOURCE_TABLE),",
+            "     timeout: 300,",
+            "     query: (concat('<fetch version=\"1.0\" output-format=\"xml-platform\" mapping=\"logical\" distinct=\"false\"><entity name=\"', $DF_SOURCE_TABLE, '\"><attribute name=\"', $DF_PRIMARY_KEY, '\" />', reduce($DF_COLUMNS_TO_MASK, '', #acc + '<attribute name=\"' + #item + '\" />', #result), '<filter type=\"and\"><condition attribute=\"createdon\" operator=\"on-or-after\" value=\"', $DF_CREATED_AFTER, '\" /><condition attribute=\"createdon\" operator=\"on-or-before\" value=\"', $DF_CREATED_BEFORE, '\" /><filter type=\"or\">', reduce($DF_COLUMNS_TO_MASK, '', #acc + '<condition attribute=\"' + #item + '\" operator=\"not-null\" />', #result), '</filter></filter></entity></fetch>')),",
+            "     partitionBy('roundRobin', 32)) ~> Source",
+            "FlattenValuesOutOfArray call(mapColumn(",
+            "          each(match(name!='DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP'))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     output(",
+            "          headers as [string,string],",
+            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[]),",
+            "          status as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     format: 'rest',",
+            "     store: 'restservice',",
+            "     timeout: 300,",
+            "     requestInterval: 0,",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
+            "     httpMethod: 'POST',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     headerColumnName: 'headers',",
+            "     bodyColumnName: 'body',",
+            "     statusColumnName: 'status',",
+            "     addResponseCode: true,",
+            "     requestFormat: ['type' -> 'json'],",
+            "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
+            "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
+            "RemoveColumns derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
+            "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
+            "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
+            "     startAt: 1L,",
+            "     stepValue: 1L) ~> CreateSurrogateKey",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/$DF_NUMBER_OF_ROWS_PER_BATCH))),",
+            "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
+            "     abort: true) ~> AssertNoFailures",
+            "AssertNoFailures foldDown(unroll(body.items),",
+            "     mapColumn(",
+            "          every(body.items,match(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")),",
+            "          every(body.items,match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = iif(greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), toString($$)))) ~> TrimMaskedStrings",
+            "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN,#item==name)), $$ = toBoolean($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DATE,#item==name)||contains($DF_DATE_ONLY_COLUMNS,#item==name)), $$ = toDate(toString($$),'yyyy-MM-dd')),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE,#item==name)), $$ = toDouble($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_FLOAT,#item==name)), $$ = toFloat($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_INTEGER,#item==name)), $$ = toInteger($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_LONG,#item==name)), $$ = toLong($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP,#item==name)), $$ = toTimestamp(toString($$)))) ~> CastColumnsBackAsRequired",
+            "Source select(mapColumn(",
+            "          each(match(!contains($DF_COLUMNS_TO_REMOVE,#item==name)))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> RemoveColumns",
+            "CreateSurrogateKey select(mapColumn(",
+            "          each(match($DF_PRIMARY_KEY==name||name=='DELPHIX_COMPLIANCE_SERVICE_BATCH_ID'))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SelectPrimaryKeyColumn",
+            "SelectPrimaryKeyColumn, TrimMaskedStrings join(SelectPrimaryKeyColumn@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID == FlattenAggregateData@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'auto')~> JoinMaskedColumnsandPrimaryKey",
+            "JoinMaskedColumnsandPrimaryKey alterRow(updateIf($DF_SOURCE_TABLE==$DF_SINK_TABLE)) ~> AlterRowCondition",
+            "AlterRowCondition sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     store: 'dynamics',",
+            "     format: 'dynamicsformat',",
+            "     entity: ($DF_SINK_TABLE),",
+            "     timeout: 300,",
+            "     deletable: false,",
+            "     insertable: false,",
+            "     updateable: true,",
+            "     upsertable: false,",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     mapColumn(",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
+            "     ),",
+            "     partitionBy('hash', 6,",
+            "          $DF_PRIMARY_KEY",
+            "     )) ~> Sink"
+          ]
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Dataverse_to_Dataverse_in_place_filtered_mask_df')]",
+      "type": "Microsoft.DataFactory/factories/dataflows",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "folder": {
+          "name": "dcsazure_Dataverse_to_Dataverse_in_place"
+        },
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "sources": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Dataverse_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "Source",
+              "description": "Select source data at DF_SOURCE_SCHEMA.DF_SOURCE_TABLE using an inline dataset"
+            }
+          ],
+          "sinks": [
+            {
+              "linkedService": {
+                "referenceName": "[parameters('Dataverse_Source')]",
+                "type": "LinkedServiceReference"
+              },
+              "name": "Sink",
+              "description": "Sink results of masking to data store by sinking the unrolled results of the masking call to the columns of the same name in the data sink"
+            }
+          ],
+          "transformations": [
+            {
+              "name": "DCSForAzureAPI",
+              "linkedService": {
+                "referenceName": "[parameters('DCSForAzureMaskingService')]",
+                "type": "LinkedServiceReference"
+              }
+            },
+            {
+              "name": "AddSortKey",
+              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SORT_ID that consists of SHA of the data across all columns in the table - every row will have this value and it cannot be null"
+            },
+            {
+              "name": "SortBySortKey",
+              "description": "Sort the table by the value in DELPHIX_COMPLIANCE_SERVICE_SORT_ID, as we need the table to be in a particular order before we apply a surrogate key"
+            },
+            {
+              "name": "CreateSurrogateKey",
+              "description": "Add a DELPHIX_COMPLIANCE_SERVICE_BATCH_ID column that increments by 1 and starts at 1 after applying the sorting"
+            },
+            {
+              "name": "SelectPrimaryKey",
+              "description": "Select only columns that don't require masking"
+            },
+            {
+              "name": "AggregateColumnsByBatch",
+              "description": "For each column we wish to mask, aggregate to a list using collect, grouped by DELPHIX_COMPLIANCE_SERVICE_BATCH_ID with integer division by DF_NUMBER_OF_ROWS_PER_BATCH - so there will be a targeted number of total rows in each aggregation, name the group as DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP"
+            },
+            {
+              "name": "FlattenValuesOutOfArray",
+              "description": "For each column we wish to mask, flatten the value out of the array, in the case where the value was previously [], it becomes null"
+            },
+            {
+              "name": "AssertNoFailures",
+              "description": "Confirm that we received a 200 response status from the API request"
+            },
+            {
+              "name": "FlattenAggregateData",
+              "description": "Unroll the API response body into decoded named columns"
+            },
+            {
+              "name": "JoinMaskedColumnsandPrimaryKey",
+              "description": "Inner join on SelectColumnsUnmasked and TrimMaskedStrings based on matching DELPHIX_COMPLIANCE_SERVICE_BATCH_ID"
+            },
+            {
+              "name": "TrimMaskedStrings",
+              "description": "For each column with a string type, trim the string to length based on the value in DF_TRIM_LENGTHS - this is needed as masking a string may produce a longer string that exceeds the column width in the sink"
+            },
+            {
+              "name": "ApplyTableFilter",
+              "description": "Filter base table based on supplied filter"
+            },
+            {
+              "name": "CastRequiredColumnsAsStrings",
+              "description": "For columns that require casting to string, cast them to string"
+            },
+            {
+              "name": "CastColumnsBackAsRequired",
+              "description": "For columns that need to be cast back to a compatible type, cast them back"
+            },
+            {
+              "name": "WrapValuesInArray",
+              "description": "For each column we wish to mask, convert the value into an array, this is needed to preserve null values as null when using collect, as null values become [], and encode the column names to handle body type mapping changes"
+            },
+            {
+              "name": "AlterRowCondition"
+            },
+            {
+              "name": "RemoveColumns",
+              "description": "Remove columns that are not required for mapping"
+            }
+          ],
+          "scriptLines": [
+            "parameters{",
+            "     runId as string (''),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_SINK_SCHEMA as string (''),",
+            "     DF_SINK_TABLE as string (''),",
+            "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
+            "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
+            "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
+            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
+            "     DF_TRIM_LENGTHS as integer[] ([1000]),",
+            "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
+            "     DF_FIELD_DATE_FORMAT as string ('{}'),",
+            "     DF_FILTER_CONDITION as boolean (true()),",
+            "     DF_COLUMNS_TO_CAST_AS_STRINGS as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BINARY as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DATE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
+            "     DF_COLUMNS_TO_REMOVE as string[] ([\"\"]),",
+            "     DF_DATE_ONLY_COLUMNS as string[] ([\"\"]),",
+            "     DF_PRIMARY_KEY as string (''),",
+            "     DF_CREATED_BEFORE as string (''),",
+            "     DF_CREATED_AFTER as string ('')",
+            "}",
+            "source(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     store: 'dynamics',",
+            "     format: 'dynamicsformat',",
+            "     entity: ($DF_SOURCE_TABLE),",
+            "     timeout: 300,",
+            "     query: (concat('<fetch version=\"1.0\" output-format=\"xml-platform\" mapping=\"logical\" distinct=\"false\"><entity name=\"', $DF_SOURCE_TABLE, '\"><all-attributes /><filter type=\"and\"><condition attribute=\"createdon\" operator=\"on-or-after\" value=\"', $DF_CREATED_AFTER, '\" /><condition attribute=\"createdon\" operator=\"on-or-before\" value=\"', $DF_CREATED_BEFORE, '\" /></filter></entity></fetch>')),",
+            "     partitionBy('roundRobin', 32)) ~> Source",
+            "FlattenValuesOutOfArray call(mapColumn(",
+            "          each(match(name!='DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP'))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     output(",
+            "          headers as [string,string],",
+            "          body as (timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[]),",
+            "          status as string",
+            "     ),",
+            "     allowSchemaDrift: true,",
+            "     format: 'rest',",
+            "     store: 'restservice',",
+            "     timeout: 300,",
+            "     requestInterval: 0,",
+            "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
+            "     httpMethod: 'POST',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
+            "     headerColumnName: 'headers',",
+            "     bodyColumnName: 'body',",
+            "     statusColumnName: 'status',",
+            "     addResponseCode: true,",
+            "     requestFormat: ['type' -> 'json'],",
+            "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
+            "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
+            "RemoveColumns derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
+            "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
+            "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
+            "     startAt: 1L,",
+            "     stepValue: 1L) ~> CreateSurrogateKey",
+            "CreateSurrogateKey select(mapColumn(",
+            "          each(match($DF_PRIMARY_KEY==name||name=='DELPHIX_COMPLIANCE_SERVICE_BATCH_ID'))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> SelectPrimaryKey",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/$DF_NUMBER_OF_ROWS_PER_BATCH))),",
+            "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
+            "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
+            "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
+            "     abort: true) ~> AssertNoFailures",
+            "AssertNoFailures foldDown(unroll(body.items),",
+            "     mapColumn(",
+            "          every(body.items,match(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")),",
+            "          every(body.items,match(startsWith(name,'x')),",
+            "               decode(unhex(replace($$,'x',''))) = $$)",
+            "     ),",
+            "     skipDuplicateMapInputs: false,",
+            "     skipDuplicateMapOutputs: false) ~> FlattenAggregateData",
+            "SelectPrimaryKey, TrimMaskedStrings join(SelectPrimaryKey@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID == FlattenAggregateData@DELPHIX_COMPLIANCE_SERVICE_BATCH_ID,",
+            "     joinType:'inner',",
+            "     matchType:'exact',",
+            "     ignoreSpaces: false,",
+            "     broadcast: 'off')~> JoinMaskedColumnsandPrimaryKey",
+            "CastColumnsBackAsRequired derive(each(match(type=='string'), $$ = iif(greater($DF_TRIM_LENGTHS[toInteger($# - 1)], 0), substring($$, 1, $DF_TRIM_LENGTHS[toInteger($# - 1)]), toString($$)))) ~> TrimMaskedStrings",
+            "Source filter($DF_FILTER_CONDITION) ~> ApplyTableFilter",
+            "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_CAST_AS_STRINGS,#item==name)), $$ = toString($$))) ~> CastRequiredColumnsAsStrings",
+            "FlattenAggregateData derive(each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BINARY,#item==name)), $$ = toBinary($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN,#item==name)), $$ = toBoolean($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DATE,#item==name)||contains($DF_DATE_ONLY_COLUMNS,#item==name)), $$ = toDate(toString($$),'yyyy-MM-dd')),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE,#item==name)), $$ = toDouble($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_FLOAT,#item==name)), $$ = toFloat($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_INTEGER,#item==name)), $$ = toInteger($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_LONG,#item==name)), $$ = toLong($$)),",
+            "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP,#item==name)), $$ = toTimestamp(toString($$)))) ~> CastColumnsBackAsRequired",
+            "CastRequiredColumnsAsStrings derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
+            "JoinMaskedColumnsandPrimaryKey alterRow(updateIf($DF_SOURCE_TABLE==$DF_SINK_TABLE)) ~> AlterRowCondition",
+            "ApplyTableFilter select(mapColumn(",
+            "          each(match(!contains($DF_COLUMNS_TO_REMOVE,#item==name)))",
+            "     ),",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true) ~> RemoveColumns",
+            "AlterRowCondition sink(allowSchemaDrift: true,",
+            "     validateSchema: false,",
+            "     store: 'dynamics',",
+            "     format: 'dynamicsformat',",
+            "     entity: ($DF_SINK_TABLE),",
+            "     timeout: 300,",
+            "     deletable: false,",
+            "     insertable: false,",
+            "     updateable: true,",
+            "     upsertable: false,",
+            "     skipDuplicateMapInputs: true,",
+            "     skipDuplicateMapOutputs: true,",
+            "     mapColumn(",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
+            "     ),",
+            "     partitionBy('roundRobin', 32),",
+            "     preCommands: [],",
+            "     postCommands: []) ~> Sink"
+          ]
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "name": "[concat(parameters('factoryName'), '/default')]",
+      "type": "Microsoft.DataFactory/factories/managedVirtualNetworks",
+      "apiVersion": "2018-06-01",
+      "properties": {},
+      "dependsOn": []
+    }
+  ]
+}
