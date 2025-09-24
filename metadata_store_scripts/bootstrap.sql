@@ -1753,7 +1753,7 @@ CREATE OR ALTER PROCEDURE generate_masking_parameters
 AS
 BEGIN
     SET NOCOUNT ON;
-    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2025.07.22.0';
+    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2025.09.19.0';
     DECLARE @filter_alias_display NVARCHAR(128);
     SET
         @filter_alias_display = CASE
