@@ -159,6 +159,10 @@ BEGIN
                     r.identified_column_max_length > 0
                     AND r.identified_column_max_length <= @capped_identified_column_max_length
                     THEN r.identified_column_max_length + 4
+                WHEN
+                    r.identified_column_max_length > 0
+                    AND r.identified_column_max_length > @capped_identified_column_max_length
+                    THEN @capped_identified_column_max_length + 4
                 ELSE @column_width_estimate
             END AS column_width_estimate
         FROM discovered_ruleset AS r
