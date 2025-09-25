@@ -16,7 +16,7 @@
  * @column_width_estimate - Estimated column width for batch calculations (default: 1000)
  * @filter_alias - Optional filter key for conditional masking (default: '')
  * @capped_identified_column_max_length - Optional, additional capping on
- *   identified_column_max_length value (defaults to 1MB or 1048576 bytes)
+ *   identified_column_max_length value (defaults to 1MiB or 1048576 bytes)
  *
  * OUTPUT PARAMETERS:
  * - FieldAlgorithmAssignments: JSON mapping of encoded column names to masking algorithms
@@ -153,7 +153,7 @@ BEGIN
             JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
             CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
             -- Add column width estimate, if column max length is known, add 4 bytes of overhead
-            -- Snowflake VARCHAR max length is 16 MB, so cap at 1 MB to avoid excessive estimates
+            -- In cases where max length is excessive, provide a cap to improve computation accuracy
             CASE
                 WHEN
                     r.identified_column_max_length > 0
