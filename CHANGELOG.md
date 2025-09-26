@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.32
+* Re-introduce the parameterization for source and sink database linked services in the AzureSQL masking pipeline
+`dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+
 # 0.0.31
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
 * Added a new variable for column width estimates in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
