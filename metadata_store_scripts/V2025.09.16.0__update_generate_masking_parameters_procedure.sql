@@ -16,7 +16,7 @@
  * @column_width_estimate - Estimated column width for batch calculations (default: 1000)
  * @filter_alias - Optional filter key for conditional masking (default: '')
  * @capped_identified_column_max_length - Optional, additional capping on
- *   identified_column_max_length value (defaults to 1MiB or 1048576 bytes)
+ *   identified_column_max_length value (defaults to 1 MiB or 1048576 bytes)
  *
  * OUTPUT PARAMETERS:
  * - FieldAlgorithmAssignments: JSON mapping of encoded column names to masking algorithms
@@ -49,7 +49,7 @@ ALTER PROCEDURE generate_masking_parameters
     @identified_table NVARCHAR(128),
     @column_width_estimate INT = 1000,
     @filter_alias NVARCHAR(128) = '',  -- Optional filter key for conditional masking
-    -- Additional capping on identified column max length (defaults to 1MB or 1048576 bytes)
+    -- Additional capping on identified column max length (defaults to 1 MiB or 1048576 bytes)
     @capped_identified_column_max_length INT = 1048576
 AS
 BEGIN

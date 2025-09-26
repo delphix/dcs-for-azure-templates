@@ -1177,6 +1177,13 @@
                             "value": "@item().source_table",
                             "type": "Expression"
                           }
+                        },
+                        "capped_identified_column_max_length": {
+                          "type": "Int32",
+                          "value": {
+                            "value": "@variables('CAPPED_COLUMN_WIDTH')",
+                            "type": "Expression"
+                          }
                         }
                       },
                       "queryTimeout": "02:00:00",
@@ -2517,6 +2524,10 @@
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "generate_masking_parameters"
+          },
+          "CAPPED_COLUMN_WIDTH": {
+            "type": "Integer",
+            "defaultValue": 1000
           }
         },
         "folder": {

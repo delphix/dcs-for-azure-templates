@@ -1,5 +1,16 @@
 # CHANGELOG
 
+# 0.0.34
+* Re-introduce the computation of the number of batches in `dcsazure_Snowflake_to_Snowflake_mask_pl`
+  for use in `dcsazure_Snowflake_to_Snowflake_unfiltered_mask_df` in an effort to optimize
+  the number of masking API requests.
+* Introduce a variable to cap the estimated column width when computing the number of batches
+  in `generate_masking_parameters` stored procedure, default is `1048576`, equaling `1 MiB`.
+* Introduce a variable `CAPPED_COLUMN_WIDTH` in `dcsazure_Snowflake_to_Snowflake_mask_pl`, default is `1000`.
+* Push casting to integer of `NumberOfBatches` parameter to the stored procedure.
+* Update the default value of variable `TARGET_BATCH_SIZE` to `50000` in `dcsazure_Snowflake_to_Snowflake_mask_pl`.
+* Add missing description of `COLUMN_WIDTH_ESTIMATE` variable in `README.md` of `dcsazure_Snowflake_to_Snowflake_mask_pl`.
+
 # 0.0.33
 * Add GitHub Actions workflow for automated pre-commit checks on pull requests and pushes to main branch
 
