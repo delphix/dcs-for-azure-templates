@@ -1,7 +1,16 @@
 # CHANGELOG
 
-# 0.0.31
+# 0.0.33
 * Add GitHub Actions workflow for automated pre-commit checks on pull requests and pushes to main branch
+
+# 0.0.32
+* Re-introduce the parameterization for source and sink database linked services in the AzureSQL masking pipeline
+`dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+
+# 0.0.31
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
+* Added a new variable for column width estimates in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
+* Changed template regex to support underscores("_") in source_db names
 
 # 0.0.30
 * Re-introduce the parameterization for source and sink database linked services in the Snowflake masking pipeline
