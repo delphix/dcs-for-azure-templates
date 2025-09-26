@@ -1,6 +1,5 @@
 # CHANGELOG
 
-
 # 0.0.32
 * Re-introduce the parameterization for source and sink database linked services in the AzureSQL masking pipeline
 `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
