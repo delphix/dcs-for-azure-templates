@@ -32,7 +32,7 @@ RESOURCE_TYPE_ABBR = {
 }
 
 NON_TEMPLATES_DIR = [
-    DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts",
+    DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts", ".github",
 ]
 
 #

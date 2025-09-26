@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.33
+* Add GitHub Actions workflow for automated pre-commit checks on pull requests and pushes to main branch
+
 # 0.0.32
 * Re-introduce the parameterization for source and sink database linked services in the AzureSQL masking pipeline
 `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
