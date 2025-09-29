@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.36
+* This is a test PR to verify that the GitHub Action is triggered when creating a new pull request.
+
 # 0.0.35
 * Add support for DCS for Dataverse to Dataverse in place Discovery Pipeline
   * `dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl`
