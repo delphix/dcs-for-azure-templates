@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.35
+This is a test PR to verify that the GitHub Action is triggered when creating a new pull request.
+
 # 0.0.34
 * Re-introduce the computation of the number of batches in `dcsazure_Snowflake_to_Snowflake_mask_pl`
   for use in `dcsazure_Snowflake_to_Snowflake_unfiltered_mask_df` in an effort to optimize
