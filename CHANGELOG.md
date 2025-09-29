@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.36
+* Added number of batches parameter to `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` in unconditional masking. 
+* Now we will be picking up the number of batcher from lookup task
+
 # 0.0.35
 * Add support for DCS for Dataverse to Dataverse in place Discovery Pipeline
   * `dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl`
