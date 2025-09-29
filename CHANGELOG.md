@@ -1,5 +1,11 @@
 # CHANGELOG
 
+# 0.0.35
+* Add support for DCS for Dataverse to Dataverse in place Discovery Pipeline
+  * `dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl`
+* Add support for DCS for Dataverse to Dataverse in place Masking Pipeline
+  * `dcsazure_Dataverse_to_Dataverse_in_place_mask_pl`
+
 # 0.0.34
 * Re-introduce the computation of the number of batches in `dcsazure_Snowflake_to_Snowflake_mask_pl`
   for use in `dcsazure_Snowflake_to_Snowflake_unfiltered_mask_df` in an effort to optimize
