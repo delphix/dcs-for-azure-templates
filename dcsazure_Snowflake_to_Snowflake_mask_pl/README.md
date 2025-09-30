@@ -4,7 +4,7 @@
 This pipeline will perform masking of your Snowflake Instance.
 
 ### Prerequisites
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.07.22.0`+)
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.09.16.0`+)
 1. Configure the DCS for Azure REST service.
 1. Configure the Snowflake linked service.
   * It is helpful for the linked service to be parameterized with the following parameters:
@@ -104,12 +104,10 @@ have customized your metadata store, then these variables may need editing.
 * `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
   when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
   ADF syntax for referencing the key column (default `%`)
-* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`)
+* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `50000`)
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
   metadata data store and sets the masked and mapping states on the items processed during execution
   (default `insert_adf_masking_event`).
-* `METADATA_MASKING_PARAMS_PROCEDURE_NAME` - This is the name of the stored procedure used to generate masking
-  parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
 * `SOURCE_SNOWFLAKE_WAREHOUSE` - This is the name of the Snowflake warehouse that should be used for connecting the
   source Snowflake instance and is fed into the parameters of the source linked service (default `DEFAULT`)
 * `SOURCE_SNOWFLAKE_ROLE` - This is the Snowflake role that is used for connecting to the source Snowflake instance and
@@ -120,6 +118,12 @@ have customized your metadata store, then these variables may need editing.
 * `SINK_SNOWFLAKE_ROLE` - This is the Snowflake role that is used for connecting to the sink Snowflake instance and
   is fed into the parameters of the sink linked service. This role must have permission to access and modify all
   sink tables (default `SYSADMIN`)
+* `COLUMN_WIDTH_ESTIMATE` - This variable is used for getting the size of the columns need to be masked (default `1000`).
+* `METADATA_MASKING_PARAMS_PROCEDURE_NAME` - This is the name of the stored procedure used to generate masking
+  parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
+* `CAPPED_COLUMN_WIDTH` - This variable is used to replace the `VARCHAR` data type max length value which is excessive
+  `16 MiB` by default. It provides a cap to improve computation accuracy by reducing the number of batches needed to mask
+  a table (default `1000`).
 
 ### Parameters
 
