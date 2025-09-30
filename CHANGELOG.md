@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.36
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_ADLS_to_ADLS_delimited_mask_pl`
+
 # 0.0.35
 * Add support for DCS for Dataverse to Dataverse in place Discovery Pipeline
   * `dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl`
