@@ -215,6 +215,10 @@
                               "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
                                 "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
+                              },
+                              "DF_NUMBER_OF_BATCHES": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.NumberOfBatches",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
@@ -2137,7 +2141,7 @@
                     ""
                   ],
                   "DF_BODY_TYPE_MAPPING": "'(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'",
-                  "DF_NUMBER_OF_BATCHES": "100",
+                  "DF_NUMBER_OF_BATCHES": 100,
                   "DF_TRIM_LENGTHS": [
                     1000
                   ],
@@ -3999,7 +4003,8 @@
             "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
-            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"])",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
+            "     DF_NUMBER_OF_BATCHES as integer (100)",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -4022,7 +4027,7 @@
             "     allowSchemaDrift: true,",
             "     format: 'rest',",
             "     store: 'restservice',",
-            "     timeout: 30,",
+            "     timeout: 300,",
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
@@ -4045,7 +4050,7 @@
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
-            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/$DF_NUMBER_OF_ROWS_PER_BATCH))),",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
             "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
             "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
@@ -4239,7 +4244,7 @@
             "     allowSchemaDrift: true,",
             "     format: 'rest',",
             "     store: 'restservice',",
-            "     timeout: 30,",
+            "     timeout: 300,",
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
