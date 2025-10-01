@@ -1,6 +1,9 @@
 # CHANGELOG
 
 # 0.0.36
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_ADLS_to_ADLS_delimited_mask_pl`
+
+# 0.0.36
 * Added number of batches parameter to `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` in unconditional masking. 
 * Now we will be picking up the number of batcher from lookup task
 
