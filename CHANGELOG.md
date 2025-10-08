@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.37
+* Added number of batches parameter to `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` in unconditional masking.
+* Increased TimeOut for the masking API call in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to 300 seconds.
+
 # 0.0.36
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_ADLS_to_ADLS_delimited_mask_pl`
 
