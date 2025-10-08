@@ -9,6 +9,8 @@ Delphix provides several APIs that perform data discovery and data masking. Micr
 framework for processing data using those APIs, making it possible to perform automated sensitive data discovery, assign
 masking algorithms, and mask sensitive data such that it maintains referential integrity.
 
+<!-- Internal testing comment for pre-commit validation -->
+
 ## What Is This Code For?
 
 This repository contains a collection of templates that combine the power of Delphix Compliance Services in Azure and
