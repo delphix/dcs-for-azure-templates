@@ -2670,7 +2670,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-10-08T10:05:00Z"
+        "lastPublishTime": "2025-10-08T11:34:30Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -4018,6 +4018,7 @@
             "     format: 'rest',",
             "     store: 'restservice',",
             "     timeout: 30,",
+            "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
             "     entity: '/v1/masking/batchMaskByColumn',",
@@ -4039,7 +4040,7 @@
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
-            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%toInteger($DF_NUMBER_OF_BATCHES)),",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
             "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
             "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
