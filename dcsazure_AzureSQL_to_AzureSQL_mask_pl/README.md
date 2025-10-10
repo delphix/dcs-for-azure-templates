@@ -108,7 +108,8 @@ have customized your metadata store, then these variables may need editing.
 * `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
   when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
   ADF syntax for referencing the key column (default `%`)
-* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`)
+* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`) use for conditional masking
+* `DF_NUMBER_OF_BATCHES` - This is the target number of rows per batch (default `100`) use for unconditional masking
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the metadata data store and sets the masked and mapping states on the items processed during execution (default `insert_adf_masking_event`).
 * `METADATA_MASKING_PARAMS_PROCEDURE_NAME` - This is the name of the stored procedure used to generate masking parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
 * `METADATA_CONSTRAINT_TABLE` - This table is used to store the foreign key constraints for each table in the sink schema that are required for masking. The table is queried to drop and recreate those constraints back.
