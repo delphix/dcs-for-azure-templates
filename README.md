@@ -7,7 +7,7 @@ reasons, it is essential that it's possible to identify and mask sensitive data 
 
 Delphix provides several APIs that perform data discovery and data masking. Microsoft's Azure Data Factory provides a
 framework for processing data using those APIs, making it possible to perform automated sensitive data discovery, assign
-masking algorithms, and mask sensitive data such that it maintains referential integrity.
+masking algorithms and mask sensitive data such that it maintains referential integrity.
 
 ## What Is This Code For?
 
