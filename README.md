@@ -27,7 +27,7 @@ assist when issues arise. If you don't know where to start but uncover a need, p
 [Issues](https://github.com/delphix/dcs-for-azure-templates/issues) tab of this repository.
 
 ## Setup
-To use Delphix Compliance Services for Azure, and specifically to leverage these pipelines you will need to have the
+To use Delphix Compliance Services for Azure and specifically to leverage these pipelines you will need to have the
 following linked services in your data factory:
 * REST service for talking to DCS for Azure
 * Azure SQL Database for storing metadata about the data you have discovered and rules for masking
