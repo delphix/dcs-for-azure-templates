@@ -21,7 +21,7 @@ here: https://www.perforce.com/products/delphix/compliance-services
 
 Don't see a data source you're hoping to profile and mask? If you feel compelled, you can use these provided templates
 as a jumping off point and create a new template to discover and mask sensitive data using the Delphix compliance
-services APIs. [Contributions](./README.md#Contribution) are highly appreciated, and if you need engineering support
+services APIs. [Contributions](./README.md#Contribution) are highly appreciated and if you need engineering support
 tailored to your specific use case, contributing templates back to this repository will enable our engineering team to
 assist when issues arise. If you don't know where to start but uncover a need, please file a feature request under the
 [Issues](https://github.com/delphix/dcs-for-azure-templates/issues) tab of this repository.

@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.40
+* TEST PR:Validate Pre-commit Checks status check
+
 # 0.0.39
 * TEST PR:Validate Pre-commit Checks status check
 
