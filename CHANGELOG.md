@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.38
+* Updated `bootstrap.sql` with the latest migration scripts.
+
 # 0.0.37
 * Added number of batches parameter to `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` in unconditional masking.
 * Increased TimeOut for the masking API call in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to 300 seconds.
