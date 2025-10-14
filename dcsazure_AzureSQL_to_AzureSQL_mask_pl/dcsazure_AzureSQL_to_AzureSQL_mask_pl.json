@@ -449,7 +449,7 @@
                               "value": {
                                 "value": "@activity('Perform Masking Per Table No Filter').Error.message",
                                 "type": "Expression"
-              },
+                              },
                               "type": "String"
                             },
                             "execution_end_time": {
