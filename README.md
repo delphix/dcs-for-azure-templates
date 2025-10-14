@@ -36,7 +36,7 @@ following linked services in your data factory:
 
 To create the latest version of the template, you will need to zip the content in this repository.
 
-For convenience, we have provided a Docker file that will create the latest version of all templates (and include the
+For convenience, we have provided Docker file that will create the latest version of all templates (and include the
 version in the archive) and put them in the `releases` directory. If you have Docker installed you can leverage the
 provided [docker-compose.yaml](docker-compose.yaml) file to build release artifacts:
 `docker-compose -f docker-compose.yaml up`
