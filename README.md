@@ -197,7 +197,7 @@ Masking behavior can be controlled in several ways:
     `yyyy-MM-dd'T'HH:mm:ss'Z'` by default.
     * Setting this value incorrectly will cause non-conformant data errors when the data violates the specified pattern.
     * The important thing here is that the JSON value in the `algorithm_metadata` column contains a `date_format` key at
-      the root, and that the value of that key is the string that represents the format.
+      the root and that the value of that key is the string that represents the format.
       * As an example, if you have a column `transaction_date` in your `Snowflake` instance, and each time that column
         appears it has a date formated as `yyyyMMdd`, you should specify this format using an update statement like
         ```sql
