@@ -1,5 +1,17 @@
 # CHANGELOG
 
+# 0.0.41
+* TEST PR:Validate Pre-commit Checks status check
+
+# 0.0.40
+* TEST PR:Validate Pre-commit Checks status check
+
+# 0.0.39
+* TEST PR:Validate Pre-commit Checks status check
+
+# 0.0.38
+* TEST PR:Validate Pre-commit Checks status check
+
 # 0.0.37
 * Added number of batches parameter to `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` in unconditional masking.
 * Increased TimeOut for the masking API call in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to 300 seconds.

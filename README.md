@@ -7,7 +7,7 @@ reasons, it is essential that it's possible to identify and mask sensitive data 
 
 Delphix provides several APIs that perform data discovery and data masking. Microsoft's Azure Data Factory provides a
 framework for processing data using those APIs, making it possible to perform automated sensitive data discovery, assign
-masking algorithms, and mask sensitive data such that it maintains referential integrity.
+masking algorithms and mask sensitive data such that it maintains referential integrity.
 
 ## What Is This Code For?
 
@@ -21,13 +21,13 @@ here: https://www.perforce.com/products/delphix/compliance-services
 
 Don't see a data source you're hoping to profile and mask? If you feel compelled, you can use these provided templates
 as a jumping off point and create a new template to discover and mask sensitive data using the Delphix compliance
-services APIs. [Contributions](./README.md#Contribution) are highly appreciated, and if you need engineering support
+services APIs. [Contributions](./README.md#Contribution) are highly appreciated and if you need engineering support
 tailored to your specific use case, contributing templates back to this repository will enable our engineering team to
 assist when issues arise. If you don't know where to start but uncover a need, please file a feature request under the
 [Issues](https://github.com/delphix/dcs-for-azure-templates/issues) tab of this repository.
 
 ## Setup
-To use Delphix Compliance Services for Azure, and specifically to leverage these pipelines you will need to have the
+To use Delphix Compliance Services for Azure and specifically to leverage these pipelines you will need to have the
 following linked services in your data factory:
 * REST service for talking to DCS for Azure
 * Azure SQL Database for storing metadata about the data you have discovered and rules for masking
@@ -36,7 +36,7 @@ following linked services in your data factory:
 
 To create the latest version of the template, you will need to zip the content in this repository.
 
-For convenience, we have provided a Docker file that will create the latest version of all templates (and include the
+For convenience, we have provided Docker file that will create the latest version of all templates (and include the
 version in the archive) and put them in the `releases` directory. If you have Docker installed you can leverage the
 provided [docker-compose.yaml](docker-compose.yaml) file to build release artifacts:
 `docker-compose -f docker-compose.yaml up`
@@ -197,7 +197,7 @@ Masking behavior can be controlled in several ways:
     `yyyy-MM-dd'T'HH:mm:ss'Z'` by default.
     * Setting this value incorrectly will cause non-conformant data errors when the data violates the specified pattern.
     * The important thing here is that the JSON value in the `algorithm_metadata` column contains a `date_format` key at
-      the root, and that the value of that key is the string that represents the format.
+      the root and that the value of that key is the string that represents the format.
       * As an example, if you have a column `transaction_date` in your `Snowflake` instance, and each time that column
         appears it has a date formated as `yyyyMMdd`, you should specify this format using an update statement like
         ```sql
