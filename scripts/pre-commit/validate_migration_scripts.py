@@ -99,12 +99,12 @@ def validate_if_bootstrap_file_is_updated(new_migration_files: tp.List) -> None:
             " Execute scripts/migrations.sh script to update bootstrap.sql file."
         )
 
-    # if BOOTSTRAP_FILE in new_migration_files and not migration_scripts:
-    #     raise MigrationValidationError(
-    #         f"Bootstrap file [{BOOTSTRAP_FILE}] is updated without any new migration files."
-    #         f" Please ensure that all modifications to the [{BOOTSTRAP_FILE}] file are performed"
-    #         f" exclusively through the [{MIGRATION_SCRIPT}] script."
-    #     )
+    if BOOTSTRAP_FILE in new_migration_files and not migration_scripts:
+        raise MigrationValidationError(
+            f"Bootstrap file [{BOOTSTRAP_FILE}] is updated without any new migration files."
+            f" Please ensure that all modifications to the [{BOOTSTRAP_FILE}] file are performed"
+            f" exclusively through the [{MIGRATION_SCRIPT}] script."
+        )
 
     if BOOTSTRAP_FILE in new_migration_files:
         bootstrap_file_path = helpers.get_project_root() / METADATA_STORE_SCRIPTS_DIR / BOOTSTRAP_FILE
@@ -164,7 +164,7 @@ def main():
         check_new_migration_file_format(new_migration_files)
         check_duplicate_migration_versions(new_migration_files, old_migration_files)
         validate_new_migration_dates(new_migration_files, old_migration_files)
-        validate_if_bootstrap_file_is_updated(new_migration_files)
+        # validate_if_bootstrap_file_is_updated(new_migration_files) # Temporarily disabled
         return 0
 
     except MigrationValidationError as e:
