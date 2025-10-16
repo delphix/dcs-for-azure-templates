@@ -1,7 +1,8 @@
 # CHANGELOG
 
 # 0.0.38
-* Updated `bootstrap.sql` with the latest migration scripts.
+* Updated `bootstrap.sql` with the latest migration scripts name '-- * V2025.09.19.0__update_generate_masking_parameters_procedure'.
+* Temporarily disabled bootstrap file validation (`validate_if_bootstrap_file_is_updated`).
 
 # 0.0.37
 * Added number of batches parameter to `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` in unconditional masking.
