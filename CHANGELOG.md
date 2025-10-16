@@ -2,7 +2,7 @@
 
 # 0.0.40
 * Added number of batches parameter to `dcsazure_AzureSQL_to_AzureSQL_mask_pl` in unconditional masking.
-* Introduce a variable `CAPPED_COLUMN_WIDTH` in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`, default is `1000`.
+* Introduce a variable `COLUMN_WIDTH_ESTIMATE` in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`, default is `1000`.
 
 # 0.0.39
 * Re-enable the pre-commit-check for migration scripts (`validate_if_bootstrap_file_is_updated` method) in the pre-commit validation script `validate_migration_scripts`.
