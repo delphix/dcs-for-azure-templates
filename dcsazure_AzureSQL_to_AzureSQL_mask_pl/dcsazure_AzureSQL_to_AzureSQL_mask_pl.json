@@ -1112,7 +1112,7 @@
                         "column_width_estimate": {
                           "type": "Int32",
                           "value": {
-                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "value": "@variables('COLUMN_WIDTH_ESTIMATE')",
                             "type": "Expression"
                           }
                         },
@@ -2664,13 +2664,17 @@
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "generate_masking_parameters"
+          },
+          "COLUMN_WIDTH_ESTIMATE": {
+            "type": "String",
+            "defaultValue": "1000"
           }
         },
         "folder": {
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-10-08T11:34:30Z"
+        "lastPublishTime": "2025-10-14T12:33:01Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -3398,7 +3402,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-10-08T06:38:20Z"
+        "lastPublishTime": "2025-10-14T12:33:00Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3828,7 +3832,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-10-08T06:38:20Z"
+        "lastPublishTime": "2025-10-14T12:33:00Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
