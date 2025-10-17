@@ -215,6 +215,10 @@
                               "DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP": {
                                 "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
+                              },
+                              "DF_NUMBER_OF_BATCHES": {
+                                "value": "@activity('Lookup Masking Parameters').output.firstRow.NumberOfBatches",
+                                "type": "Expression"
                               }
                             },
                             "datasetParameters": {
@@ -311,7 +315,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Lookup Masking Parameters').output.firstRow.NumberOfBatches}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -472,7 +476,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Lookup Masking Parameters').output.firstRow.NumberOfBatches}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1108,7 +1112,7 @@
                         "column_width_estimate": {
                           "type": "Int32",
                           "value": {
-                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "value": "@variables('COLUMN_WIDTH_ESTIMATE')",
                             "type": "Expression"
                           }
                         },
@@ -2660,13 +2664,17 @@
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "generate_masking_parameters"
+          },
+          "COLUMN_WIDTH_ESTIMATE": {
+            "type": "String",
+            "defaultValue": "1000"
           }
         },
         "folder": {
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-09-11T07:04:14Z"
+        "lastPublishTime": "2025-10-14T12:33:01Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -3394,7 +3402,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-09-11T06:59:43Z"
+        "lastPublishTime": "2025-10-14T12:33:00Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3824,7 +3832,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-09-11T07:05:00Z"
+        "lastPublishTime": "2025-10-14T12:33:00Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3989,7 +3997,8 @@
             "     DF_COLUMNS_TO_CAST_BACK_TO_FLOAT as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
-            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"])",
+            "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
+            "     DF_NUMBER_OF_BATCHES as integer (100)",
             "}",
             "source(allowSchemaDrift: true,",
             "     validateSchema: false,",
@@ -4035,7 +4044,7 @@
             "     ),",
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true) ~> SelectColumnsUnmasked",
-            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = toInteger(ceil(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID/$DF_NUMBER_OF_ROWS_PER_BATCH))),",
+            "WrapValuesInArray aggregate(groupBy(DELPHIX_COMPLIANCE_SERVICE_BATCH_GROUP = DELPHIX_COMPLIANCE_SERVICE_BATCH_ID%$DF_NUMBER_OF_BATCHES),",
             "     each(match((startsWith(name,'x')&&not(contains($DF_COLUMNS_TO_MASK,#item==name)))||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = collect($$))) ~> AggregateColumnsByBatch",
             "AggregateColumnsByBatch derive(each(match(startsWith(name,'x')||(name==\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\")), $$ = flatten($$))) ~> FlattenValuesOutOfArray",
             "DCSForAzureAPI assert(expectTrue(toInteger(regexExtract(status, '(\\\\d+)', 1)) == 200, false, 'Failed_request', null, iif(isNull(body.message), status, concatWS(', ', 'timestamp: ' + toString(body.timestamp), 'status: ' + body.status, 'message: ' + body.message, 'trace_id: ' + body.trace_id))),",
