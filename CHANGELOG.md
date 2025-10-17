@@ -1,5 +1,13 @@
 # CHANGELOG
 
+# 0.0.41
+* Updated the Dataverse masking data flows (`dcsazure_Dataverse_to_Dataverse_in_place_filtered_mask_df` and `dcsazure_Dataverse_to_Dataverse_in_place_unfiltered_mask_df`) by removing the `AddSortKey` step and using the `Primary Key` for data sorting.
+* Removed the `columns_to_remove` parameter and its associated logic from the `generate_dataverse_masking_parameters` stored procedure.
+* Eliminated the `Number of Batches` logic from the `generate_dataverse_masking_parameters` stored procedure, as Dataverse metadata does not expose row counts.
+* Added a SQL constraint on the `discovered_ruleset` table to prevent assigning an algorithm to columns where `is_excluded = 1`.
+* Added a SQL constraint on the `adf_data_mapping` table to ensure that the source and sink schema, table, and database match for Dataverse datasets.
+* Renamed the Script activity in `dcsazure_Dataverse_to_Dataverse_in_place_mask_pl` from `Mark Tables Undiscovered` to `Mark Table Mapping Incomplete`.
+
 # 0.0.40
 * Added number of batches parameter to `dcsazure_AzureSQL_to_AzureSQL_mask_pl` in unconditional masking.
 * Introduce a new variable `COLUMN_WIDTH_ESTIMATE` in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`, default is `1000`.

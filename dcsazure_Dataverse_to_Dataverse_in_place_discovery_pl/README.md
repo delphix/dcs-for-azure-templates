@@ -4,7 +4,7 @@
 This pipeline will perform automated sensitive data discovery on your Microsoft Dataverse environment using Delphix Compliance Services (DCS) for Azure.
 
 ### Prerequisites
-1. Configure the hosted metadata database and associated Azure SQL service.
+1. Configure the hosted metadata database and associated Azure SQL service(version `V2025.10.10.0+`).
 2. Configure the DCS for Azure REST service.
 3. Register an application in Azure for Dataverse and obtain the necessary credentials. 
    NOTE: To obtain the necessary credentials, refer to Delphix documentation(https://dcs.delphix.com/docs/latest/delphixcomplianceservices-dcsforazure-2_onboarding#RegisteringaServicePrincipal-Process).
@@ -94,7 +94,12 @@ If you have configured your database using the metadata store scripts, these var
 
 ```sql
 SELECT
-  JSON_VALUE(source_metadata, '$.Reason') AS reason
+    identified_table,
+    identified_column,
+    JSON_VALUE(source_metadata, '$.Reason') AS reason
 FROM
-  discovered_ruleset;
+    discovered_ruleset
+WHERE
+    dataset = 'DATAVERSE'
+    AND is_excluded = 1;
 ```

@@ -32,7 +32,7 @@
             "type": "Lookup",
             "dependsOn": [
               {
-                "activity": "Mark Tables Undiscovered",
+                "activity": "Mark Table Mapping Incomplete",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -213,10 +213,6 @@
                                 "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
                               },
-                              "DF_COLUMNS_TO_REMOVE": {
-                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove",
-                                "type": "Expression"
-                              },
                               "DF_DATE_ONLY_COLUMNS": {
                                 "value": "@activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns",
                                 "type": "Expression"
@@ -328,7 +324,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -489,7 +485,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -715,10 +711,6 @@
                                 "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp",
                                 "type": "Expression"
                               },
-                              "DF_COLUMNS_TO_REMOVE": {
-                                "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove",
-                                "type": "Expression"
-                              },
                               "DF_DATE_ONLY_COLUMNS": {
                                 "value": "@activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns",
                                 "type": "Expression"
@@ -833,7 +825,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1000,7 +992,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_COLUMNS_TO_REMOVE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToRemove},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_DATE_ONLY_COLUMNS\": @{activity('Lookup Masking Parameters').output.firstRow.DateOnlyColumns},\n    \"DF_PRIMARY_KEY\": @{activity('Lookup Masking Parameters').output.firstRow.PrimaryKey}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1245,7 +1237,7 @@
             }
           },
           {
-            "name": "Mark Tables Undiscovered",
+            "name": "Mark Table Mapping Incomplete",
             "description": "Mark all tables in this database and schema as undiscovered so that we can re-discover sensitive data in them",
             "type": "Script",
             "dependsOn": [],
@@ -1345,7 +1337,7 @@
           "name": "dcsazure_Dataverse_to_Dataverse_in_place"
         },
         "annotations": [],
-        "lastPublishTime": "2025-09-12T08:46:07Z"
+        "lastPublishTime": "2025-10-08T10:00:53Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Dataverse_to_Dataverse_in_place_mask_metadata_ds')]",
@@ -1427,14 +1419,6 @@
               }
             },
             {
-              "name": "AddSortKey",
-              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SORT_ID that consists of SHA of the data across all columns in the table - every row will have this value and it cannot be null"
-            },
-            {
-              "name": "SortBySortKey",
-              "description": "Sort the table by the value in DELPHIX_COMPLIANCE_SERVICE_SORT_ID, as we need the table to be in a particular order before we apply a surrogate key"
-            },
-            {
               "name": "CreateSurrogateKey",
               "description": "Add a DELPHIX_COMPLIANCE_SERVICE_BATCH_ID column that increments by 1 and starts at 1 after applying the sorting"
             },
@@ -1467,10 +1451,6 @@
               "description": "For columns that need to be cast back to a compatible type, cast them back"
             },
             {
-              "name": "RemoveColumns",
-              "description": "Remove columns that are not required for mapping"
-            },
-            {
               "name": "SelectPrimaryKeyColumn"
             },
             {
@@ -1478,6 +1458,9 @@
             },
             {
               "name": "AlterRowCondition"
+            },
+            {
+              "name": "SortByPrimaryKey"
             }
           ],
           "scriptLines": [
@@ -1503,7 +1486,6 @@
             "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
-            "     DF_COLUMNS_TO_REMOVE as string[] ([\"\"]),",
             "     DF_DATE_ONLY_COLUMNS as string[] ([\"\"]),",
             "     DF_PRIMARY_KEY as string (''),",
             "     DF_CREATED_BEFORE as string (''),",
@@ -1816,9 +1798,7 @@
             "     requestFormat: ['type' -> 'json'],",
             "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
             "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
-            "RemoveColumns derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
-            "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
-            "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
+            "SortByPrimaryKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateSurrogateKey",
             "CreateSurrogateKey derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
@@ -1844,11 +1824,6 @@
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_INTEGER,#item==name)), $$ = toInteger($$)),",
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_LONG,#item==name)), $$ = toLong($$)),",
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP,#item==name)), $$ = toTimestamp(toString($$)))) ~> CastColumnsBackAsRequired",
-            "Source select(mapColumn(",
-            "          each(match(!contains($DF_COLUMNS_TO_REMOVE,#item==name)))",
-            "     ),",
-            "     skipDuplicateMapInputs: true,",
-            "     skipDuplicateMapOutputs: true) ~> RemoveColumns",
             "CreateSurrogateKey select(mapColumn(",
             "          each(match($DF_PRIMARY_KEY==name||name=='DELPHIX_COMPLIANCE_SERVICE_BATCH_ID'))",
             "     ),",
@@ -1859,7 +1834,8 @@
             "     matchType:'exact',",
             "     ignoreSpaces: false,",
             "     broadcast: 'auto')~> JoinMaskedColumnsandPrimaryKey",
-            "JoinMaskedColumnsandPrimaryKey alterRow(updateIf($DF_SOURCE_TABLE==$DF_SINK_TABLE)) ~> AlterRowCondition",
+            "JoinMaskedColumnsandPrimaryKey alterRow(updateIf(true())) ~> AlterRowCondition",
+            "Source sort(asc($DF_PRIMARY_KEY, false)) ~> SortByPrimaryKey",
             "AlterRowCondition sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     store: 'dynamics',",
@@ -1873,7 +1849,7 @@
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
             "     mapColumn(",
-            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"))",
             "     ),",
             "     partitionBy('hash', 6,",
             "          $DF_PRIMARY_KEY",
@@ -1922,11 +1898,7 @@
               }
             },
             {
-              "name": "AddSortKey",
-              "description": "Create column DELPHIX_COMPLIANCE_SERVICE_SORT_ID that consists of SHA of the data across all columns in the table - every row will have this value and it cannot be null"
-            },
-            {
-              "name": "SortBySortKey",
+              "name": "SortByPrimaryKey",
               "description": "Sort the table by the value in DELPHIX_COMPLIANCE_SERVICE_SORT_ID, as we need the table to be in a particular order before we apply a surrogate key"
             },
             {
@@ -1979,10 +1951,6 @@
             },
             {
               "name": "AlterRowCondition"
-            },
-            {
-              "name": "RemoveColumns",
-              "description": "Remove columns that are not required for mapping"
             }
           ],
           "scriptLines": [
@@ -2009,7 +1977,6 @@
             "     DF_COLUMNS_TO_CAST_BACK_TO_INTEGER as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_LONG as string[] ([\"\"]),",
             "     DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP as string[] ([\"\"]),",
-            "     DF_COLUMNS_TO_REMOVE as string[] ([\"\"]),",
             "     DF_DATE_ONLY_COLUMNS as string[] ([\"\"]),",
             "     DF_PRIMARY_KEY as string (''),",
             "     DF_CREATED_BEFORE as string (''),",
@@ -2048,9 +2015,8 @@
             "     requestFormat: ['type' -> 'json'],",
             "     responseFormat: ['type' -> 'json', 'documentForm' -> 'documentPerLine'],",
             "     columnTypeMap: ['body'->'$DF_BODY_TYPE_MAPPING']) ~> DCSForAzureAPI",
-            "RemoveColumns derive(DELPHIX_COMPLIANCE_SERVICE_SORT_ID = sha2(256, columns())) ~> AddSortKey",
-            "AddSortKey sort(asc(DELPHIX_COMPLIANCE_SERVICE_SORT_ID, false)) ~> SortBySortKey",
-            "SortBySortKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
+            "ApplyTableFilter sort(asc($DF_PRIMARY_KEY, false)) ~> SortByPrimaryKey",
+            "SortByPrimaryKey keyGenerate(output(DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long),",
             "     startAt: 1L,",
             "     stepValue: 1L) ~> CreateSurrogateKey",
             "CreateSurrogateKey select(mapColumn(",
@@ -2088,12 +2054,7 @@
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_LONG,#item==name)), $$ = toLong($$)),",
             "          each(match(contains($DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP,#item==name)), $$ = toTimestamp(toString($$)))) ~> CastColumnsBackAsRequired",
             "CastRequiredColumnsAsStrings derive(each(match(contains($DF_COLUMNS_TO_MASK,#item==name)), concat('x',hex(encode($$))) = array($$))) ~> WrapValuesInArray",
-            "JoinMaskedColumnsandPrimaryKey alterRow(updateIf($DF_SOURCE_TABLE==$DF_SINK_TABLE)) ~> AlterRowCondition",
-            "ApplyTableFilter select(mapColumn(",
-            "          each(match(!contains($DF_COLUMNS_TO_REMOVE,#item==name)))",
-            "     ),",
-            "     skipDuplicateMapInputs: true,",
-            "     skipDuplicateMapOutputs: true) ~> RemoveColumns",
+            "JoinMaskedColumnsandPrimaryKey alterRow(updateIf(true())) ~> AlterRowCondition",
             "AlterRowCondition sink(allowSchemaDrift: true,",
             "     validateSchema: false,",
             "     store: 'dynamics',",
@@ -2107,7 +2068,7 @@
             "     skipDuplicateMapInputs: true,",
             "     skipDuplicateMapOutputs: true,",
             "     mapColumn(",
-            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"&&name!=\"DELPHIX_COMPLIANCE_SERVICE_SORT_ID\"))",
+            "          each(match(name!=\"DELPHIX_COMPLIANCE_SERVICE_BATCH_ID\"))",
             "     ),",
             "     partitionBy('roundRobin', 32),",
             "     preCommands: [],",
