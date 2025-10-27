@@ -1,7 +1,7 @@
 # CHANGELOG
 
 # 0.0.41
-* Fixed validate-new-pipeline-references post-push failure caused by unsupported syntax set[pathlib.Path] in Python 3.8 (used by Jenkins pipeline).
+* Fixed validate-new-pipeline-references post-push failure caused by unsupported syntax set[pathlib.Path] in Python 3.8 (used by Jenkins).
 * Updated `validate_new_pipeline_references.py` to use tp.Set[pathlib.Path] for compatibility with Python 3.8.
 
 # 0.0.40
