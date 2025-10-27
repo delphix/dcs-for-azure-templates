@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.41
+* Updated validate_new_pipeline_references.py to fix the unsupported typing syntax for Python 3.8 compatibility.
+
 # 0.0.40
 * Added number of batches parameter to `dcsazure_AzureSQL_to_AzureSQL_mask_pl` in unconditional masking.
 * Introduce a new variable `COLUMN_WIDTH_ESTIMATE` in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`, default is `1000`.
