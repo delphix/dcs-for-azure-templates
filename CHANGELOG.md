@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.41
+* Fixed validate-new-pipeline-references post-push failure caused by unsupported syntax set[pathlib.Path] in Python 3.8 (used by Jenkins pipeline).
+* Updated `validate_new_pipeline_references.py` to use tp.Set[pathlib.Path] for compatibility with Python 3.8.
+
 # 0.0.40
 * Added number of batches parameter to `dcsazure_AzureSQL_to_AzureSQL_mask_pl` in unconditional masking.
 * Introduce a new variable `COLUMN_WIDTH_ESTIMATE` in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`, default is `1000`.
