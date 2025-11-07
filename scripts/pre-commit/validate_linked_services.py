@@ -156,10 +156,10 @@ def main():
         if errors:
             failed_pipelines.append(pipeline_name)
             total_violations += len(errors)
-            error_lines = [f"   - {error}" for error in errors]
+            error_lines = "\n".join([f"   - {error}" for error in errors])
             error_message = (
                 f"❌ {pipeline_name}:\n"
-                f"{'\n'.join(error_lines)}"
+                f"{error_lines}"
             )
             logger.error(error_message)
 
