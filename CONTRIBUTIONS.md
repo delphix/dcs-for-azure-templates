@@ -63,9 +63,9 @@ When creating or modifying pipelines, all linked services must follow the reposi
    - RestService: CamelCase without underscores (e.g., `DataverseService`)
    - Non-RestService: `CamelCase_{Source|Sink|Staging}` (e.g., `AzureSqlDatabase_Source`)
 
-4. **Technology Names:** Must match the support type mapping in the configuration
+4. **Technology Names:** Must match the support type mapping in the [`pipeline_template_standard_params.yaml`](./pipeline_template_standard_params.yaml) configuration
 
-📖 **Complete guide:** [Linked Service Naming Conventions](./documentation/guides/linked-service-naming-conventions.md)
+**Complete guide:** [Linked Service Naming Conventions](./documentation/guides/linked-service-naming-conventions.md)
 
 **Validation:** Pre-commit hooks automatically validate naming conventions. Run manually:
 ```bash

@@ -79,13 +79,13 @@ All ADF pipeline templates in this repository follow standardized naming convent
 **Special Rule:** RestService names containing both "DCS" and "Azure" MUST be named `ProdDCSForAzureService`
 
 **Valid Examples:**
-- `ProdDCSForAzureService` ✅
-- `DataverseService` ✅
+- `ProdDCSForAzureService`
+- `DataverseService`
 
 **Invalid Examples:**
-- `DCS_For_Azure_Prod` ❌ (has underscores)
-- `dcsForAzure` ❌ (not CamelCase)
-- `DCSForAzureProd` ❌ (should be `ProdDCSForAzureService`)
+- `DCS_For_Azure_Prod` (has underscores)
+- `dcsForAzure` (not CamelCase)
+- `DCSForAzureProd` (should be `ProdDCSForAzureService`)
 
 ---
 
@@ -118,9 +118,9 @@ All ADF pipeline templates in this repository follow standardized naming convent
 ```
 
 **Invalid Examples:**
-- `azuresql_source` ❌ (lowercase, no technology name)
-- `AzureSqlDatabaseSource` ❌ (no underscore separator)
-- `AzureBlob_Source` ❌ (wrong tech name for AzureBlobFS)
+- `azuresql_source` (lowercase, no technology name)
+- `AzureSqlDatabaseSource` (no underscore separator)
+- `AzureBlob_Source` (wrong tech name for AzureBlobFS)
 
 ---
 
@@ -128,10 +128,9 @@ All ADF pipeline templates in this repository follow standardized naming convent
 
 Only the formats specified in Rules 1-5 are permitted.
 
-**Prohibited patterns:**
-- snake_case: `azure_sql_source` ❌
-- Multiple underscores: `azure_sql_mi_source_db` ❌
-- Non-standard suffixes: `BlobStoreStagingArea` ❌
+**Examples of Prohibited patterns:**
+- snake_case: `azure_sql_source`
+- Non-REST linked service name with no underscore like `BlobStoreStagingArea` 
 
 ---
 
