@@ -32,6 +32,17 @@ following linked services in your data factory:
 * REST service for talking to DCS for Azure
 * Azure SQL Database for storing metadata about the data you have discovered and rules for masking
 
+### Linked Service Naming Conventions
+
+All pipelines in this repository follow standardized naming conventions for linked services. Key requirements:
+
+1. All pipelines must have `Metadata Datastore` (AzureSqlDatabase) and `ProdDCSForAzureService` (RestService)
+2. All pipelines must have at least one `_Source`; mask pipelines need at least one `_Sink`
+3. RestService names use CamelCase without underscores
+4. Non-RestService names follow `CamelCase_{Source|Sink|Staging}` format
+
+📖 **See the complete guide:** [Linked Service Naming Conventions](./documentation/guides/linked-service-naming-conventions.md)
+
 ### To Import Latest Version Templates
 
 To create the latest version of the template, you will need to zip the content in this repository.
