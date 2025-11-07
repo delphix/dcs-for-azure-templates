@@ -51,18 +51,15 @@ All ADF pipeline templates in this repository follow standardized naming convent
 **Examples:**
 
 ```json
-// Valid: Mask pipeline with Source and Sink
 "linkedservices": {
   "AzureDataLakeStorage_Source": {"supportTypes": ["AzureBlobFS"]},
   "AzureDataLakeStorage_Sink": {"supportTypes": ["AzureBlobFS"]}
 }
 
-// Valid: Discovery pipeline (Source only)
 "linkedservices": {
   "AzureSqlDatabase_Source": {"supportTypes": ["AzureSqlDatabase"]}
 }
 
-// Valid: In-place masking (Dataverse)
 "linkedservices": {
   "Dataverse_Source": {"supportTypes": ["CommonDataServiceForApps"]}
 }

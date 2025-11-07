@@ -9,8 +9,11 @@ import os
 import re
 import sys
 import yaml
+import logging
 from pathlib import Path
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+logger = logging.getLogger("validate_linked_services")
 
 # Support type to technology name mapping
 SUPPORT_TYPE_TO_TECHNOLOGY = {
@@ -130,8 +133,6 @@ def validate_pipeline(manifest_path, config):
 
 def main():
     """Main validation function"""
-    print("Linked Services Validation")
-    print("=" * 60)
     
     # Load configuration
     config = load_config()
@@ -145,35 +146,33 @@ def main():
         if 'manifest.json' in files:
             manifest_files.append(os.path.join(root, 'manifest.json'))
     
-    print(f"Found {len(manifest_files)} pipeline(s) to validate\n")
-    
     total_violations = 0
     failed_pipelines = []
     
     for manifest_path in sorted(manifest_files):
         pipeline_name = os.path.basename(os.path.dirname(manifest_path))
         errors = validate_pipeline(manifest_path, config)
-        
+
         if errors:
             failed_pipelines.append(pipeline_name)
             total_violations += len(errors)
-            print(f"❌ {pipeline_name}:")
-            for error in errors:
-                print(f"   - {error}")
-            print()
-        else:
-            print(f"✅ {pipeline_name}")
-    
-    print("=" * 60)
+            error_lines = [f"   - {error}" for error in errors]
+            error_message = (
+                f"❌ {pipeline_name}:\n"
+                f"{'\n'.join(error_lines)}"
+            )
+            logger.error(error_message)
+
     if total_violations > 0:
-        print(f"\n❌ Validation FAILED")
-        print(f"   {len(failed_pipelines)} pipeline(s) with {total_violations} violation(s)")
-        sys.exit(1)
+        summary_message = (
+            f"\n❌ Validation FAILED\n"
+            f"   {len(failed_pipelines)} pipeline(s) with {total_violations} violation(s)"
+        )
+        logger.error(summary_message)
+        return 1
     else:
-        print(f"\n✅ Validation PASSED")
-        print(f"   All {len(manifest_files)} pipeline(s) comply with naming conventions")
-        sys.exit(0)
+        return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
