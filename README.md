@@ -466,3 +466,6 @@ WHERE
   * [dcsazure_Databricks_to_Databricks_mask_pl](./dcsazure_Databricks_to_Databricks_mask_pl/README.md)
   * [dcsazure_Snowflake_to_Snowflake_discovery_pl](./dcsazure_Snowflake_to_Snowflake_discovery_pl/README.md)
   * [dcsazure_Snowflake_to_Snowflake_mask_pl](./dcsazure_Snowflake_to_Snowflake_mask_pl/README.md)
+  * [dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl](./dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl/README.md)
+  * [dcsazure_Dataverse_to_Dataverse_in_place_mask_pl](./dcsazure_Dataverse_to_Dataverse_in_place_mask_pl/README.md)
+* [Test Plan and Contributor Testing Guidelines](./documentation/guides/test-plan.md)

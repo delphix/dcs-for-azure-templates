@@ -19,6 +19,7 @@ METADATA_STORE_PATH = "metadata_store_scripts"
 DOCUMENTATION_PATH = "documentation"
 DOCKER_COMPOSE_FILE = "docker-compose.yaml"
 DOCUMENTATION_FILE = f"{DOCUMENTATION_PATH}/pipelines.md"
+PIPELINE_LS_PARAM_YAML_FILE = "pipeline_template_standard_params.yaml"
 JSON = ".json"
 SQL = ".sql"
 MD = ".md"
@@ -27,10 +28,11 @@ RESOURCE_TYPE_ABBR = {
     "pipelines": ("P_", "_pl"),
     "datasets": ("DS_", "_ds"),
     "dataflows": (None, "_df"),
+    "managedVirtualNetworks": (None, "default"),
 }
 
 NON_TEMPLATES_DIR = [
-    DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts",
+    DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts", ".github",
 ]
 
 #
@@ -40,12 +42,12 @@ NON_TEMPLATES_DIR = [
 # e.g. dcsazure_AzureSQL_to_AzureSQL_mask_pl
 # e.g dcsazure_ADLS_to_ADLS_delimited_discovery_pl
 # Captures:
-#   1. source_db as group 1 --> ([A-Za-z]+)
+#   1. source_db as group 1 --> ([\w]) as we have '_' in source db name
 #   2. sink_db and optional specifier as group 2 --> ([A-Za-z]+(?:_[A-Za-z]+)*)
 #      2.1 (?:_[A-Za-z]+)* allows 0 or more letters, making it optional
 #   3. service - mask or discovery as group 3 --> (mask|discovery)
 #
-TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}([A-Za-z0-9]+)_to_([A-Za-z0-9]+(?:_[A-Za-z]+)*)_(mask|discovery)_pl$"
+TEMPLATE_DIR_REGEX = rf"^{TEMPLATES_JSON_PATH_PREFIX}([\w]+)_to_([A-Za-z0-9]+(?:_[A-Za-z]+)*)_(mask|discovery)_pl$"
 
 
 class GitCommand:
@@ -96,6 +98,13 @@ class InvalidParameterNameException(Exception):
     """
     pass
 
+
+class InvalidLinkedServiceParamCountException(Exception):
+    """
+    Exception to be raised if the LinkedServiceParameters count in the ADF pipeline's template
+    file are not as per convention.
+    """
+    pass
 
 @dataclasses.dataclass
 class Pipeline:

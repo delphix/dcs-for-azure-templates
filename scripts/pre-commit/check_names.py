@@ -7,6 +7,7 @@ import pathlib
 import re
 import typing as tp
 import json
+import yaml
 
 import helpers
 
@@ -30,6 +31,15 @@ The files do not follow the naming conventions. Use the format below.
 {DISCOVERY_PL_NAME}/{helpers.MANIFEST_FILE}
 {DISCOVERY_PL_NAME}/{helpers.README_FILE}
 """
+
+def load_pipeline_linked_service_params() -> tp.Dict[str, tp.Dict[str, int]]:
+    """
+    Load pipeline linked service parameters from YAML configuration file
+    """
+    yaml_path = pathlib.Path(helpers.PIPELINE_LS_PARAM_YAML_FILE)
+    with open(yaml_path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config['pipeline_linked_service_params']
 
 
 def validate_file_and_directory_names(files: tp.Set[pathlib.Path]) -> None:
@@ -95,6 +105,8 @@ def validate_resource_names(file: pathlib.Path, resource_data: tp.List[tp.Any]) 
     for resource in resource_data:
         resource_name = get_name_from_resource(resource["name"])
         resource_abbr = get_type_abbr_from_resource_type(resource["type"])
+        if resource_name == 'default':
+            continue
         if not resource_name.startswith(resource_prefix):
             invalid_resource_names.append(resource_name)
             log.error(
@@ -187,6 +199,7 @@ def validate_code_json_content(file: pathlib.Path) -> None:
     validate_resource_names(file, json_content['resources'])
     validate_resource_parameter_names(file, json_content['resources'])
     validate_resource_activity_names(file, json_content['resources'])
+    validate_linked_service_parameters(file, json_content)
 
 
 def validate_pipeline_json_content(files: tp.Set[pathlib.Path]) -> None:
@@ -196,6 +209,43 @@ def validate_pipeline_json_content(files: tp.Set[pathlib.Path]) -> None:
             validate_code_json_content(file)
         elif is_manifest_json(file):
             validate_manifest_json_content(file)
+
+
+def validate_linked_service_parameters(file, json_content) -> None:
+    # Load pipeline parameters from YAML file
+    pipeline_params = load_pipeline_linked_service_params()
+
+    # Find matching pipeline type based on file path
+    matching_pipeline = None
+    for pipeline_type in pipeline_params:
+        if pipeline_type in file.parts[0]:
+            matching_pipeline = pipeline_type
+            break
+
+    if not matching_pipeline:
+        return
+
+    # Get the expected parameters for this pipeline type
+    expected_params = pipeline_params[matching_pipeline]
+
+    # Count occurrences of each parameter in the JSON content
+    param_counts = {param: 0 for param in expected_params}
+
+    json_str = json.dumps(json_content)
+
+    # Count each linked parameter occurrence
+    for param in expected_params:
+        param_counts[param] = json_str.count(param)
+
+    # Validate the counts
+    for param, count in param_counts.items():
+        if count != expected_params[param]:
+            msg = (
+                f"The LinkedService parameter '{param}' occurrences ({count})"
+                f" in {file.absolute().as_uri()} doesn't match the expected"
+                f" count ({expected_params[param]})."
+            )
+            raise helpers.InvalidLinkedServiceParamCountException(f"\nERROR - {msg}")
 
 
 def filter_json_files(files: tp.Set[pathlib.Path]) -> tp.List[pathlib.Path]:
@@ -260,7 +310,11 @@ def main() -> int:
     except helpers.InvalidTemplateNameException as e:
         log.error(f"{e}\n{NAMING_ERROR}")
         exit_status = 1
-    except (helpers.InvalidResourceNameException, helpers.InvalidParameterNameException) as e:
+    except (
+        helpers.InvalidResourceNameException,
+        helpers.InvalidParameterNameException,
+        helpers.InvalidLinkedServiceParamCountException,
+    ) as e:
         log.error(e)
         exit_status = 1
 

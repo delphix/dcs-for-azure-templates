@@ -25,7 +25,7 @@ class ValidationError(Exception):
     """Custom exception for validation-related errors."""
 
 
-def filter_pipeline_directory(path_files: tp.List[pathlib.Path]) -> set[pathlib.Path]:
+def filter_pipeline_directory(path_files: tp.List[pathlib.Path]) -> tp.Set[pathlib.Path]:
     """
     Filter and return the set of pipeline directories from the given list of filepath.
     """
@@ -51,7 +51,7 @@ def __validate_pipeline_reference_in_file(file_path: pathlib.Path, pipeline: pat
     return error_message
 
 
-def validate_pipeline_reference(pipelines: set[pathlib.Path]) -> None:
+def validate_pipeline_reference(pipelines: tp.Set[pathlib.Path]) -> None:
     errors = []
     for pipeline in pipelines:
         # 1. Validate if pipeline reference is present in CHANGELOG.md file

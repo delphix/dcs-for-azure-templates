@@ -1,5 +1,69 @@
 # CHANGELOG
 
+# 0.0.41
+* Updated validate_new_pipeline_references.py to fix the unsupported typing syntax for Python 3.8 compatibility.
+
+# 0.0.40
+* Added number of batches parameter to `dcsazure_AzureSQL_to_AzureSQL_mask_pl` in unconditional masking.
+* Introduce a new variable `COLUMN_WIDTH_ESTIMATE` in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`, default is `1000`.
+
+# 0.0.39
+* Re-enable the pre-commit-check for migration scripts (`validate_if_bootstrap_file_is_updated` method) in the pre-commit validation script `validate_migration_scripts`.
+
+# 0.0.38
+* Updated `bootstrap.sql` with the latest migration script `V2025.09.19.0__update_generate_masking_parameters_procedure.sql`.
+* Temporarily disabled bootstrap.sql file validation (`validate_if_bootstrap_file_is_updated` method) in the pre-commit validation script.
+
+# 0.0.37
+* Added number of batches parameter to `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` in unconditional masking.
+* Increased TimeOut for the masking API call in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to 300 seconds.
+
+# 0.0.36
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_ADLS_to_ADLS_delimited_mask_pl`
+
+# 0.0.35
+* Add support for DCS for Dataverse to Dataverse in place Discovery Pipeline
+  * `dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl`
+* Add support for DCS for Dataverse to Dataverse in place Masking Pipeline
+  * `dcsazure_Dataverse_to_Dataverse_in_place_mask_pl`
+
+# 0.0.34
+* Re-introduce the computation of the number of batches in `dcsazure_Snowflake_to_Snowflake_mask_pl`
+  for use in `dcsazure_Snowflake_to_Snowflake_unfiltered_mask_df` in an effort to optimize
+  the number of masking API requests.
+* Introduce a variable to cap the estimated column width when computing the number of batches
+  in `generate_masking_parameters` stored procedure, default is `1048576`, equaling `1 MiB`.
+* Introduce a variable `CAPPED_COLUMN_WIDTH` in `dcsazure_Snowflake_to_Snowflake_mask_pl`, default is `1000`.
+* Push casting to integer of `NumberOfBatches` parameter to the stored procedure.
+* Update the default value of variable `TARGET_BATCH_SIZE` to `50000` in `dcsazure_Snowflake_to_Snowflake_mask_pl`.
+* Add missing description of `COLUMN_WIDTH_ESTIMATE` variable in `README.md` of `dcsazure_Snowflake_to_Snowflake_mask_pl`.
+
+# 0.0.33
+* Add GitHub Actions workflow for automated pre-commit checks on pull requests and pushes to main branch
+
+# 0.0.32
+* Re-introduce the parameterization for source and sink database linked services in the AzureSQL masking pipeline
+`dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+
+# 0.0.31
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
+* Added a new variable for column width estimates in `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl`
+* Changed template regex to support underscores("_") in source_db names
+
+# 0.0.30
+* Re-introduce the parameterization for source and sink database linked services in the Snowflake masking pipeline
+`dcsazure_Snowflake_to_Snowflake_mask_pl`
+* Add a pre-commit check to validate the expected count of LinkedService parameter names in each pipeline
+
+# 0.0.29
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_Snowflake_to_Snowflake_mask_pl`
+
+# 0.0.28
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
+  * Unified and optimized conditional and non-conditional masking parameter generation in a single stored procedure
+* Fixed type casting bug where `treat_as_string` flag caused zero rows in sink table (#65)  
+* Add SQLFluff configuration for T-SQL formatting standards
+
 # 0.0.27
 * Fixed an issue where many small requests are being sent instead of fewer larger requests in `dcsazure_ADLS_to_ADLS_delimited_mask_pl` and `dcsazure_ADLS_to_ADLS_parquet_mask_pl`.
 
