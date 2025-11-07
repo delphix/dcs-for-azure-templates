@@ -67,3 +67,13 @@ repos:
         additional_dependencies:
           - PyYAML
           - packaging
+      - id: validate-linked-services
+        name: Validate linked service naming conventions
+        entry: python ./scripts/pre-commit/validate_linked_services.py
+        language: python
+        always_run: true
+        pass_filenames: false
+        verbose: true
+        additional_dependencies:
+          - PyYAML
+
