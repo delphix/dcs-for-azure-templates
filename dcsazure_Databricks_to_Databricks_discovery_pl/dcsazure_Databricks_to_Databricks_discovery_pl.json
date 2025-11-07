@@ -1435,7 +1435,7 @@
             {
               "name": "CallDCSForAzureProfiling",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureProd')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },

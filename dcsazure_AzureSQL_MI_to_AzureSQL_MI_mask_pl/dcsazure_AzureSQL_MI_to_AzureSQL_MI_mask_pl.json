@@ -409,7 +409,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -570,7 +570,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -894,7 +894,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1061,7 +1061,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1503,7 +1503,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1664,7 +1664,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -1914,7 +1914,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2075,7 +2075,7 @@
                           }
                         },
                         "linkedServiceName": {
-                          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                          "referenceName": "[parameters('Metadata Datastore')]",
                           "type": "LinkedServiceReference"
                         }
                       },
@@ -2205,7 +2205,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -2301,7 +2301,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+                    "referenceName": "[parameters('AzureSqlMI_Sink')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
                       "LS_DATABASE": {
@@ -2347,7 +2347,7 @@
             },
             "userProperties": [],
             "linkedServiceName": {
-              "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+              "referenceName": "[parameters('Metadata Datastore')]",
               "type": "LinkedServiceReference"
             },
             "typeProperties": {
@@ -2694,7 +2694,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+          "referenceName": "[parameters('Metadata Datastore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -2737,7 +2737,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2747,7 +2747,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2846,7 +2846,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+                    "referenceName": "[parameters('AzureSqlMI_Sink')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
                       "LS_DATABASE": {
@@ -2889,7 +2889,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3081,7 +3081,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 }
@@ -3450,7 +3450,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+                    "referenceName": "[parameters('AzureSqlMI_Sink')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
                       "LS_DATABASE": {
@@ -3493,7 +3493,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_mask_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -3851,7 +3851,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+          "referenceName": "[parameters('AzureSqlMI_Sink')]",
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
@@ -3903,7 +3903,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -3913,7 +3913,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -4116,7 +4116,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -4126,7 +4126,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -4327,7 +4327,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
+          "referenceName": "[parameters('AzureSqlMI_Source')]",
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
@@ -4379,7 +4379,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_source_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
@@ -4389,7 +4389,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_mask_sink_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",

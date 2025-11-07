@@ -1336,7 +1336,7 @@
                           "enableStaging": true,
                           "stagingSettings": {
                             "linkedServiceName": {
-                              "referenceName": "[parameters('BlobStoreStagingArea')]",
+                              "referenceName": "[parameters('BlobStorage_Staging')]",
                               "type": "LinkedServiceReference"
                             },
                             "path": {
@@ -2393,7 +2393,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('Snowflake_Sink_New')]",
+                    "referenceName": "[parameters('Snowflake_Sink')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
                       "LS_DATABASE": {
@@ -2624,7 +2624,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
@@ -2634,7 +2634,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Sink_New')]",
+                "referenceName": "[parameters('Snowflake_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",
@@ -2705,7 +2705,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2715,7 +2715,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Sink_New')]",
+                "referenceName": "[parameters('Snowflake_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -2915,7 +2915,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source",
@@ -2925,7 +2925,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Sink_New')]",
+                "referenceName": "[parameters('Snowflake_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Sink",
@@ -3123,7 +3123,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Snowflake_Source_New')]",
+          "referenceName": "[parameters('Snowflake_Source')]",
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
@@ -3182,7 +3182,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Snowflake_Sink_New')]",
+          "referenceName": "[parameters('Snowflake_Sink')]",
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
@@ -3248,7 +3248,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SourceData",
@@ -3258,7 +3258,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Sink_New')]",
+                "referenceName": "[parameters('Snowflake_Sink')]",
                 "type": "LinkedServiceReference"
               },
               "name": "SinkData",

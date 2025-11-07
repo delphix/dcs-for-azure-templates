@@ -469,7 +469,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -586,7 +586,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -638,7 +638,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -714,7 +714,7 @@
       "properties": {
         "description": "DCSAzure - Azure SQL MI to Azure SQL MI Discovery Query Dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mi_discovery_source_db')]",
+          "referenceName": "[parameters('AzureSqlMI_Source')]",
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
@@ -762,7 +762,7 @@
       "properties": {
         "description": "DCS Azure - Azure SQL MI to Azure SQL MI Discovery metadata dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
+          "referenceName": "[parameters('Metadata Datastore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -806,7 +806,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_discovery_source_db')]",
+                "referenceName": "[parameters('AzureSqlMI_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source1MillRowDataSampling",
@@ -814,7 +814,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead",
@@ -824,7 +824,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('azuresql_mi_discovery_metadata_store_db')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",
