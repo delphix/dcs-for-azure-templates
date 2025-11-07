@@ -9,12 +9,12 @@
   ],
   "requires": {
     "linkedservices": {
-      "azuresql_mi_discovery_metadata_store_db": {
+      "Metadata Datastore": {
         "supportTypes": [
           "AzureSqlDatabase"
         ]
       },
-      "azuresql_mi_discovery_source_db": {
+      "AzureSqlMI_Source": {
         "supportTypes": [
           "AzureSqlMI"
         ]

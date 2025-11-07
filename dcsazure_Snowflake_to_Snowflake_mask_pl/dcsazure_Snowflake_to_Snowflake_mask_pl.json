@@ -9,13 +9,13 @@
     "Metadata Datastore": {
       "type": "string"
     },
-    "BlobStoreStagingArea": {
+    "BlobStorage_Staging": {
       "type": "string"
     },
-    "Snowflake_Sink_New": {
+    "Snowflake_Sink": {
       "type": "string"
     },
-    "Snowflake_Source_New": {
+    "Snowflake_Source": {
       "type": "string"
     },
     "ProdDCSForAzureService": {

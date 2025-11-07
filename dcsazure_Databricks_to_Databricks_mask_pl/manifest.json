@@ -28,7 +28,7 @@
           "AzureDatabricksDeltaLake"
         ]
       },
-      "DCSForAzureProd": {
+      "ProdDCSForAzureService": {
         "supportTypes": [
           "RestService"
         ]

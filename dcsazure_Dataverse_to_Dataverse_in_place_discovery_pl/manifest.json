@@ -23,7 +23,7 @@
           "CommonDataServiceForApps"
         ]
       },
-      "DCSForAzureDiscoveryService": {
+      "ProdDCSForAzureService": {
         "supportTypes": [
           "RestService"
         ]

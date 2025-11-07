@@ -8,7 +8,7 @@
   ],
   "requires": {
     "linkedservices": {
-      "BlobStoreStagingArea": {
+      "BlobStorage_Staging": {
         "supportTypes": [
           "AzureBlobStorage"
         ]
@@ -18,7 +18,7 @@
           "AzureSqlDatabase"
         ]
       },
-      "Snowflake_Source_New": {
+      "Snowflake_Source": {
         "supportTypes": [
           "SnowflakeV2"
         ]

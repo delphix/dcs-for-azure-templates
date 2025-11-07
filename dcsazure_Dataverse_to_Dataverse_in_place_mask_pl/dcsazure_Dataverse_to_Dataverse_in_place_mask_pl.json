@@ -12,7 +12,7 @@
     "Dataverse_Source": {
       "type": "string"
     },
-    "DCSForAzureMaskingService": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },

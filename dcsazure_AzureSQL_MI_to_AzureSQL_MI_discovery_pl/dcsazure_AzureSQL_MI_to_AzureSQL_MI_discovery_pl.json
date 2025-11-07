@@ -6,10 +6,10 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "azuresql_mi_discovery_metadata_store_db": {
+    "Metadata Datastore": {
       "type": "string"
     },
-    "azuresql_mi_discovery_source_db": {
+    "AzureSqlMI_Source": {
       "type": "string"
     },
     "ProdDCSForAzureService": {

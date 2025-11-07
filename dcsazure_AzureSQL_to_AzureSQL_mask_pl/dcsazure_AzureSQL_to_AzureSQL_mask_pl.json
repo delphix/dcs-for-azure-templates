@@ -6,13 +6,13 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "azuresql_mask_metadata_store_db": {
+    "Metadata Datastore": {
       "type": "string"
     },
-    "azuresql_mask_sink_db": {
+    "AzureSqlDatabase_Sink": {
       "type": "string"
     },
-    "azuresql_mask_source_db": {
+    "AzureSqlDatabase_Source": {
       "type": "string"
     },
     "ProdDCSForAzureService": {

@@ -15,7 +15,7 @@
     "Dataverse_Source": {
       "type": "string"
     },
-    "DCSForAzureDiscoveryService": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },

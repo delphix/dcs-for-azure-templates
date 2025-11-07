@@ -18,7 +18,7 @@
     "AzureDataLakeStorage_Source": {
       "type": "string"
     },
-    "DCSForAzureProd": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },
