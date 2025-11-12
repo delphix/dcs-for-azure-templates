@@ -15,7 +15,7 @@
     "Dataverse_Source": {
       "type": "string"
     },
-    "DCSForAzureDiscoveryService": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },
@@ -1279,7 +1279,7 @@
             {
               "name": "CallDCSForAzureDiscovery",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureDiscoveryService')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },

@@ -6,13 +6,13 @@
       "type": "string",
       "metadata": "Data Factory name"
     },
-    "BlobStoreStagingArea": {
+    "BlobStorage_Staging": {
       "type": "string"
     },
     "Metadata Datastore": {
       "type": "string"
     },
-    "Snowflake_Source_New": {
+    "Snowflake_Source": {
       "type": "string"
     },
     "ProdDCSForAzureService": {
@@ -78,7 +78,7 @@
               "enableStaging": true,
               "stagingSettings": {
                 "linkedServiceName": {
-                  "referenceName": "[parameters('BlobStoreStagingArea')]",
+                  "referenceName": "[parameters('BlobStorage_Staging')]",
                   "type": "LinkedServiceReference"
                 },
                 "path": {
@@ -732,7 +732,7 @@
       "apiVersion": "2018-06-01",
       "properties": {
         "linkedServiceName": {
-          "referenceName": "[parameters('Snowflake_Source_New')]",
+          "referenceName": "[parameters('Snowflake_Source')]",
           "type": "LinkedServiceReference",
           "parameters": {
             "LS_DATABASE": {
@@ -863,7 +863,7 @@
           "sources": [
             {
               "linkedService": {
-                "referenceName": "[parameters('Snowflake_Source_New')]",
+                "referenceName": "[parameters('Snowflake_Source')]",
                 "type": "LinkedServiceReference"
               },
               "name": "Source1MillRowDataSampling",

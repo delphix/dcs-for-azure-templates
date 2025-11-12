@@ -18,7 +18,7 @@
     "AzureDataLakeStorage_Source": {
       "type": "string"
     },
-    "DCSForAzureProd": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },
@@ -1435,7 +1435,7 @@
             {
               "name": "CallDCSForAzureProfiling",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureProd')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },

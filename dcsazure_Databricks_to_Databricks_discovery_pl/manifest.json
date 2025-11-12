@@ -28,7 +28,7 @@
           "AzureBlobFS"
         ]
       },
-      "DCSForAzureProd": {
+      "ProdDCSForAzureService": {
         "supportTypes": [
           "RestService"
         ]

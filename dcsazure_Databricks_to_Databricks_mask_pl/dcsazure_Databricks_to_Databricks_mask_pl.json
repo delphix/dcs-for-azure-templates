@@ -18,7 +18,7 @@
     "AzureDatabricksDeltaLake_Sink": {
       "type": "string"
     },
-    "DCSForAzureProd": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },
@@ -2847,7 +2847,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureProd')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -3520,7 +3520,7 @@
             {
               "name": "DCSForAzureAPI",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureProd')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },

@@ -47,6 +47,31 @@ service, please ensure that the changes are reflected in the
 [pipeline_template_standard_params.yaml](pipeline_template_standard_params.yaml) file. Also, linked service parameters of
 any new template should be added to the same file.
 
+## Linked Service Naming Conventions
+
+When creating or modifying pipelines, all linked services must follow the repository's naming conventions:
+
+1. **Mandatory Services:** All pipelines must include:
+   - `Metadata Datastore` (AzureSqlDatabase)
+   - `ProdDCSForAzureService` (RestService)
+
+2. **Source/Sink Requirements:**
+   - All pipelines need at least one `_Source`
+   - Mask pipelines need at least one `_Sink` (except in-place masking)
+
+3. **Naming Format:**
+   - RestService: CamelCase without underscores (e.g., `DataverseService`)
+   - Non-RestService: `CamelCase_{Source|Sink|Staging}` (e.g., `AzureSqlDatabase_Source`)
+
+4. **Technology Names:** Must match the support type mapping in the [`pipeline_template_standard_params.yaml`](./pipeline_template_standard_params.yaml) configuration
+
+**Complete guide:** [Linked Service Naming Conventions](./documentation/guides/linked-service-naming-conventions.md)
+
+**Validation:** Pre-commit hooks automatically validate naming conventions. Run manually:
+```bash
+python3 scripts/pre-commit/validate_linked_services.py
+```
+
 ## Code Style and Standards
 Before committing, you must run the `pre-commit` checks to ensure your changes meet the repository’s standards.
 
@@ -57,10 +82,11 @@ We use `pre-commit` to enforce coding standards like:
 1. Directory names containing ADF pipeline templates for different source and sink databases.
 2. Naming convention of source and sink databases in the ADF pipeline templates formatting.
 3. Parameter and dataflow naming convention in pipeline templates.
-4. Version numbering.
-5. Validation of `CHANGELOG.md`.
-6. `YAML`/`SQL`/`JSON` validation.
-7. Count of params used in the source/sink database linked services of the pipeline templates.
+4. **Linked service naming conventions.**
+5. Version numbering.
+6. Validation of `CHANGELOG.md`.
+7. `YAML`/`SQL`/`JSON` validation.
+8. Count of params used in the source/sink database linked services of the pipeline templates.
 
 ### Setup Instructions
 

@@ -8,17 +8,17 @@
   ],
   "requires": {
     "linkedservices": {
-      "azuresql_mask_metadata_store_db": {
+      "Metadata Datastore": {
         "supportTypes": [
           "AzureSqlDatabase"
         ]
       },
-      "azuresql_mask_sink_db": {
+      "AzureSqlDatabase_Sink": {
         "supportTypes": [
           "AzureSqlDatabase"
         ]
       },
-      "azuresql_mask_source_db": {
+      "AzureSqlDatabase_Source": {
         "supportTypes": [
           "AzureSqlDatabase"
         ]

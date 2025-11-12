@@ -13,17 +13,17 @@
           "AzureSqlDatabase"
         ]
       },
-      "BlobStoreStagingArea": {
+      "BlobStorage_Staging": {
         "supportTypes": [
           "AzureBlobStorage"
         ]
       },
-      "Snowflake_Sink_New": {
+      "Snowflake_Sink": {
         "supportTypes": [
           "SnowflakeV2"
         ]
       },
-      "Snowflake_Source_New": {
+      "Snowflake_Source": {
         "supportTypes": [
           "SnowflakeV2"
         ]

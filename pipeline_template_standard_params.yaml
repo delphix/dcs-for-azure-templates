@@ -28,3 +28,35 @@ pipeline_linked_service_params:
 
   AzureSQL_MI_mask:
     LS_DATABASE: 13
+
+# Linked Service Naming Conventions
+linked_service_conventions:
+  # Rules 1 & 2: Mandatory services that must be present in all pipelines
+  mandatory_services:
+    - name: "Metadata Datastore"
+      support_type: "AzureSqlDatabase"
+    - name: "ProdDCSForAzureService"
+      support_type: "RestService"
+  
+  # Rule 3: Pipelines that do in-place masking (Source without Sink is valid)
+  # Note: In-place masking pipelines should contain "in_place" in their name
+  in_place_masking_pipelines:
+    - "dcsazure_Dataverse_to_Dataverse_in_place_mask_pl"
+  
+  # Rules 4 & 5: Regex patterns for validation
+  naming_patterns:
+    rest_service: "^[A-Z][a-zA-Z0-9]+$"  # Rule 4: CamelCase, no underscores
+    non_rest_service: "^[A-Z][a-zA-Z0-9]+_(Source|Sink|Staging)$"  # Rule 5
+  
+  # Support type to technology name mapping (for Rules 3 & 5 validation)
+  # Rule 3: Used to identify Source/Sink linked services
+  # Rule 5: Used to verify the technology prefix matches the support type
+  support_type_to_technology:
+    AzureBlobFS: "AzureDataLakeStorage"
+    AzureSqlDatabase: "AzureSqlDatabase"
+    AzureSqlMI: "AzureSqlMI"
+    SnowflakeV2: "Snowflake"
+    AzureDatabricksDeltaLake: "AzureDatabricksDeltaLake"
+    AzureBlobStorage: "BlobStorage"
+    CommonDataServiceForApps: "Dataverse"
+
