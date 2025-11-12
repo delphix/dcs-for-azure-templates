@@ -10,21 +10,11 @@ import re
 import sys
 import yaml
 import logging
-from pathlib import Path
+from helpers import PIPELINE_TEMPLATE_STANDARD_PARAMS_YAML
+
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger("validate_linked_services")
-
-# Support type to technology name mapping
-SUPPORT_TYPE_TO_TECHNOLOGY = {
-    "AzureBlobFS": "AzureDataLakeStorage",
-    "AzureSqlDatabase": "AzureSqlDatabase",
-    "AzureSqlMI": "AzureSqlMI",
-    "SnowflakeV2": "Snowflake",
-    "AzureDatabricksDeltaLake": "AzureDatabricksDeltaLake",
-    "AzureBlobStorage": "BlobStorage",
-    "CommonDataServiceForApps": "Dataverse"
-}
 
 
 class ValidationError(Exception):
@@ -34,23 +24,23 @@ class ValidationError(Exception):
 
 def load_config():
     """Load configuration from pipeline_template_standard_params.yaml"""
-    config_path = "pipeline_template_standard_params.yaml"
-    
     default_config = {
-        'in_place_masking_pipelines': ['dcsazure_Dataverse_to_Dataverse_in_place_mask_pl']
+        'in_place_masking_pipelines': ['dcsazure_Dataverse_to_Dataverse_in_place_mask_pl'],
+        'support_type_to_technology': {}
     }
     
-    if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
+    if os.path.exists(PIPELINE_TEMPLATE_STANDARD_PARAMS_YAML):
+        with open(PIPELINE_TEMPLATE_STANDARD_PARAMS_YAML, 'r') as f:
             config = yaml.safe_load(f)
             return config.get('linked_service_conventions', default_config)
     
     return default_config
 
 
-def validate_linked_service(service_name, support_types, pipeline_name):
+def validate_linked_service(service_name, support_types, pipeline_name, config):
     """Validate a single linked service against all rules"""
     support_type = support_types[0] if support_types else None
+    support_type_to_technology = config.get('support_type_to_technology', {})
     
     # Rule 1: Check for mandatory Metadata Datastore
     if service_name == "Metadata Datastore":
@@ -83,7 +73,7 @@ def validate_linked_service(service_name, support_types, pipeline_name):
     
     # Verify technology name matches support type
     tech_name = service_name.rsplit('_', 1)[0]  # Extract technology part
-    expected_tech = SUPPORT_TYPE_TO_TECHNOLOGY.get(support_type)
+    expected_tech = support_type_to_technology.get(support_type)
     if expected_tech and tech_name != expected_tech:
         raise ValidationError(f"Rule 5: Technology name '{tech_name}' doesn't match expected '{expected_tech}' for supportType '{support_type}'")
 
@@ -124,7 +114,7 @@ def validate_pipeline(manifest_path, config):
     for service_name, service_config in linked_services.items():
         support_types = service_config.get('supportTypes', [])
         try:
-            validate_linked_service(service_name, support_types, pipeline_name)
+            validate_linked_service(service_name, support_types, pipeline_name, config)
         except ValidationError as e:
             errors.append(str(e))
     
