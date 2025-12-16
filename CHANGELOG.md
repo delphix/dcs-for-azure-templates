@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.42
+* Updated `dcsazure_AzureSQL_to_AzureSQL_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused 
+  by tables with zero records, by adding a `row_count > 0` condition in the `Select Tables That Require Masking` step
+
 # 0.0.41
 * Updated validate_new_pipeline_references.py to fix the unsupported typing syntax for Python 3.8 compatibility.
 
