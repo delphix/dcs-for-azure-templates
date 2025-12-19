@@ -2569,6 +2569,53 @@
               "variableName": "PIPELINE_FAILED",
               "value": true
             }
+          },
+          {
+            "name": "Skipped Empty Tables",
+            "description": "Identifies tables with row_count = 0 that were skipped during masking.",
+            "type": "Lookup",
+            "dependsOn": [
+              {
+                "activity": "Select Tables That Require Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "WITH tables_skipped_due_to_zero_rows AS (\n  SELECT DISTINCT\n      dataset,\n      specified_database,\n      specified_schema,\n      identified_table\n  FROM dbo.discovered_ruleset\n  WHERE dataset = '@{variables('DATASET')}'\n    AND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n    AND specified_schema   = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n    AND ISNULL(row_count, 0) = 0\n)\nSELECT DISTINCT\n    dm.source_dataset,\n    dm.source_database,\n    dm.source_schema,\n    dm.source_table\nFROM tables_skipped_due_to_zero_rows t\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n  ON t.dataset            = dm.source_dataset\n AND t.specified_database = dm.source_database\n AND t.specified_schema   = dm.source_schema\n AND t.identified_table   = dm.source_table",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@variables('METADATA_SCHEMA')",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@variables('METADATA_RULESET_TABLE')",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
           }
         ],
         "policy": {
@@ -2674,7 +2721,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-10-14T12:33:01Z"
+        "lastPublishTime": "2025-12-19T11:53:29Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_metadata_ds')]",
@@ -3116,7 +3163,10 @@
                   "value": "@concat(pipeline().parameters.P_METADATA_SCHEMA, '.', pipeline().parameters.P_METADATA_INSERT_CONSTRAINT_PROCEDURE_NAME)",
                   "type": "Expression"
                 },
-                "sqlWriterTableType": "@{pipeline().parameters.P_METADATA_SCHEMA}.sink_drop_constraint_type",
+                "sqlWriterTableType": {
+                  "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.sink_drop_constraint_type",
+                  "type": "Expression"
+                },
                 "storedProcedureTableTypeParameterName": "source",
                 "disableMetricsCollection": false
               },
@@ -3402,7 +3452,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-10-14T12:33:00Z"
+        "lastPublishTime": "2025-12-19T08:53:49Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
@@ -3565,7 +3615,10 @@
                   "value": "@concat(pipeline().parameters.P_METADATA_SCHEMA, '.', pipeline().parameters.P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME)",
                   "type": "Expression"
                 },
-                "sqlWriterTableType": "@{pipeline().parameters.P_METADATA_SCHEMA}.sink_create_constraint_type",
+                "sqlWriterTableType": {
+                  "value": "@{pipeline().parameters.P_METADATA_SCHEMA}.sink_create_constraint_type",
+                  "type": "Expression"
+                },
                 "storedProcedureTableTypeParameterName": "source",
                 "disableMetricsCollection": false
               },
@@ -3832,7 +3885,7 @@
           "name": "dcsazure_AzureSQL_to_AzureSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2025-10-14T12:33:00Z"
+        "lastPublishTime": "2025-12-19T08:53:49Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_AzureSQL_to_AzureSQL_mask_sink_ds')]",
