@@ -4,6 +4,7 @@
 * Updated `dcsazure_AzureSQL_to_AzureSQL_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused 
   by tables with zero records, by adding a `row_count > 0` condition in the `Select Tables That Require Masking` step
 * Updated `generate_masking_parameters` stored procedure to cast the NumberOfBatches parameter to INT to prevent type mismatch errors.
+* Updated the Create Constraint Pipeline and Drop Constraint Pipeline sink configuration to fully qualify the table type with the metadata schema.
 
 # 0.0.41
 * Updated validate_new_pipeline_references.py to fix the unsupported typing syntax for Python 3.8 compatibility.
