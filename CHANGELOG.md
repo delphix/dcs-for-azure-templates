@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.43
+* Updated the generate_masking_parameters stored procedure to resolve an issue where columns with identical names up to 29 characters were generating duplicate hex codes.
+
 # 0.0.42
 * Updated `dcsazure_AzureSQL_to_AzureSQL_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused 
   by tables with zero records, by adding a `row_count > 0` condition in the `Select Tables That Require Masking` step
