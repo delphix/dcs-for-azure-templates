@@ -1,5 +1,10 @@
 # CHANGELOG
 
+# 0.0.44
+* Updated `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused 
+  by tables with zero records, by adding a `row_count > 0` condition in the `Select Tables That Require Masking` step
+* Implemented a Lookup activity in the masking pipeline to list tables ignored during masking due to empty data.
+
 # 0.0.43
 * Updated the generate_masking_parameters stored procedure to resolve an issue where columns with identical names up to 29 characters were generating duplicate hex codes.
 
