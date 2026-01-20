@@ -220,6 +220,24 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "databaseName": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "databaseName": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -684,6 +702,24 @@
                             "datasetParameters": {
                               "Source": {},
                               "Sink": {}
+                            },
+                            "linkedServiceParameters": {
+                              "Source": {
+                                "linkedService": {
+                                  "databaseName": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "Sink": {
+                                "linkedService": {
+                                  "databaseName": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -1693,6 +1729,24 @@
                             "datasetParameters": {
                               "SourceData": {},
                               "SinkData": {}
+                            },
+                            "linkedServiceParameters": {
+                              "SourceData": {
+                                "linkedService": {
+                                  "databaseName": {
+                                    "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              },
+                              "SinkData": {
+                                "linkedService": {
+                                  "databaseName": {
+                                    "value": "@pipeline().parameters.P_SINK_DATABASE",
+                                    "type": "Expression"
+                                  }
+                                }
+                              }
                             }
                           },
                           "staging": {},
@@ -2227,7 +2281,13 @@
                   "userProperties": [],
                   "linkedServiceName": {
                     "referenceName": "[parameters('AzurePostgreSql_Sink')]",
-                    "type": "LinkedServiceReference"
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "databaseName": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -2761,7 +2821,13 @@
                   "userProperties": [],
                   "linkedServiceName": {
                     "referenceName": "[parameters('AzurePostgreSql_Sink')]",
-                    "type": "LinkedServiceReference"
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "databaseName": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -3359,7 +3425,13 @@
                   "userProperties": [],
                   "linkedServiceName": {
                     "referenceName": "[parameters('AzurePostgreSql_Sink')]",
-                    "type": "LinkedServiceReference"
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                      "databaseName": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
                   },
                   "typeProperties": {
                     "scripts": [
@@ -3759,7 +3831,13 @@
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('AzurePostgreSql_Sink')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "databaseName": {
+              "value": "@dataset().DS_SINK_DATABASE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SINK_SCHEMA": {
@@ -4222,7 +4300,13 @@
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('AzurePostgreSql_Source')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "databaseName": {
+              "value": "@dataset().DS_SOURCE_DATABASE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SOURCE_SCHEMA": {

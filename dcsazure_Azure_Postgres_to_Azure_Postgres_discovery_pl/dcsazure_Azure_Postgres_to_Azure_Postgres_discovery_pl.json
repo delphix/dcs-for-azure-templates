@@ -377,6 +377,16 @@
                         "Source1MillRowDataSampling": {},
                         "MetadataStoreRead": {},
                         "WriteToMetadataStore": {}
+                      },
+                      "linkedServiceParameters": {
+                        "Source1MillRowDataSampling": {
+                          "linkedService": {
+                            "databaseName": {
+                              "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                              "type": "Expression"
+                            }
+                          }
+                        }
                       }
                     },
                     "staging": {},
@@ -744,7 +754,13 @@
       "properties": {
         "linkedServiceName": {
           "referenceName": "[parameters('AzurePostgreSql_Source')]",
-          "type": "LinkedServiceReference"
+          "type": "LinkedServiceReference",
+          "parameters": {
+            "databaseName": {
+              "value": "@dataset().DS_SOURCE_DATABASE",
+              "type": "Expression"
+            }
+          }
         },
         "parameters": {
           "DS_SOURCE_DATABASE": {
