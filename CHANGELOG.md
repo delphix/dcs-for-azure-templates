@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.44
+* Added Azure Postgres to Azure Postgres Discovery Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl`.
+* Added Azure Postgres to Azure Postgres Masking Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl`.
+
 # 0.0.43
 * Updated the generate_masking_parameters stored procedure to resolve an issue where columns with identical names up to 29 characters were generating duplicate hex codes.
 
