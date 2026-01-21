@@ -381,7 +381,7 @@
                       "linkedServiceParameters": {
                         "Source1MillRowDataSampling": {
                           "linkedService": {
-                            "databaseName": {
+                            "LS_DATABASE": {
                               "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                               "type": "Expression"
                             }
@@ -507,7 +507,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('AzureSqlDatabase')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -624,7 +624,7 @@
                     }
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('AzureSqlDatabase')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   }
                 },
@@ -676,7 +676,7 @@
                   },
                   "userProperties": [],
                   "linkedServiceName": {
-                    "referenceName": "[parameters('AzureSqlDatabase')]",
+                    "referenceName": "[parameters('Metadata Datastore')]",
                     "type": "LinkedServiceReference"
                   },
                   "typeProperties": {
@@ -702,11 +702,11 @@
         "parameters": {
           "P_SOURCE_DATABASE": {
             "type": "string",
-            "defaultValue": "postgres"
+            "defaultValue": ""
           },
           "P_SOURCE_SCHEMA": {
             "type": "string",
-            "defaultValue": "Source"
+            "defaultValue": ""
           },
           "P_REDISCOVER": {
             "type": "bool",
@@ -756,7 +756,7 @@
           "referenceName": "[parameters('AzurePostgreSql_Source')]",
           "type": "LinkedServiceReference",
           "parameters": {
-            "databaseName": {
+            "LS_DATABASE": {
               "value": "@dataset().DS_SOURCE_DATABASE",
               "type": "Expression"
             }
@@ -799,7 +799,7 @@
       "properties": {
         "description": "DCS Azure - Azure Postgres to Azure Postgres  Discovery metadata dataset",
         "linkedServiceName": {
-          "referenceName": "[parameters('AzureSqlDatabase')]",
+          "referenceName": "[parameters('Metadata Datastore')]",
           "type": "LinkedServiceReference"
         },
         "parameters": {
@@ -851,7 +851,7 @@
             },
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "MetadataStoreRead",
@@ -861,7 +861,7 @@
           "sinks": [
             {
               "linkedService": {
-                "referenceName": "[parameters('AzureSqlDatabase')]",
+                "referenceName": "[parameters('Metadata Datastore')]",
                 "type": "LinkedServiceReference"
               },
               "name": "WriteToMetadataStore",

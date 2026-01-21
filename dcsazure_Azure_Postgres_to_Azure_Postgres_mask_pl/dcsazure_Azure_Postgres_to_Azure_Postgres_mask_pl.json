@@ -224,7 +224,7 @@
                             "linkedServiceParameters": {
                               "Source": {
                                 "linkedService": {
-                                  "databaseName": {
+                                  "LS_DATABASE": {
                                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                                     "type": "Expression"
                                   }
@@ -232,7 +232,7 @@
                               },
                               "Sink": {
                                 "linkedService": {
-                                  "databaseName": {
+                                  "LS_DATABASE": {
                                     "value": "@pipeline().parameters.P_SINK_DATABASE",
                                     "type": "Expression"
                                   }
@@ -706,7 +706,7 @@
                             "linkedServiceParameters": {
                               "Source": {
                                 "linkedService": {
-                                  "databaseName": {
+                                  "LS_DATABASE": {
                                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                                     "type": "Expression"
                                   }
@@ -714,7 +714,7 @@
                               },
                               "Sink": {
                                 "linkedService": {
-                                  "databaseName": {
+                                  "LS_DATABASE": {
                                     "value": "@pipeline().parameters.P_SINK_DATABASE",
                                     "type": "Expression"
                                   }
@@ -1733,7 +1733,7 @@
                             "linkedServiceParameters": {
                               "SourceData": {
                                 "linkedService": {
-                                  "databaseName": {
+                                  "LS_DATABASE": {
                                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                                     "type": "Expression"
                                   }
@@ -1741,7 +1741,7 @@
                               },
                               "SinkData": {
                                 "linkedService": {
-                                  "databaseName": {
+                                  "LS_DATABASE": {
                                     "value": "@pipeline().parameters.P_SINK_DATABASE",
                                     "type": "Expression"
                                   }
@@ -2283,7 +2283,7 @@
                     "referenceName": "[parameters('AzurePostgreSql_Sink')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
-                      "databaseName": {
+                      "LS_DATABASE": {
                         "value": "@pipeline().parameters.P_SINK_DATABASE",
                         "type": "Expression"
                       }
@@ -2568,19 +2568,19 @@
           },
           "P_SOURCE_DATABASE": {
             "type": "string",
-            "defaultValue": "postgres"
+            "defaultValue": ""
           },
           "P_SINK_DATABASE": {
             "type": "string",
-            "defaultValue": "postgres"
+            "defaultValue": ""
           },
           "P_SOURCE_SCHEMA": {
             "type": "string",
-            "defaultValue": "Source"
+            "defaultValue": ""
           },
           "P_SINK_SCHEMA": {
             "type": "string",
-            "defaultValue": "Sink"
+            "defaultValue": ""
           },
           "P_REAPPLY_MAPPING": {
             "type": "bool",
@@ -2823,7 +2823,7 @@
                     "referenceName": "[parameters('AzurePostgreSql_Sink')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
-                      "databaseName": {
+                      "LS_DATABASE": {
                         "value": "@pipeline().parameters.P_SINK_DATABASE",
                         "type": "Expression"
                       }
@@ -3427,7 +3427,7 @@
                     "referenceName": "[parameters('AzurePostgreSql_Sink')]",
                     "type": "LinkedServiceReference",
                     "parameters": {
-                      "databaseName": {
+                      "LS_DATABASE": {
                         "value": "@pipeline().parameters.P_SINK_DATABASE",
                         "type": "Expression"
                       }
@@ -3833,7 +3833,7 @@
           "referenceName": "[parameters('AzurePostgreSql_Sink')]",
           "type": "LinkedServiceReference",
           "parameters": {
-            "databaseName": {
+            "LS_DATABASE": {
               "value": "@dataset().DS_SINK_DATABASE",
               "type": "Expression"
             }
@@ -4302,7 +4302,7 @@
           "referenceName": "[parameters('AzurePostgreSql_Source')]",
           "type": "LinkedServiceReference",
           "parameters": {
-            "databaseName": {
+            "LS_DATABASE": {
               "value": "@dataset().DS_SOURCE_DATABASE",
               "type": "Expression"
             }

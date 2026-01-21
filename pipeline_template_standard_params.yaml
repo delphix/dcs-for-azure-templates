@@ -29,6 +29,12 @@ pipeline_linked_service_params:
   AzureSQL_MI_mask:
     LS_DATABASE: 13
 
+  Azure_Postgres_discovery:
+    LS_DATABASE: 2
+
+  Azure_Postgres_mask:
+    LS_DATABASE: 11
+
 # Linked Service Naming Conventions
 linked_service_conventions:
   # Rules 1 & 2: Mandatory services that must be present in all pipelines
@@ -59,4 +65,5 @@ linked_service_conventions:
     AzureDatabricksDeltaLake: "AzureDatabricksDeltaLake"
     AzureBlobStorage: "BlobStorage"
     CommonDataServiceForApps: "Dataverse"
+    AzurePostgreSql: "AzurePostgreSql"
 
