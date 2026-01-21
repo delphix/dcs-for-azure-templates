@@ -1,8 +1,9 @@
-DELETE FROM adf_type_mapping WHERE dataset = 'AZURE_POSTGRES';
+DELETE FROM adf_type_mapping
+WHERE dataset = 'AZURE_POSTGRES';
 
 
 INSERT INTO adf_type_mapping (dataset, dataset_type, adf_type)
-   VALUES
+VALUES
 ('AZURE_POSTGRES', 'smallint', 'short'),
 ('AZURE_POSTGRES', 'integer', 'integer'),
 ('AZURE_POSTGRES', 'bigint', 'long'),
