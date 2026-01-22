@@ -30,7 +30,7 @@ pipeline_linked_service_params:
     LS_DATABASE: 13
 
   Azure_Postgres_discovery:
-    LS_DATABASE: 2
+    LS_DATABASE: 3
 
   Azure_Postgres_mask:
     LS_DATABASE: 11

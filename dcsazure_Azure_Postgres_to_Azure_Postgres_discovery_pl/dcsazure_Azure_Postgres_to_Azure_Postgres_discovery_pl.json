@@ -48,7 +48,13 @@
             "userProperties": [],
             "linkedServiceName": {
               "referenceName": "[parameters('AzurePostgreSql_Source')]",
-              "type": "LinkedServiceReference"
+              "type": "LinkedServiceReference",
+              "parameters": {
+                "LS_DATABASE": {
+                  "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                  "type": "Expression"
+                }
+              }
             },
             "typeProperties": {
               "scripts": [
@@ -236,9 +242,7 @@
                   "DS_SOURCE_DATABASE": {
                     "value": "@pipeline().parameters.P_SOURCE_DATABASE",
                     "type": "Expression"
-                  },
-                  "DS_SOURCE_SCHEMA": "N/A",
-                  "DS_SOURCE_TABLE": "N/A"
+                  }
                 }
               }
             ],
@@ -765,12 +769,6 @@
         "parameters": {
           "DS_SOURCE_DATABASE": {
             "type": "string"
-          },
-          "DS_SOURCE_SCHEMA": {
-            "type": "string"
-          },
-          "DS_SOURCE_TABLE": {
-            "type": "string"
           }
         },
         "folder": {
@@ -779,16 +777,7 @@
         "annotations": [],
         "type": "AzurePostgreSqlTable",
         "schema": [],
-        "typeProperties": {
-          "schema": {
-            "value": "@dataset().DS_SOURCE_SCHEMA",
-            "type": "Expression"
-          },
-          "table": {
-            "value": "@dataset().DS_SOURCE_TABLE",
-            "type": "Expression"
-          }
-        }
+        "typeProperties": {}
       },
       "dependsOn": []
     },
