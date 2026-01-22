@@ -1,4 +1,3 @@
-
 # dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl
 ## Delphix Compliance Services (DCS) for Azure - Azure PostgreSQL to Azure PostgreSQL Discovery Pipeline
 
@@ -6,15 +5,15 @@ This pipeline will perform automated sensitive data discovery on your Azure Post
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.15.0`+).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2026.01.20.0`+).
 2. Configure the DCS for Azure REST service.
 3. Configure the Azure PostgreSQL linked service.
    * It is helpful for the linked service to be parameterized with the following parameter:
-     * `databaseName` - database name in the linked service
+     * `LS_DATABASE` - database name in the linked service
 
 ### Importing
 
-There are several linked services that will need to be selected in order to perform the profiling and data discovery of your Azure PostgreSQL instance.
+There are several linked services that will need to be selected in order to perform the data discovery and profiling of your Azure PostgreSQL instance.
 
 These linked services types are needed for the following steps:
 
@@ -39,9 +38,8 @@ These linked services types are needed for the following steps:
 * Check If We Should Rediscover Data
   * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables have not had their sensitive data discovered
 * Analyze Source Schema
-  * Runs `ANALYZE` on the source database to refresh PostgreSQL statistics used during discovery.
-  * This improves stability of schema discovery and row count estimates to be done in the next step.
-* Schema Discovery From PostgreSQL
+  * Runs `ANALYZE` command on the source database to refresh PostgreSQL statistics used during discovery.
+  * This refreshes PostgreSQL planner statistics so schema discovery uses up-to-date row-count estimates and avoids inconsistent results caused by stale stats.
   * Query metadata from PostgreSQL (`information_schema + pg_catalog`) to identify tables and columns in the PostgreSQL instance.
   * Row counts are determined using PostgreSQL table statistics (example: `pg_stat_all_tables.n_live_tup`).
 * Select Discovered Tables
@@ -51,7 +49,7 @@ These linked services types are needed for the following steps:
 
 ### Variables
 
-If you have configured your database using the metadata store scripts, these variables will not need editing. If you
+If you have configured your metadata database using the metadata store scripts, these variables will not need editing. If you
 have customized your metadata store, then these variables may need editing.
 
 * `METADATA_SCHEMA` - This is the schema to be used for in the hosted metadata database for storing metadata  

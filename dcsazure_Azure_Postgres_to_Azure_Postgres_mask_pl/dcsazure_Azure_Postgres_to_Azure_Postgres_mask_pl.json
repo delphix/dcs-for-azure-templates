@@ -9,10 +9,10 @@
     "Metadata Datastore": {
       "type": "string"
     },
-    "AzurePostgreSql_Source": {
+    "AzurePostgreSql_Sink": {
       "type": "string"
     },
-    "AzurePostgreSql_Sink": {
+    "AzurePostgreSql_Source": {
       "type": "string"
     },
     "ProdDCSForAzureService": {
@@ -53,7 +53,7 @@
               "source": {
                 "type": "AzureSqlSource",
                 "sqlReaderQuery": {
-                  "value": "WITH\ntables_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE ISJSON(assigned_algorithm) = 1\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\ntables_not_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE assigned_algorithm IS NOT NULL\n\tAND assigned_algorithm != ''\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n\tEXCEPT\n\tSELECT dataset, specified_database, specified_schema, identified_table\n\tFROM tables_requiring_filters\n\tWHERE dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\nall_filters AS\n(\n\tSELECT DISTINCT\n\t\tJSON_VALUE(kc.value, '$.alias') as filter_alias,\n\t\treplace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n),\ndefault_filters AS\n(\n\tSELECT DISTINCT\n\t\t'default' as filter_alias,\n\t\tSTRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n\tGROUP BY d.identified_table\n),\nsources_and_filters AS (\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN default_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN all_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tdataset,\n\t\tspecified_database,\n\t\tspecified_schema,\n\t\tidentified_table,\n\t\t'',\n\t\t''\n\tFROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0  OR dm.masked_status IS NULL)\nUNION\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tCROSS APPLY OPENJSON(dm.masked_status) kc\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND ISJSON(dm.masked_status) = 1\n\tAND kc.[key] = rs.filter_alias\n\tAND kc.[value] = 'false'\n\tAND (\n\t\t(filter_alias = 'default' AND  \n\t\t\tidentified_table IN (\n\t\t\t\tSELECT DISTINCT\n\t\t\t\t\tidentified_table\n\t\t\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n\t\t\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\t\t\tWHERE\n\t\t\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\t\t\tAND JSON_VALUE(kc.value, '$.alias') = 'default'\n\t\t\t)\n\t\t)\n\t\tOR\n\t\t(filter_alias != 'default')\n\t)\n",
+                  "value": "WITH\ntables_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE ISJSON(assigned_algorithm) = 1\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n\tAND row_count > 0  \n),\ntables_not_requiring_filters AS\n(\n\tSELECT DISTINCT\n\t\tdataset, specified_database, specified_schema, identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n\tWHERE assigned_algorithm IS NOT NULL\n\tAND assigned_algorithm != ''\n\tAND dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n\tAND row_count > 0 \n\tEXCEPT\n\tSELECT dataset, specified_database, specified_schema, identified_table\n\tFROM tables_requiring_filters\n\tWHERE dataset = '@{variables('DATASET')}'\n\tAND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n\tAND specified_schema = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n),\nall_filters AS\n(\n\tSELECT DISTINCT\n\t\tJSON_VALUE(kc.value, '$.alias') as filter_alias,\n\t\treplace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''') ')) as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND d.row_count > 0\n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n),\ndefault_filters AS\n(\n\tSELECT DISTINCT\n\t\t'default' as filter_alias,\n\t\tSTRING_AGG(concat('not(', replace(JSON_VALUE(kc.value, '$.condition'), '@{variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')}', concat('byName(''', d.identified_column, ''')')),')'), ' && ') as filter_value,\n\t\td.identified_table\n\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d \n\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\tWHERE\n\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\tAND\n\t\td.identified_table in (\n\t\t\tSELECT identified_table FROM tables_requiring_filters\n\t\t)\n\t\tAND d.row_count > 0 \n\t\tAND JSON_VALUE(kc.value,'$.alias') != 'default'\n\tGROUP BY d.identified_table\n),\nsources_and_filters AS (\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN default_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tt.dataset,\n\t\tt.specified_database,\n\t\tt.specified_schema,\n\t\tt.identified_table,\n\t\tf.filter_alias,\n\t\tf.filter_value\n\tFROM tables_requiring_filters t JOIN all_filters f\n\tON t.identified_table = f.identified_table\n\tUNION\n\tSELECT\n\t\tdataset,\n\t\tspecified_database,\n\t\tspecified_schema,\n\t\tidentified_table,\n\t\t'',\n\t\t''\n\tFROM tables_not_requiring_filters\n)\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND (ISJSON(dm.masked_status) = 0  OR dm.masked_status IS NULL)\nUNION\nSELECT DISTINCT\n\tdm.source_dataset,\n\tdm.source_database,\n\tdm.source_schema,\n\tdm.source_table,\n\tdm.sink_dataset,\n\tdm.sink_database,\n\tdm.sink_schema,\n\tdm.sink_table,\n\trs.filter_alias,\n\trs.filter_value\nFROM\n\tsources_and_filters rs\n\tJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n\tCROSS APPLY OPENJSON(dm.masked_status) kc\n\tON (\n\t\trs.dataset = dm.source_dataset AND\n\t\trs.specified_database = dm.source_database AND\n\t\trs.specified_schema = dm.source_schema AND\n\t\trs.identified_table = dm.source_table\n\t)\nWHERE\n\tdm.sink_database = '@{pipeline().parameters.P_SINK_DATABASE}' AND\n\tdm.sink_schema = '@{pipeline().parameters.P_SINK_SCHEMA}'\n\tAND (dm.mapping_complete IS NULL OR dm.mapping_complete = 0)\n\tAND ISJSON(dm.masked_status) = 1\n\tAND kc.[key] = rs.filter_alias\n\tAND kc.[value] = 'false'\n\tAND (\n\t\t(filter_alias = 'default' AND  \n\t\t\tidentified_table IN (\n\t\t\t\tSELECT DISTINCT\n\t\t\t\t\tidentified_table\n\t\t\tFROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')} d\n\t\t\t\tCROSS APPLY OPENJSON(d.assigned_algorithm) kc\n\t\t\tWHERE\n\t\t\t\tISJSON(assigned_algorithm,ARRAY) = 1\n\t\t\t\tAND JSON_VALUE(kc.value, '$.alias') = 'default'\n\t\t\t\tAND d.row_count > 0 \n\t\t\t)\n\t\t)\n\t\tOR\n\t\t(filter_alias != 'default')\n\t)\n",
                   "type": "Expression"
                 },
                 "queryTimeout": "02:00:00",
@@ -2311,7 +2311,7 @@
             "type": "Script",
             "dependsOn": [
               {
-                "activity": "Select Tables That Require Masking",
+                "activity": "Skipped Empty Tables",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -2548,6 +2548,53 @@
               "variableName": "PIPELINE_FAILED",
               "value": true
             }
+          },
+          {
+            "name": "Skipped Empty Tables",
+            "description": "Identifies tables with row_count = 0 that were skipped during masking.",
+            "type": "Lookup",
+            "dependsOn": [
+              {
+                "activity": "Select Tables That Require Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "policy": {
+              "timeout": "0.12:00:00",
+              "retry": 0,
+              "retryIntervalInSeconds": 30,
+              "secureOutput": false,
+              "secureInput": false
+            },
+            "userProperties": [],
+            "typeProperties": {
+              "source": {
+                "type": "AzureSqlSource",
+                "sqlReaderQuery": {
+                  "value": "WITH tables_skipped_due_to_zero_rows AS (\n    SELECT DISTINCT\n        dataset,\n        specified_database,\n        specified_schema,\n        identified_table\n    FROM @{variables('METADATA_SCHEMA')}.@{variables('METADATA_RULESET_TABLE')}\n    WHERE dataset = '@{variables('DATASET')}'\n      AND specified_database = '@{pipeline().parameters.P_SOURCE_DATABASE}'\n      AND specified_schema   = '@{pipeline().parameters.P_SOURCE_SCHEMA}'\n      AND ISNULL(row_count, 0) = 0\n)\nSELECT DISTINCT\n    dm.source_dataset,\n    dm.source_database,\n    dm.source_schema,\n    dm.source_table\nFROM tables_skipped_due_to_zero_rows t\nJOIN @{variables('METADATA_SCHEMA')}.@{variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')} dm\n  ON t.dataset            = dm.source_dataset\n AND t.specified_database = dm.source_database\n AND t.specified_schema   = dm.source_schema\n AND t.identified_table   = dm.source_table;\n",
+                  "type": "Expression"
+                },
+                "queryTimeout": "02:00:00",
+                "partitionOption": "None"
+              },
+              "dataset": {
+                "referenceName": "dcsazure_Azure_Postgres_to_Azure_Postgres_mask_metadata_ds",
+                "type": "DatasetReference",
+                "parameters": {
+                  "DS_METADATA_SCHEMA": {
+                    "value": "@variables('METADATA_SCHEMA')",
+                    "type": "Expression"
+                  },
+                  "DS_METADATA_TABLE": {
+                    "value": "@variables('METADATA_RULESET_TABLE')",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "firstRowOnly": false
+            }
           }
         ],
         "policy": {
@@ -2649,7 +2696,7 @@
           "name": "dcsazure_Azure_Postgres_to_Azure_Postgres"
         },
         "annotations": [],
-        "lastPublishTime": "2026-01-16T11:37:18Z"
+        "lastPublishTime": "2026-01-22T06:31:41Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Azure_Postgres_to_Azure_Postgres_mask_metadata_ds')]",
@@ -3379,7 +3426,7 @@
           "name": "dcsazure_Azure_Postgres_to_Azure_Postgres"
         },
         "annotations": [],
-        "lastPublishTime": "2026-01-15T14:10:01Z"
+        "lastPublishTime": "2026-01-21T08:06:41Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Azure_Postgres_to_Azure_Postgres_mask_sink_ds')]",
@@ -3817,7 +3864,7 @@
           "name": "dcsazure_Azure_Postgres_to_Azure_Postgres"
         },
         "annotations": [],
-        "lastPublishTime": "2026-01-15T14:00:09Z"
+        "lastPublishTime": "2026-01-21T08:06:41Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Azure_Postgres_to_Azure_Postgres_mask_sink_ds')]",
@@ -4009,7 +4056,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/maaas-dev04/v1/masking/batchMaskByColumn',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",
@@ -4223,7 +4270,7 @@
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId, 'Field-Algorithm-Assignment' -> $DF_FIELD_ALGORITHM_ASSIGNMENT, 'Fail-On-Non-Conformant-Data' -> iif($DF_FAIL_ON_NONCONFORMANT_DATA,'true','false'), 'Field-Date-Format' -> $DF_FIELD_DATE_FORMAT],",
             "     httpMethod: 'POST',",
-            "     entity: '/maaas-dev04/v1/masking/batchMaskByColumn',",
+            "     entity: '/v1/masking/batchMaskByColumn',",
             "     headerColumnName: 'headers',",
             "     bodyColumnName: 'body',",
             "     statusColumnName: 'status',",

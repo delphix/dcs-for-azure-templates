@@ -5,11 +5,11 @@ This pipeline will perform masking of your Azure PostgreSQL Instance.
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.30.0`+).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2026.01.20.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure PostgreSQL linked service.
    * It is helpful for the linked service to be parameterized with the following parameter:
-      * `databaseName` - database name in the linked service
+      * `LS_DATABASE` - database name in the linked service
 
 
 ### Importing
