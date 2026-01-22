@@ -65,6 +65,6 @@ have customized your metadata store, then these variables may need editing.
 
 ### Parameters
 
-* `P_SOURCE_DATABASE` - String - This is the database in Azure PostgreSQL that may contain sensitive data (default `postgres`)
-* `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that may contain sensitive data (default `Source`)
-* `P_REDISCOVER` - This is a Bool that specifies if we should re-execute the data discovery dataflow for previously discovered tables that have not had their schema modified (default `true`)
+* `P_SOURCE_DATABASE` - String - This is the database in Azure PostgreSQL that may contain sensitive data.
+* `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that may contain sensitive data.
+* `P_REDISCOVER` - This is a boolean parameter that specifies if we should re-execute the data discovery dataflow for previously discovered tables that have not had their schema modified (default `true`)
