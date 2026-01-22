@@ -18,7 +18,7 @@
 -- * V2025.09.19.0__update_generate_masking_parameters_procedure
 -- * V2025.12.18.0__update_generate_masking_parameters_procedure
 -- * V2026.01.14.0__update_generate_masking_parameters_procedure
--- * V2026.01.21.0__add_azurepostgres_adf_type_mapping
+-- * V2026.01.20.0__add_azurepostgres_adf_type_mapping
 -- The contents of each of those files follows
 
 
@@ -3955,7 +3955,7 @@ END
 GO
 
 
--- source: V2026.01.21.0__add_azurepostgres_adf_type_mapping
+-- source: V2026.01.20.0__add_azurepostgres_adf_type_mapping
 DELETE FROM adf_type_mapping
 WHERE dataset = 'AZURE_POSTGRES';
 
@@ -3983,6 +3983,8 @@ VALUES
 ('AZURE_POSTGRES', 'text', 'string'),
 ('AZURE_POSTGRES', 'time', 'timestamp'),
 ('AZURE_POSTGRES', 'timestamp', 'timestamp'),
+-- `timestamptz` is time-zone aware, but `timestamp` is time-zone naive in PostgreSQL.
+-- Casting drops timezone context, so we map `timestamptz` to `string` to preserve semantics.
 ('AZURE_POSTGRES', 'timestamp with time zone', 'string'),
 ('AZURE_POSTGRES', 'timestamp without time zone', 'timestamp'),
 ('AZURE_POSTGRES', 'uuid', 'string'),
