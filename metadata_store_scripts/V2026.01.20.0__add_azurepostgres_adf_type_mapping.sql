@@ -25,11 +25,11 @@ VALUES
 ('AZURE_POSTGRES', 'text', 'string'),
 ('AZURE_POSTGRES', 'time', 'timestamp'),
 ('AZURE_POSTGRES', 'timestamp', 'timestamp'),
--- `timestamp with time zone` (aka `timestamptz`) is time-zone aware, but `timestamp` is time-zone naive in PostgreSQL.
+-- `timestamp with time zone` (aka `timestamptz`) is time-zone aware in PostgreSQL
+-- But `timestamp` is time-zone naive in PostgreSQL.
 -- Casting drops timezone context, so we map `timestamptz` to `string` to preserve semantics.
 ('AZURE_POSTGRES', 'timestamp with time zone', 'string'),
 ('AZURE_POSTGRES', 'timestamp without time zone', 'timestamp'),
 ('AZURE_POSTGRES', 'uuid', 'string'),
 ('AZURE_POSTGRES', 'varchar', 'string'),
-('AZURE_POSTGRES', 'xml', 'string')
-;
+('AZURE_POSTGRES', 'xml', 'string');
