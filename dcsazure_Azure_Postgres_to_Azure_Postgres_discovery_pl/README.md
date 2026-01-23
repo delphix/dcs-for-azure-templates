@@ -37,9 +37,9 @@ These linked services types are needed for the following steps:
 
 * Check If We Should Rediscover Data
   * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables have not had their sensitive data discovered
-* Analyze Source Schema
+* Schema Discovery From Azure PostgreSQL
   * Runs `ANALYZE` command on the source database to refresh PostgreSQL statistics used during discovery.
-  * This refreshes PostgreSQL planner statistics so schema discovery uses up-to-date row-count estimates and avoids inconsistent results caused by stale stats.
+    * This refreshes PostgreSQL planner statistics so schema discovery uses up-to-date row-count estimates and avoids inconsistent results caused by stale stats.
   * Query metadata from PostgreSQL (`information_schema + pg_catalog`) to identify tables and columns in the PostgreSQL instance.
   * Row counts are determined using PostgreSQL table statistics (example: `pg_stat_all_tables.n_live_tup`).
 * Select Discovered Tables
