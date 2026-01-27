@@ -33,7 +33,7 @@ pipeline_linked_service_params:
     LS_DATABASE: 3
 
   Azure_Postgres_mask:
-    LS_DATABASE: 11
+    LS_DATABASE: 13
 
 # Linked Service Naming Conventions
 linked_service_conventions:
