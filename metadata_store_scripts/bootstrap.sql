@@ -3994,26 +3994,27 @@ VALUES
  * The adf_type_mapping table intentionally includes only canonical, scalar
  * PostgreSQL data types that are surfaced via information_schema.columns
  * and have a safe, deterministic representation in ADF Mapping Data Flows.
- * 
+ *
  * The following PostgreSQL types are intentionally excluded:
- * 
+ *
  * - Geometric types:
  *   box, circle, line, lseg, path, point, polygon
- * 
+ *
  * - Network / address types:
  *   cidr, inet, macaddr, macaddr8
- * 
+ *
  * - Full-text search types:
  *   tsquery, tsvector
- * 
+ *
  * - Pseudo-types:
  *   smallserial
- * 
+ *
  * These types are excluded because they:
  * - Have no native ADF Mapping Data Flow equivalent
  * - Are not meaningfully maskable
  * - Or resolve to canonical types at creation time (pseudo-types)
- * 
+ *
  * Columns of these types may be excluded from discovery or treated as
  * unsupported explicitly to avoid silent data loss or unpredictable behavior.
 */
+
