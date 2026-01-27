@@ -106,7 +106,7 @@ have customized your metadata store, then these variables may need editing.
 * `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
   when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
   ADF syntax for referencing the key column (default `%`)
-* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `2000`) use for conditional masking
+* `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `50000`) use for conditional masking
 * `COLUMN_WIDTH_ESTIMATE` - This is the estimated width of the columns when the actual width is not available from database schema to perform the calculation of optimal number of batches in unconditional masking (default `1000`).
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the metadata data store and sets the masked and mapping states on the items processed during execution (default `insert_adf_masking_event`).
 * `METADATA_MASKING_PARAMS_PROCEDURE_NAME` - This is the name of the stored procedure used to generate masking parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
@@ -116,14 +116,14 @@ have customized your metadata store, then these variables may need editing.
 ### Parameters
 
 * `P_COPY_UNMASKED_TABLES` - Bool - This enables the pipeline to copy data from source to destination when a mapping
-exists, but no algorithms have been defined (default `true`)
+exists, but no algorithms have been defined (default `false`)
 * `P_USE_COPY_DATAFLOW` -   Bool - This enables the pipeline to control the copy behaviour. When True, the copy data flow activity was invoked and unmasked tables were copied from the source to the sink (default `false`)
 * `P_FAIL_ON_NONCONFORMANT_DATA` - Bool - This will fail the pipeline if non-conformant data is encountered (default
 `true`)
+* `P_TRUNCATE_SINK_BEFORE_WRITE`:  Bool - When enabled (default `true`), truncates sink/target tables before writing new masked data.  When set to False, sink tables are not truncated (expect PK violation if keys exist, or row counts increase by source row count if no unique key).
+* `P_REAPPLY_MAPPING` - Bool -  When `true` mask all tables listed in adf_data_mapping regardless of mapping_complete; 
+    when `false`, mask only tables where mapping_complete=false (default `true`)
 * `P_SOURCE_DATABASE` - String - This is the source database in Azure PostgreSQL that contains the unmasked data
 * `P_SINK_DATABASE` - String - This is the sink database in Azure PostgreSQL that will serve as a destination for masked data
 * `P_SOURCE_SCHEMA` - String - This is the schema within the above source database that we will mask
 * `P_SINK_SCHEMA` - String - This is the schema within the above sink database where we will place masked data
-* `P_REAPPLY_MAPPING` - Bool -  When `true` mask all tables listed in adf_data_mapping regardless of mapping_complete; 
-    when `false`, mask only tables where mapping_complete=false (default `true`)
-* `P_TRUNCATE_SINK_BEFORE_WRITE`:  Bool - When enabled (default `true`), truncates sink/target tables before writing new masked data. When set to False, sink tables are not truncated (expect PK violation if keys exist, or row counts increase by source row count if no unique key).

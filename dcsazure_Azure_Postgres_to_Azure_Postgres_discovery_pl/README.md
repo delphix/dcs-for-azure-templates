@@ -19,7 +19,7 @@ These linked services types are needed for the following steps:
 
 `AzurePostgreSQL` (source) - Linked service associated with unmasked Azure PostgreSQL data. This will be used for the following steps:
 * Analyze Source Schema (Script activity)
-* dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_source_ds (AzurePostgreSqlTable dataset)
+* dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_source_ds (Azure Database for PostgreSQL dataset)
 * dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_df/Source1MillRowDataSampling (dataFlow)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following steps:

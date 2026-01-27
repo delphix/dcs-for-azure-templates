@@ -743,7 +743,7 @@
           "name": "dcsazure_Azure_Postgres_to_Azure_Postgres"
         },
         "annotations": [],
-        "lastPublishTime": "2026-01-21T08:01:42Z"
+        "lastPublishTime": "2026-01-27T11:05:54Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_source_ds')]",
@@ -925,12 +925,12 @@
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
-            "     DF_SOURCE_SCHEMA as string ('testSource'),",
-            "     DF_SOURCE_TABLE as string ('employees_special'),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
             "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
-            "     DF_METADATA_SCHEMA as string ('dcsazure_metadata_store_v2'),",
+            "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_SOURCE_DATABASE as string ('employees'),",
+            "     DF_SOURCE_DATABASE as string (''),",
             "     DF_SOURCE_DATASET as string ('AZURE_POSTGRES')",
             "}",
             "source(allowSchemaDrift: true,",

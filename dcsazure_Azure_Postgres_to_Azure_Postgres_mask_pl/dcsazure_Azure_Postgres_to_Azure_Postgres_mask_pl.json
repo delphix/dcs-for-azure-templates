@@ -311,7 +311,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Lookup Masking Parameters').output.firstRow.NumberOfBatches}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -796,7 +796,7 @@
                             },
                             "input_parameters": {
                               "value": {
-                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp}\n}",
+                                "value": "{\n    \"DF_FIELD_ALGORITHM_ASSIGNMENT\": @{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments},\n    \"DF_COLUMNS_TO_MASK\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask},\n    \"DF_BODY_TYPE_MAPPING\": @{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping},\n    \"DF_FAIL_ON_NONCONFORMANT_DATA\": @{pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA},\n    \"DF_TRIM_LENGTHS\": @{activity('Lookup Masking Parameters').output.firstRow.TrimLengths},\n    \"DF_FIELD_DATE_FORMAT\": @{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments},\n    \"DF_COLUMNS_TO_CAST_AS_STRINGS\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastAsStrings},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BINARY\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBinary},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_BOOLEAN\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToBoolean},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DATE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDate},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_DOUBLE\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToDouble},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_FLOAT\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToFloat},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_INTEGER\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToInteger},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_LONG\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToLong},\n    \"DF_COLUMNS_TO_CAST_BACK_TO_TIMESTAMP\": @{activity('Lookup Masking Parameters').output.firstRow.ColumnsToCastBackToTimestamp},\n    \"DF_NUMBER_OF_BATCHES\": @{activity('Lookup Masking Parameters').output.firstRow.NumberOfBatches}\n}",
                                 "type": "Expression"
                               },
                               "type": "String"
@@ -1108,7 +1108,7 @@
                         "column_width_estimate": {
                           "type": "Int32",
                           "value": {
-                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "value": "@variables('COLUMN_WIDTH_ESTIMATE')",
                             "type": "Expression"
                           }
                         },
@@ -2149,6 +2149,24 @@
                 "datasetParameters": {
                   "Source": {},
                   "Sink": {}
+                },
+                "linkedServiceParameters": {
+                  "Source": {
+                    "linkedService": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SOURCE_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  },
+                  "Sink": {
+                    "linkedService": {
+                      "LS_DATABASE": {
+                        "value": "@pipeline().parameters.P_SINK_DATABASE",
+                        "type": "Expression"
+                      }
+                    }
+                  }
                 }
               },
               "staging": {},
@@ -2603,13 +2621,21 @@
         "parameters": {
           "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
-            "defaultValue": true
+            "defaultValue": false
           },
           "P_USE_COPY_DATAFLOW": {
             "type": "bool",
             "defaultValue": false
           },
           "P_FAIL_ON_NONCONFORMANT_DATA": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_TRUNCATE_SINK_BEFORE_WRITE": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_REAPPLY_MAPPING": {
             "type": "bool",
             "defaultValue": true
           },
@@ -2628,14 +2654,6 @@
           "P_SINK_SCHEMA": {
             "type": "string",
             "defaultValue": ""
-          },
-          "P_REAPPLY_MAPPING": {
-            "type": "bool",
-            "defaultValue": true
-          },
-          "P_TRUNCATE_SINK_BEFORE_WRITE": {
-            "type": "bool",
-            "defaultValue": true
           }
         },
         "variables": {
@@ -2669,7 +2687,7 @@
           },
           "TARGET_BATCH_SIZE": {
             "type": "Integer",
-            "defaultValue": 2000
+            "defaultValue": 50000
           },
           "METADATA_CONSTRAINT_TABLE": {
             "type": "String",
@@ -2690,13 +2708,17 @@
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "generate_masking_parameters"
+          },
+          "COLUMN_WIDTH_ESTIMATE": {
+            "type": "Integer",
+            "defaultValue": 1000
           }
         },
         "folder": {
           "name": "dcsazure_Azure_Postgres_to_Azure_Postgres"
         },
         "annotations": [],
-        "lastPublishTime": "2026-01-22T06:31:41Z"
+        "lastPublishTime": "2026-01-27T11:45:53Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Azure_Postgres_to_Azure_Postgres_mask_metadata_ds')]",
@@ -3426,7 +3448,7 @@
           "name": "dcsazure_Azure_Postgres_to_Azure_Postgres"
         },
         "annotations": [],
-        "lastPublishTime": "2026-01-21T08:06:41Z"
+        "lastPublishTime": "2026-01-27T09:12:02Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Azure_Postgres_to_Azure_Postgres_mask_sink_ds')]",
@@ -3853,7 +3875,7 @@
           },
           "P_PARENT_RUN_ID": {
             "type": "string",
-            "defaultValue": "c427bfb5-7fb7-436d-8784-be8ad6c07698"
+            "defaultValue": ""
           },
           "P_METADATA_UPDATE_CONSTRAINT_PROCEDURE_NAME": {
             "type": "string",
@@ -3864,7 +3886,7 @@
           "name": "dcsazure_Azure_Postgres_to_Azure_Postgres"
         },
         "annotations": [],
-        "lastPublishTime": "2026-01-21T08:06:41Z"
+        "lastPublishTime": "2026-01-27T11:05:51Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Azure_Postgres_to_Azure_Postgres_mask_sink_ds')]",
@@ -4010,15 +4032,15 @@
           "scriptLines": [
             "parameters{",
             "     runId as string (''),",
-            "     DF_SOURCE_SCHEMA as string ('employees'),",
-            "     DF_SOURCE_TABLE as string ('employee'),",
-            "     DF_SINK_SCHEMA as string ('employees'),",
-            "     DF_SINK_TABLE as string ('employee'),",
-            "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{\"x62697274685f64617465\":\"DateShiftDiscrete\",\"x66697273745f6e616d65\":\"dlpx-core:FirstName\",\"x67656e646572\":\"dlpx-core:Gender SL\",\"x6c6173745f6e616d65\":\"dlpx-core:LastName\"}'),",
-            "     DF_COLUMNS_TO_MASK as string[] ([\"birth_date\",\"first_name\",\"gender\",\"last_name\"]),",
-            "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long, x62697274685f64617465 as date, x66697273745f6e616d65 as string, x67656e646572 as string, x6c6173745f6e616d65 as string)[])'),",
-            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (2000),",
-            "     DF_TRIM_LENGTHS as integer[] ([-1,14,-1,16]),",
+            "     DF_SOURCE_SCHEMA as string (''),",
+            "     DF_SOURCE_TABLE as string (''),",
+            "     DF_SINK_SCHEMA as string (''),",
+            "     DF_SINK_TABLE as string (''),",
+            "     DF_FIELD_ALGORITHM_ASSIGNMENT as string ('{}'),",
+            "     DF_COLUMNS_TO_MASK as string[] ([\"\"]),",
+            "     DF_BODY_TYPE_MAPPING as string ('(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'),",
+            "     DF_NUMBER_OF_ROWS_PER_BATCH as integer (1000),",
+            "     DF_TRIM_LENGTHS as integer[] ([1000]),",
             "     DF_FAIL_ON_NONCONFORMANT_DATA as boolean (true()),",
             "     DF_FIELD_DATE_FORMAT as string ('{}'),",
             "     DF_COLUMNS_TO_CAST_AS_STRINGS as string[] ([\"\"]),",
