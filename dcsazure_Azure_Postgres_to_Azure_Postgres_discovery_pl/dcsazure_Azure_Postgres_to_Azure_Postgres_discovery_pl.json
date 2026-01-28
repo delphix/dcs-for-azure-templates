@@ -28,7 +28,7 @@
         "description": "DCSAzure – Azure Postgres to Azure Postgres Discovery Pipeline",
         "activities": [
           {
-            "name": "Prepare for Azure Postgres Schema Discovery",
+            "name": "Prepare For Azure Postgres Schema Discovery",
             "type": "Script",
             "dependsOn": [
               {
@@ -74,7 +74,7 @@
             "type": "Copy",
             "dependsOn": [
               {
-                "activity": "Prepare for Azure Postgres Schema Discovery",
+                "activity": "Prepare For Azure Postgres Schema Discovery",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
