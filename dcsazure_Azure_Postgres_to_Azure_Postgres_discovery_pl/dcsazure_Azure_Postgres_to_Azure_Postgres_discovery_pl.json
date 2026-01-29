@@ -983,7 +983,7 @@
             "     allowSchemaDrift: true,",
             "     format: 'rest',",
             "     store: 'restservice',",
-            "     timeout: 30,",
+            "     timeout: 300,",
             "     requestInterval: 0,",
             "     headers = ['Run-Id' -> $runId],",
             "     httpMethod: 'POST',",
