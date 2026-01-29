@@ -18,5 +18,7 @@ This document provides an overview and links to the README files for various Azu
 - [dcsazure_Snowflake_to_Snowflake_mask_pl](../dcsazure_Snowflake_to_Snowflake_mask_pl/README.md): Snowflake to Snowflake Masking Pipeline
 - [dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl](../dcsazure_Dataverse_to_Dataverse_in_place_discovery_pl/README.md): Dataverse in place Discovery Pipeline
 - [dcsazure_Dataverse_to_Dataverse_in_place_mask_pl](../dcsazure_Dataverse_to_Dataverse_in_place_mask_pl/README.md): Dataverse in place Masking Pipeline
+- [dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl](../dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl/README.md): Azure Postgres to Azure Postgres Discovery Pipeline
+- [dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl](../dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl/README.md): Azure Postgres to Azure Postgres Masking Pipeline
 
 Please refer to the respective README files for detailed information on each pipeline.

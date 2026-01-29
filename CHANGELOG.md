@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.45
+* Added Azure Postgres to Azure Postgres Discovery Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl`.
+* Added Azure Postgres to Azure Postgres Masking Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl`.
+
 # 0.0.44
 * Updated `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused 
   by tables with zero records, by adding a `row_count > 0` condition in the `Select Tables That Require Masking` step
