@@ -41,6 +41,7 @@ FUNCTION_REQUIRED_FILES = {
     "AzureFunctionDeployment.md",
 }
 
+
 def load_pipeline_linked_service_params() -> tp.Dict[str, tp.Dict[str, int]]:
     """
     Load pipeline linked service parameters from YAML configuration file
