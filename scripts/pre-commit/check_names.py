@@ -32,6 +32,16 @@ The files do not follow the naming conventions. Use the format below.
 {DISCOVERY_PL_NAME}/{helpers.README_FILE}
 """
 
+FUNCTION_DIR_REGEX = re.compile(r"^[A-Za-z0-9]+_to_[A-Za-z0-9]+$")
+
+FUNCTION_REQUIRED_FILES = {
+    "function_app.py",
+    "host.json",
+    "requirements.txt",
+    "AzureFunctionDeployment.md",
+}
+
+
 def load_pipeline_linked_service_params() -> tp.Dict[str, tp.Dict[str, int]]:
     """
     Load pipeline linked service parameters from YAML configuration file
@@ -55,6 +65,30 @@ def validate_file_and_directory_names(files: tp.Set[pathlib.Path]) -> None:
         raise helpers.InvalidTemplateNameException(
             "\n".join([file.absolute().as_uri() for file in invalid_files])
         )
+
+def is_valid_function_file(filename: pathlib.Path) -> bool:
+    """
+    Validate files inside Azure Function folder
+    """
+    # filename.parts: (<template_dir>, <function_dir>, <file>)
+    if len(filename.parts) != 3:
+        return False
+
+    function_dir = filename.parts[1]
+    file_name = filename.name
+
+    if not FUNCTION_DIR_REGEX.match(function_dir):
+        return False
+
+    expected_zip = f"{function_dir}.zip"
+
+    if file_name == expected_zip:
+        return True
+
+    if file_name in FUNCTION_REQUIRED_FILES:
+        return True
+
+    return False
 
 
 def get_name_from_resource(resource_name: str) -> str:
@@ -268,28 +302,34 @@ def is_manifest_json(file: pathlib.Path) -> bool:
 
 
 def is_valid_template_file_name(filename: pathlib.Path) -> bool:
-    if filename.parent.parts:
-        top_dir = filename.parent.parts[0]
-        # Skip the validations for files added in non template directories
-        if top_dir in helpers.NON_TEMPLATES_DIR:
-            return True
-
-        # Raise if the pipeline file is created inside nested directories
-        if len(filename.parent.parts) > 1:
-            return False
-
-        # Raise if the pipeline file's directory name doesn't follow the convention
-        if not re.match(helpers.TEMPLATE_DIR_REGEX, top_dir):
-            return False
-
-        # Raise if the pipeline JSON filename doesn't follow the convention or if it's
-        # not a manifest.json or README.md file
-        if filename.name not in [
-            (top_dir + helpers.JSON), helpers.MANIFEST_FILE, helpers.README_FILE
-        ]:
-            return False
+    if not filename.parent.parts:
         return True
-    return True
+
+    top_dir = filename.parent.parts[0]
+
+    # Skip non-template directories
+    if top_dir in helpers.NON_TEMPLATES_DIR:
+        return True
+
+    # Validate template directory name
+    if not re.match(helpers.TEMPLATE_DIR_REGEX, top_dir):
+        return False
+
+    # Case 1: Files directly under pipeline directory
+    if len(filename.parts) == 2:
+        return filename.name in {
+            top_dir + helpers.JSON,
+            helpers.MANIFEST_FILE,
+            helpers.README_FILE,
+        }
+
+    # Case 2: Files inside Azure Function folder (ONE level deep)
+    if len(filename.parts) == 3:
+        return is_valid_function_file(filename)
+
+    # Any deeper nesting is invalid
+    return False
+
 
 
 def main() -> int:
