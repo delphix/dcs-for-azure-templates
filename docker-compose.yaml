@@ -75,6 +75,18 @@ services:
              cp VERSION.md dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl/VERSION.md &&
              zip dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl.zip dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl/* &&
 
+             cp LICENSE dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/LICENSE &&
+             cp VERSION.md dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/VERSION.md &&
+             zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl.zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/* &&
+
+             cp LICENSE dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/LICENSE &&
+             cp VERSION.md dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/VERSION.md &&
+             zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl.zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/* &&
+
+
+
+
+
              rm *_pl/LICENSE &&
              rm *_pl/VERSION.md &&
              mv *.zip releases/."
