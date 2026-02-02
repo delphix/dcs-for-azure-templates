@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.46
+* Added Cosmos NoSQL to Cosmos NoSQL Discovery Pipeline template `dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl`.
+* Added Cosmos NoSQL to Cosmos NoSQL Masking Pipeline template `dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl`.
+
 # 0.0.45
 * Added Azure Postgres to Azure Postgres Discovery Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl`.
 * Added Azure Postgres to Azure Postgres Masking Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl`.

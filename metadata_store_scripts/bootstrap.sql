@@ -19,6 +19,7 @@
 -- * V2025.12.18.0__update_generate_masking_parameters_procedure
 -- * V2026.01.14.0__update_generate_masking_parameters_procedure
 -- * V2026.01.20.0__add_azurepostgres_adf_type_mapping
+-- * V2026.02.02.0__add_cosmosnosql_adf_type_mapping
 -- The contents of each of those files follows
 
 
@@ -4017,4 +4018,12 @@ VALUES
  * Columns of these types may be excluded from discovery or treated as
  * unsupported explicitly to avoid silent data loss or unpredictable behavior.
 */
+
+
+-- source: V2026.02.02.0__add_cosmosnosql_adf_type_mapping
+-- Insert type mapping
+INSERT INTO adf_type_mapping
+(dataset, dataset_type, adf_type)
+VALUES
+('COSMOS_NOSQL', 'String', 'string');
 
