@@ -8,7 +8,7 @@ This pipeline will perform automated sensitive data discovery on your Azure Cosm
 1. Configure the hosted metadata database and associated Azure SQL service (version `V2026.02.02.0`).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage (Gen 2) service for staging exported Cosmos DB data.
-1. [Assign a managed identity with a storage blob data contributor role for the Data Factory instance within the storage account](https://help.delphix.com/dcs/current/Content/DCSDocs/Configure_ADLS_delimited_pipelines.htm).
+1. [Assign a managed identity with a storage blob data contributor role for the Data Factory instance within the storage account](https://help.delphix.com/dcs/current/content/docs/configure_adls_delimited_pipelines.htm).
 1. [Repeat the above step for the Azure Function by assigning a managed identity with the Storage Blob Data Contributor role](External_Document_URL).
 1. [Configure an Azure Function for exporting Cosmos DB data to Azure Data Lake Storage (ADLS)](External_Document_URL) (version `Cosmos_to_ADLS_V1`).
 1. [Configure an Azure Key Vault for storing the Cosmos DB access key and assign a managed identity with the Key Vault Secrets User role to the Azure Function](External_Document_URL).
@@ -103,6 +103,7 @@ If you have configured your database using the metadata store scripts, these var
   * For containers with millions of documents, it is recommended to use an App Service plan with at least 4 GB of memory.
     * This allows the function to run without time limits until all records are processed.
     * This approach is especially recommended when the target container has low RU provisioning or a very large number of records.
+    * The Azure Function timeout is explicitly configured to **12 hours** using the `functionTimeout` setting to support large Cosmos DB containers.
 * If the Azure Function fails with out-of-memory errors (exit code 137), adjust the `COSMOS_TO_ADLS_BATCH_SIZE` to reduce memory pressure.
 * Update the `COSMOS_KEY_VAULT_NAME` and `COSMOS_SECRET_NAME` variables to match the target Cosmos DB account before triggering the pipeline.
 * To filter records by Cosmos DB partition, both `P_LOGICAL_PARTITION_KEY` and `P_LOGICAL_PARTITION_ID` must be provided.
