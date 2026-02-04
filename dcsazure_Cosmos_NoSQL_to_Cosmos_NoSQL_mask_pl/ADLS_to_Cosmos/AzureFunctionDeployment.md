@@ -8,7 +8,7 @@ This document describes the standard process for deploying an Azure Function App
 ## Prerequisites
 - Azure CLI installed on the local machine
 - Access to an Azure subscription with permission to deploy Azure Function Apps
-- A ZIP file containing the Azure Function App code and configuration
+- ADLS_to_Cosmos ZIP file containing the Azure Function App code and configuration
 
 ---
 
@@ -36,9 +36,9 @@ This document describes the standard process for deploying an Azure Function App
 
 1. Parameters
 
-* `resource-group` : Name of the Azure resource group
-* `name` : Name of the Azure Function App
-* `src` : Full path to the ZIP file containing the function app code
+* `resource-group` : The Azure resource group that contains the ADLS_to_Cosmos Azure Function App
+* `name` : The name of the ADLS_to_Cosmos Azure Function App
+* `src` : The full path to the ADLS_to_Cosmos ZIP package containing the Function App code
     
 ## Deployment Result
 
