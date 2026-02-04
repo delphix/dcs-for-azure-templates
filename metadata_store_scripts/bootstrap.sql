@@ -19,7 +19,11 @@
 -- * V2025.12.18.0__update_generate_masking_parameters_procedure
 -- * V2026.01.14.0__update_generate_masking_parameters_procedure
 -- * V2026.01.20.0__add_azurepostgres_adf_type_mapping
+<<<<<<< HEAD
 -- * V2026.02.11.0__empty
+=======
+-- * V2026.02.04.0__update_adf_event_log_table
+>>>>>>> e1aa9fb (fix: source_schema truncation error in adf_events_log due to insufficient column length)
 -- The contents of each of those files follows
 
 
@@ -4045,4 +4049,12 @@ GO
 
 
 -- source: V2026.02.11.0__empty
+
+
+-- source: V2026.02.04.0__update_adf_event_log_table
+ALTER TABLE adf_events_log
+ALTER COLUMN source_schema VARCHAR(255) COLLATE sql_latin1_general_cp1_ci_as NULL;
+
+ALTER TABLE adf_events_log
+ALTER COLUMN sink_schema VARCHAR(255) COLLATE sql_latin1_general_cp1_ci_as NULL;
 

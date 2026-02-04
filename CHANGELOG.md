@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.47
+* Resolved an issue in `adf_events_log` where inserts failed due to a truncation error caused by the `source_schema` 
+  column's size limit (VARCHAR(100)). The column size has been increased to accommodate longer dataset paths.
+
 # 0.0.46
 * Update `bootstrap.sql` script to run as a single batch.
 
