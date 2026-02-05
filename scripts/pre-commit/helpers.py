@@ -39,7 +39,7 @@ NON_TEMPLATES_DIR = [
 ALLOWED_SYSTEMS = {"Cosmos", "Cassandra", "ADLS"}
 
 FUNCTION_DIR_REGEX = re.compile(
-rf"^({'|'.join(ALLOWED_SYSTEMS)})to({'|'.join(ALLOWED_SYSTEMS)})$"
+rf"^({'|'.join(ALLOWED_SYSTEMS)})_to_({'|'.join(ALLOWED_SYSTEMS)})$"
 )
 
 FUNCTION_REQUIRED_FILES = {
