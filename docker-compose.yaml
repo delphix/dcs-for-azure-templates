@@ -83,15 +83,9 @@ services:
              cp VERSION.md dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/VERSION.md &&
              zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl.zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/* &&
 
-             zip -j Cosmos_to_ADLS.zip \
-             dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/Cosmos_to_ADLS/function_app.py \
-             dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/Cosmos_to_ADLS/host.json \
-             dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/Cosmos_to_ADLS/requirements.txt &&
+             zip -j Cosmos_to_ADLS.zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/Cosmos_to_ADLS/function_app.py dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/Cosmos_to_ADLS/host.json dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/Cosmos_to_ADLS/requirements.txt &&
 
-             zip -j ADLS_to_Cosmos.zip \
-             dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/ADLS_to_Cosmos/function_app.py \
-             dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/ADLS_to_Cosmos/host.json \
-             dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/ADLS_to_Cosmos/requirements.txt &&
+             zip -j ADLS_to_Cosmos.zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/ADLS_to_Cosmos/function_app.py dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/ADLS_to_Cosmos/host.json dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/ADLS_to_Cosmos/requirements.txt &&
 
 
              rm *_pl/LICENSE &&
