@@ -9,6 +9,5 @@ pandas
 azure-cosmos
 aiohttp
 numpy
-asyncio
 azure-identity
 azure-keyvault-secrets

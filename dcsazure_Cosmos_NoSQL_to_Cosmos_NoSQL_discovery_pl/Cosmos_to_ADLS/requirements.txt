@@ -7,6 +7,5 @@ azure-functions-durable
 azure-cosmos
 azure-storage-file-datalake
 pandas
-asyncio
 azure-identity
 azure-keyvault-secrets

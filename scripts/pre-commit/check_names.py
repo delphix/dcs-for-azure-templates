@@ -32,15 +32,6 @@ The files do not follow the naming conventions. Use the format below.
 {DISCOVERY_PL_NAME}/{helpers.README_FILE}
 """
 
-FUNCTION_DIR_REGEX = re.compile(r"^[A-Za-z0-9]+_to_[A-Za-z0-9]+$")
-
-FUNCTION_REQUIRED_FILES = {
-    "function_app.py",
-    "host.json",
-    "requirements.txt",
-    "AzureFunctionDeployment.md",
-}
-
 def load_pipeline_linked_service_params() -> tp.Dict[str, tp.Dict[str, int]]:
     """
     Load pipeline linked service parameters from YAML configuration file
@@ -76,7 +67,7 @@ def is_valid_function_file(filename: pathlib.Path) -> bool:
     function_dir = filename.parts[1]
     file_name = filename.name
 
-    if not FUNCTION_DIR_REGEX.match(function_dir):
+    if not helpers.FUNCTION_DIR_REGEX.match(function_dir):
         return False
 
     expected_zip = f"{function_dir}.zip"
@@ -84,11 +75,10 @@ def is_valid_function_file(filename: pathlib.Path) -> bool:
     if file_name == expected_zip:
         return True
 
-    if file_name in FUNCTION_REQUIRED_FILES:
+    if file_name in helpers.FUNCTION_REQUIRED_FILES:
         return True
 
     return False
-
 
 def get_name_from_resource(resource_name: str) -> str:
     """
