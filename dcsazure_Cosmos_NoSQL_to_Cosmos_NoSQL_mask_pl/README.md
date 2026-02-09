@@ -157,3 +157,23 @@ have customized your metadata store, then these variables may need editing.
 * Ensure that all schemas associated with the Cosmos DB container are added to the `adf_data_mapping` table before triggering the masking pipeline.
 * If a column exists in some records but is missing in others, the pipeline will still include that column in the masked output, populating `null` values for records where the column was not originally present.
 * Conditional masking is not supported by this template.
+
+### Limitations and Workarounds
+
+* **Array of strings masking**
+  * When a Cosmos DB document contains an array of primitive string values (for example, an array of email addresses), the discovery and masking pipeline treats the entire array as a single string value.
+  * Applying a string-based masking algorithm (such as `dlpx-core:Email Unique`) results in a single masked string, causing the original array structure and data type to be lost.
+
+* **Reason for the limitation**
+  * Arrays of primitive values do not contain explicit keys and are indexed only by position.
+  * During flattening to a delimited format, there is no reliable way to map positional array elements to distinct columns.
+  * As a result, individual array elements cannot be independently discovered or masked using standard DCS templates.
+
+* **Workaround**
+  * When masking arrays of strings, use an algorithm that preserves the overall structure of the value.
+  * The built-in `dlpx-core:CM Alpha-Numeric` algorithm can be used to mask array elements without relying on schema-aware decomposition.
+  * Alternatively, a custom masking algorithm can be created using a regex-based approach to decompose the array and apply masking to individual elements while preserving the array format.
+  * Regex-based decomposition requires an upper bound on the expected number of elements in the array, as capture groups must be defined in advance.
+  * If the array contains fewer elements than expected, empty capture groups may cause the algorithm to fail.
+  * If the array contains more elements than defined capture groups, additional values may not be masked and the algorithm may fall back or fail.
+  * This workaround is suitable only when the maximum number of elements in the array is known and bounded.
