@@ -36,6 +36,18 @@ NON_TEMPLATES_DIR = [
     DOCUMENTATION_PATH, METADATA_STORE_PATH, "releases", "scripts", ".github",
 ]
 
+ALLOWED_SYSTEMS = {"Cosmos", "Cassandra", "ADLS"}
+
+FUNCTION_DIR_REGEX = re.compile(
+rf"^({'|'.join(ALLOWED_SYSTEMS)})_to_({'|'.join(ALLOWED_SYSTEMS)})$"
+)
+
+FUNCTION_REQUIRED_FILES = {
+    "function_app.py",
+    "host.json",
+    "requirements.txt",
+    "AzureFunctionDeployment.md",
+}
 #
 # This regex is used to match the template directory names
 # e.g. dcsazure_<source_db>_to_<sink_db>_<service>_pl
