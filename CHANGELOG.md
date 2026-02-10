@@ -1,8 +1,7 @@
 # CHANGELOG
 
 # 0.0.48
-* Resolved an issue in `adf_events_log` where inserts failed due to a truncation error caused by the `source_schema` 
-  column's size limit (VARCHAR(100)). The column size has been increased to accommodate longer dataset paths.
+* The size for `source_schema` and `sink_schema` columns in the `adf_events_log` table increased to accommodate longer dataset paths to fix insert failure due to truncation error.
 
 # 0.0.47
 * Updated the `generate_masking_parameters` stored procedure to avoid truncation of long schema paths and ensure accurate masking rule resolution.
