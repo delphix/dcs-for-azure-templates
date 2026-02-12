@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.47
+* The size for `source_schema` and `sink_schema` columns in the `adf_events_log` table increased to accommodate longer dataset paths to fix insert failure due to truncation error.
+
 # 0.0.46
 * Update `bootstrap.sql` script to run as a single batch.
 
