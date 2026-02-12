@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.46
+* Update `bootstrap.sql` script to run as a single batch.
+
 # 0.0.45
 * Added Azure Postgres to Azure Postgres Discovery Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl`.
 * Added Azure Postgres to Azure Postgres Masking Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl`.

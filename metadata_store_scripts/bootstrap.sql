@@ -19,6 +19,7 @@
 -- * V2025.12.18.0__update_generate_masking_parameters_procedure
 -- * V2026.01.14.0__update_generate_masking_parameters_procedure
 -- * V2026.01.20.0__add_azurepostgres_adf_type_mapping
+-- * V2026.02.11.0__empty
 -- The contents of each of those files follows
 
 
@@ -100,6 +101,7 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    ('DATABRICKS', 'FLOAT', 'float'),
    ('DATABRICKS', 'STRING', 'string')
 ;
+GO
 -- source: V2024.04.18.0__add_adls_to_adls_support
 CREATE PROCEDURE get_columns_from_adls_file_structure_sp
 	@adf_file_structure NVARCHAR(MAX),
@@ -194,9 +196,11 @@ BEGIN
 			PRINT 'adf_file_structure is NULL or empty';
 		END
 END;
+GO
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    VALUES
    ('ADLS', 'String', 'string');
+GO
 -- source: V2024.05.02.0__update_adls_to_adls_support
 ALTER PROCEDURE get_columns_from_adls_file_structure_sp
 	@adf_file_structure NVARCHAR(MAX),
@@ -286,6 +290,7 @@ BEGIN
 			PRINT 'adf_file_structure is NULL or empty';
 		END
 END;
+GO
 -- source: V2024.08.25.0__add_conditional_masking_support
 ALTER TABLE discovered_ruleset ALTER COLUMN assigned_algorithm VARCHAR(MAX);
 
@@ -325,6 +330,7 @@ CREATE TABLE adf_events_log (
     filter_condition VARCHAR(MAX),
     last_inserted DATETIME DEFAULT getdate(),
 CONSTRAINT adf_execution_log_pk PRIMARY KEY (event_id));
+GO
 
 CREATE PROCEDURE insert_adf_discovery_event
 (
@@ -400,6 +406,7 @@ BEGIN
             PRINT 'pipeline_run_id is invalid';
         END
 END;
+GO
 
 CREATE PROCEDURE insert_adf_masking_event
 (
@@ -561,6 +568,7 @@ BEGIN
         END
 -- End stored procedure definition
 END;
+GO
 
 -- source: V2024.12.02.0__add_azuresql_to_azuresql_support
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
@@ -623,6 +631,7 @@ CREATE TABLE capture_constraints (
         constraint_name
     )
 );
+GO
 
 -- source: V2024.12.26.0__add_adls_to_adls_parquet_support
 CREATE PROCEDURE get_columns_from_parquet_file_structure_sp
@@ -706,6 +715,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    VALUES
@@ -724,9 +734,11 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    ('ADLS-PARQUET', 'String', 'string'),
    ('ADLS-PARQUET', 'Time', 'timestamp'),
    ('ADLS-PARQUET', 'Timestamp', 'timestamp');
+GO
 
 -- Drop existing procedure that is specific to delimited files
 DROP PROCEDURE get_columns_from_adls_file_structure_sp;
+GO
 
 -- Recreate procedure that is specific to delimited files
 CREATE PROCEDURE get_columns_from_delimited_file_structure_sp
@@ -818,6 +830,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 -- BEGIN: Rename the ADLS dataset to ADLS-DELIMITED to avoid confusion
 -- Update this in the discovered ruleset table
@@ -844,10 +857,12 @@ SET
     sink_dataset = 'ADLS-DELIMITED'
 WHERE sink_dataset = 'ADLS';
 -- END: Rename the ADLS dataset to ADLS-DELIMITED to avoid confusion
+GO
 
 
 -- source: V2025.01.15.0__separate_algorithm_and_source_metadata
 ALTER TABLE discovered_ruleset ADD algorithm_metadata NVARCHAR(MAX);
+GO
 
 -- Move the `date_format` key/value pair out of the metadata column and into the `algorithm_metadata` column
 UPDATE discovered_ruleset
@@ -873,6 +888,7 @@ WHERE
 
 -- Rename the `metadata` column to `source_metadata` for clarity
 EXEC sp_rename 'discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
+GO
 
 -- Update stored procedures to use new source_metadata column
 ALTER PROCEDURE get_columns_from_parquet_file_structure_sp
@@ -956,6 +972,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 ALTER PROCEDURE get_columns_from_delimited_file_structure_sp
     @adf_file_structure NVARCHAR(MAX),
@@ -1046,6 +1063,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 -- source: V2025.01.30.0__create_constraints_stored_procedure
 
@@ -1066,6 +1084,7 @@ CREATE TYPE sink_drop_constraint_type AS TABLE
     drop_timestamp DATETIME,
     post_create_status NVARCHAR(255)
 );
+GO
 
 -- Create a stored procedure to insert constraint information
 -- into the capture_constraints table
@@ -1152,6 +1171,7 @@ BEGIN
             sink_constraints.post_create_status
         );
 END;
+GO
 
 -- Create a table type to store constraint information
 -- after creating the constraints
@@ -1169,6 +1189,7 @@ CREATE TYPE sink_create_constraint_type AS TABLE
     post_create_status NVARCHAR(255),
     create_timestamp DATETIME
 );
+GO
 
 -- Create a stored procedure to update the status of constraints
 -- in the capture_constraints table after they are created
@@ -1194,6 +1215,7 @@ BEGIN
             ct.post_create_status = sink_constraints.post_create_status,
             ct.create_timestamp = sink_constraints.create_timestamp;
 END;
+GO
 
 -- source: V2025.02.04.0__add_azuremi_to_azuremi_support
 
@@ -1249,6 +1271,7 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
 ('AZURESQL-MI', 'uniqueidentifier', 'string'),
 ('AZURESQL-MI', 'xml', 'string')
 ;
+GO
 
 
 -- source: V2025.07.22.0__add_generate_masking_parameters_procedure
@@ -1729,6 +1752,7 @@ VALUES
 ('DATAVERSE', 'Picklist', 'string'),
 ('DATAVERSE', 'String', 'string'),
 ('DATAVERSE', 'Uniqueidentifier', 'string');
+GO
 
 
 -- source: V2025.09.10.0__add_generate_dataverse_masking_parameters_procedure
@@ -4017,4 +4041,8 @@ VALUES
  * Columns of these types may be excluded from discovery or treated as
  * unsupported explicitly to avoid silent data loss or unpredictable behavior.
 */
+GO
+
+
+-- source: V2026.02.11.0__empty
 
