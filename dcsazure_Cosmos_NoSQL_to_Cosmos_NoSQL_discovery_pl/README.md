@@ -5,12 +5,13 @@ This pipeline will perform automated sensitive data discovery on your Azure Cosm
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2026.02.02.0`).
-1. Configure the DCS for Azure REST service.
-1. Configure the Azure Data Lake Storage (Gen 2) service for staging exported Cosmos DB data.
+1. Configure the hosted metadata database and associated Azure SQL linked service (version `V2026.02.02.0`).
+1. Configure the DCS for Azure REST linked service.
+1. Configure the Azure Data Lake Storage (Gen 2) linked service for staging exported Cosmos DB data.
 1. [Assign a managed identity with a storage blob data contributor role for the Data Factory instance within the storage account](https://help.delphix.com/dcs/current/content/docs/configure_adls_delimited_pipelines.htm).
 1. [Repeat the above step for the Azure Function by assigning a managed identity with the Storage Blob Data Contributor role](External_Document_URL).
-1. [Configure an Azure Function for exporting Cosmos DB data to Azure Data Lake Storage (ADLS)](External_Document_URL) (version `Cosmos_to_ADLS_V1`).
+1. [Create an Azure Function app for exporting Cosmos DB data to Azure Data Lake Storage (ADLS)](External_Document_URL) (version `Cosmos_to_ADLS_V1`).
+1. [Deploy the Azure Function to the Function App created in the previous step](./Cosmos_to_ADLS/AzureFunctionDeployment.md).
 1. [Configure an Azure Key Vault for storing the Cosmos DB access key and assign a managed identity with the Key Vault Secrets User role to the Azure Function](External_Document_URL).
 
 ### Importing

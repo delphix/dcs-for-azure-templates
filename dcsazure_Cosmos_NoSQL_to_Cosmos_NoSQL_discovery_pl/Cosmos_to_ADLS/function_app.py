@@ -25,34 +25,13 @@ from azure.storage.filedatalake import DataLakeServiceClient
 # Default batch size for processing documents
 DEFAULT_BATCH_SIZE = 500
 
-# Default throughput if detection fails (in RU/s)
-DEFAULT_THROUGHPUT = 400
-
-# Reserve percentage of throughput to avoid throttling
-DEFAULT_RESERVE_PERCENT = 0.2
-
 # Limits how many child rows are processed at once to avoid high memory usage.
 # A single record can generate many child rows, so we use a safe fixed size.
 ARRAY_PROCESSING_BATCH_SIZE = 2000
 
-# Retry configuration
-DEFAULT_MAX_RETRIES = 5
-DEFAULT_BASE_DELAY = 0.1  # seconds
-DEFAULT_MAX_DELAY = 60.0  # seconds
-
 # File Handling Constants
 PIPE_DELIMITER = "|"
 ESCAPE_CHARACTER = "\\"
-
-# Transient error codes that should be retried
-RETRYABLE_ERROR_CODES = [
-    "429",  # Request Rate Too Large (throttling)
-    "408",  # Request Timeout
-    "503",  # Service Unavailable
-    "RequestRateTooLarge",
-    "RequestTimeout",
-    "ServiceUnavailable",
-]
 
 # ============================================================================
 # AZURE FUNCTIONS APP
@@ -95,74 +74,9 @@ def get_secret(key_vault_name: str, secretname: str) -> str:
 class CosmosMetadata:
     """
     Utility class for extracting metadata from Cosmos DB containers.
-    Provides methods to discover throughput, partition keys, and partition values.
+    Provides methods to discover partition keys and partition values.
     """
-
-    @staticmethod
-    def get_throughput_info(database, container_name: str) -> Dict:
-        """
-        Detect the provisioned throughput for a Cosmos DB container or database.
-
-        Tries to read throughput at container level first, then falls back to database level.
-
-        Args:
-            database: Cosmos database client
-            container_name: Name of the container
-
-        Returns:
-            Dictionary containing:
-                - level: 'container', 'database', or 'unknown'
-                - throughput: RU/s value
-                - is_autoscale: Boolean indicating autoscale mode
-        """
-        try:
-            container = database.get_container_client(container_name)
-
-            # Try container-level throughput first
-            try:
-                offer = container.read_offer()
-                if offer:
-                    is_autoscale = "maximumThroughput" in offer.get("content", {})
-                    throughput = offer["content"].get("maximumThroughput") or offer[
-                        "content"
-                    ].get("throughput", DEFAULT_THROUGHPUT)
-                    return {
-                        "level": "container",
-                        "throughput": throughput,
-                        "is_autoscale": is_autoscale,
-                    }
-            except Exception:
-                pass
-
-            # Fall back to database-level throughput
-            try:
-                db_offer = database.read_offer()
-                if db_offer:
-                    is_autoscale = "maximumThroughput" in db_offer.get("content", {})
-                    throughput = db_offer["content"].get(
-                        "maximumThroughput"
-                    ) or db_offer["content"].get("throughput", DEFAULT_THROUGHPUT)
-                    return {
-                        "level": "database",
-                        "throughput": throughput,
-                        "is_autoscale": is_autoscale,
-                    }
-            except Exception:
-                pass
-
-            return {
-                "level": "unknown",
-                "throughput": DEFAULT_THROUGHPUT,
-                "is_autoscale": False,
-            }
-
-        except Exception:
-            return {
-                "level": "unknown",
-                "throughput": DEFAULT_THROUGHPUT,
-                "is_autoscale": False,
-            }
-
+        
     @staticmethod
     def get_partition_key_paths(container) -> List[str]:
         """
@@ -258,255 +172,13 @@ def flatten_dict(doc: Dict, parent_key: str = "", sep: str = ".") -> Dict:
 
 
 # ============================================================================
-# REQUEST UNIT (RU) MANAGEMENT
-# ============================================================================
-
-
-class TokenBucketRUManager:
-    """
-    Token bucket algorithm for managing Cosmos DB Request Units (RU) consumption.
-
-    Prevents throttling by rate-limiting requests to stay within provisioned throughput.
-    Uses a reserve percentage to provide a safety buffer for burst traffic and
-    other concurrent operations.
-    """
-
-    def __init__(
-        self, throughput: int, reserve_percent: float = DEFAULT_RESERVE_PERCENT
-    ):
-        """
-        Initialize the RU manager with token bucket algorithm.
-
-        Args:
-            throughput: Provisioned throughput in RU/s
-            reserve_percent: Percentage of throughput to reserve as safety buffer
-        """
-        self.max_rus_per_second = int(throughput * (1 - reserve_percent))
-        self.tokens = float(self.max_rus_per_second)
-        self.last_refill = time.time()
-        self.total_consumed = 0.0
-        self.operations_count = 0
-
-    def _refill_tokens(self):
-        """
-        Refill the token bucket based on elapsed time.
-        Tokens refill at a constant rate of max_rus_per_second.
-        """
-        now = time.time()
-        elapsed = now - self.last_refill
-        if elapsed > 0:
-            refill_amount = elapsed * self.max_rus_per_second
-            self.tokens = min(self.max_rus_per_second, self.tokens + refill_amount)
-            self.last_refill = now
-
-    def consume(self, ru_charge: float):
-        """
-        Consume RUs for an operation, sleeping if necessary to avoid throttling.
-
-        Args:
-            ru_charge: Number of RUs consumed by the operation
-        """
-        self._refill_tokens()
-
-        # If insufficient tokens, sleep until enough are available
-        if ru_charge > self.tokens:
-            deficit = ru_charge - self.tokens
-            wait_time = deficit / self.max_rus_per_second
-            time.sleep(wait_time)
-            self._refill_tokens()
-
-        self.tokens -= ru_charge
-        self.total_consumed += ru_charge
-        self.operations_count += 1
-
-    def get_stats(self) -> Dict:
-        """
-        Get statistics about RU consumption.
-
-        Returns:
-            Dictionary with total RUs consumed, operation count, and averages
-        """
-        avg_ru = (
-            self.total_consumed / self.operations_count
-            if self.operations_count > 0
-            else 0
-        )
-        return {
-            "total_rus_consumed": round(self.total_consumed, 2),
-            "operations_count": self.operations_count,
-            "avg_ru_per_operation": round(avg_ru, 2),
-            "current_tokens": round(self.tokens, 2),
-        }
-
-
-# ============================================================================
-# RETRY STRATEGY
-# ============================================================================
-
-
-class CosmosRetryStrategy:
-    """
-    Retry strategy for transient Cosmos DB errors with exponential backoff.
-
-    Handles rate limiting (429), timeouts (408), service unavailability (503),
-    and other transient errors with intelligent retry logic.
-    """
-
-    def __init__(
-        self,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-        base_delay: float = DEFAULT_BASE_DELAY,
-        max_delay: float = DEFAULT_MAX_DELAY,
-    ):
-        """
-        Initialize retry strategy.
-
-        Args:
-            max_retries: Maximum number of retry attempts
-            base_delay: Initial delay in seconds for exponential backoff
-            max_delay: Maximum delay between retries in seconds
-        """
-        self.max_retries = max_retries
-        self.base_delay = base_delay
-        self.max_delay = max_delay
-        self.retry_count_by_error = {}
-
-    def execute_with_retry(self, operation, operation_name: str = "operation"):
-        """
-        Execute an operation with retry logic for transient errors.
-
-        Args:
-            operation: Callable that returns a result
-            operation_name: Description of the operation for logging
-
-        Returns:
-            Result from the operation
-
-        Raises:
-            Exception: If all retries are exhausted
-        """
-        import random
-
-        for attempt in range(self.max_retries + 1):
-            try:
-                result = operation()
-                return result
-
-            except Exception as e:
-                error_msg = str(e)
-
-                # Check if this is a retryable error
-                is_retryable = any(code in error_msg for code in RETRYABLE_ERROR_CODES)
-
-                if is_retryable:
-                    # Track retry counts by error type
-                    error_type = self._classify_error(error_msg)
-                    self.retry_count_by_error[error_type] = (
-                        self.retry_count_by_error.get(error_type, 0) + 1
-                    )
-
-                    # For 429 errors, respect the Retry-After header
-                    retry_after = None
-                    if "429" in error_msg or "RequestRateTooLarge" in error_msg:
-                        retry_after = self._extract_retry_after(e)
-
-                    if attempt < self.max_retries:
-                        wait_time = (
-                            retry_after
-                            if retry_after
-                            else self._calculate_backoff(attempt)
-                        )
-                        jitter = random.uniform(0, 0.1 * wait_time)
-                        total_wait = wait_time + jitter
-
-                        logging.warning(
-                            f"Retryable error in {operation_name} ({error_type}): "
-                            f"attempt {attempt + 1}/{self.max_retries + 1}. "
-                            f"Waiting {total_wait:.2f}s before retry."
-                        )
-
-                        time.sleep(total_wait)
-                        continue
-
-                # If non-retryable error or exhausted retries, raise
-                if attempt == self.max_retries:
-                    logging.error(
-                        f"Operation {operation_name} failed after {self.max_retries + 1} attempts"
-                    )
-                raise
-
-    def _classify_error(self, error_msg: str) -> str:
-        """
-        Classify error type for statistics tracking.
-
-        Args:
-            error_msg: Error message string
-
-        Returns:
-            Error classification string
-        """
-        if "429" in error_msg or "RequestRateTooLarge" in error_msg:
-            return "429_RateLimited"
-        elif "408" in error_msg or "RequestTimeout" in error_msg:
-            return "408_Timeout"
-        elif "503" in error_msg or "ServiceUnavailable" in error_msg:
-            return "503_ServiceUnavailable"
-        else:
-            return "Other"
-
-    def _extract_retry_after(self, exception) -> Optional[float]:
-        """
-        Extract Retry-After header value from exception.
-
-        Args:
-            exception: The exception that may contain retry headers
-
-        Returns:
-            Retry delay in seconds, or None if not found
-        """
-        try:
-            if hasattr(exception, "headers"):
-                retry_ms = exception.headers.get("x-ms-retry-after-ms")
-                if retry_ms:
-                    return float(retry_ms) / 1000.0
-        except Exception:
-            pass
-        return None
-
-    def _calculate_backoff(self, attempt: int) -> float:
-        """
-        Calculate exponential backoff delay.
-
-        Args:
-            attempt: Current attempt number (0-indexed)
-
-        Returns:
-            Delay in seconds, capped at max_delay
-        """
-        return min(self.base_delay * (2**attempt), self.max_delay)
-
-    def get_stats(self) -> Dict:
-        """
-        Get retry statistics.
-
-        Returns:
-            Dictionary with retry counts by error type
-        """
-        total_retries = sum(self.retry_count_by_error.values())
-        return {
-            "total_retries": total_retries,
-            "retries_by_error_type": self.retry_count_by_error.copy(),
-        }
-
-
-# ============================================================================
 # STREAMING COSMOS DB READER
 # ============================================================================
 
 
 class StreamingCosmosReader:
     """
-    Stream documents from Cosmos DB in batches with RU management and retry logic.
+    Stream documents from Cosmos DB in batches with SDK-native retry handling.
 
     Minimizes memory usage by processing one batch at a time and supports
     both partition-specific and cross-partition queries.
@@ -518,39 +190,21 @@ class StreamingCosmosReader:
         pk_path: Optional[str],
         pk_values: Optional[List],
         batch_size: int,
-        throughput: int = DEFAULT_THROUGHPUT,
-    ):
+        ):
         """
         Initialize the streaming reader.
-
+    
         Args:
             container: Cosmos container client
             pk_path: Partition key path (None for cross-partition query)
             pk_values: List of partition values to query (None for all)
             batch_size: Number of documents per batch
-            throughput: Provisioned throughput in RU/s
         """
         self.container = container
         self.pk_path = pk_path
         self.pk_values = pk_values
         self.batch_size = batch_size
-        self.ru_manager = TokenBucketRUManager(
-            throughput, reserve_percent=DEFAULT_RESERVE_PERCENT
-        )
-        self.retry_strategy = CosmosRetryStrategy(max_retries=DEFAULT_MAX_RETRIES)
-
-    def _extract_ru_charge(self) -> float:
-        """
-        Extract RU charge from last response headers.
-
-        Returns:
-            RU charge as float, defaults to 5.0 if extraction fails
-        """
-        try:
-            headers = self.container.client_connection.last_response_headers
-            return float(headers.get("x-ms-request-charge", 0))
-        except Exception:
-            return 5.0
+        self.operations_count = 0
 
     def stream_documents(self) -> Iterator[List[Dict]]:
         """
@@ -568,67 +222,57 @@ class StreamingCosmosReader:
     def _stream_partition(self, pk_value) -> Iterator[List[Dict]]:
         """
         Stream documents from a single partition in batches.
-
+    
         Args:
             pk_value: Partition key value to query
-
+    
         Yields:
             Batches of documents from the specified partition
         """
         key_path_parts = [k for k in self.pk_path.strip("/").split("/") if k]
         cosmos_key_path = "c." + ".".join(key_path_parts)
         query = f"SELECT * FROM c WHERE {cosmos_key_path} = @value"
-
-        def _execute_query():
-            return self.container.query_items(
+    
+        try:
+            query_iterator = self.container.query_items(
                 query=query,
                 parameters=[{"name": "@value", "value": pk_value}],
                 enable_cross_partition_query=True,
                 max_item_count=self.batch_size,
             )
-
-        try:
-            query_iterator = self.retry_strategy.execute_with_retry(
-                _execute_query, f"stream_partition_{pk_value}"
-            )
         except Exception as e:
             logging.error(f"Failed to query partition {pk_value}: {str(e)}")
             return
-
+    
         yield from self._process_query_results(query_iterator)
 
     def _stream_all_documents(self) -> Iterator[List[Dict]]:
         """
         Stream all documents using cross-partition query.
-
+    
         Yields:
             Batches of documents from all partitions
         """
         query = "SELECT * FROM c"
-
-        def _execute_query():
-            return self.container.query_items(
+    
+        try:
+            query_iterator = self.container.query_items(
                 query=query,
                 enable_cross_partition_query=True,
                 max_item_count=self.batch_size,
             )
-
-        try:
-            query_iterator = self.retry_strategy.execute_with_retry(
-                _execute_query, "stream_all_documents"
-            )
         except Exception as e:
             logging.error(f"Failed to query all documents: {str(e)}")
             return
-
+    
         yield from self._process_query_results(query_iterator)
 
     def _process_query_results(self, query_iterator) -> Iterator[List[Dict]]:
         """
-        Process query results in batches with RU management.
+        Process query results in batches.
 
         Common logic for both partition-specific and cross-partition queries.
-        Handles RU consumption tracking and memory-efficient batch accumulation.
+        SDK handles RU throttling and retry automatically.
 
         Args:
             query_iterator: Cosmos DB query iterator
@@ -640,10 +284,7 @@ class StreamingCosmosReader:
 
         for page in query_iterator.by_page():
             items = list(page)
-
-            # Track RU consumption and rate limit if necessary
-            ru_charge = self._extract_ru_charge()
-            self.ru_manager.consume(ru_charge)
+            self.operations_count += 1
 
             # Accumulate items into batches
             for item in items:
@@ -660,14 +301,14 @@ class StreamingCosmosReader:
 
     def get_stats(self) -> Dict:
         """
-        Get statistics from RU manager and retry strategy.
-
+        Get reader statistics.
+    
         Returns:
-            Combined statistics dictionary
+            Statistics dictionary
         """
-        ru_stats = self.ru_manager.get_stats()
-        retry_stats = self.retry_strategy.get_stats()
-        return {**ru_stats, **retry_stats}
+        return {
+            "operations_count": self.operations_count,
+        }
 
 
 # ============================================================================
@@ -1393,7 +1034,6 @@ def process_cosmos_to_adls_activity(params: dict):
     3. Streams documents in batches to minimize memory usage
     4. Extracts nested arrays into normalized tables
     5. Uploads data to ADLS as pipe-delimited CSV files
-    6. Tracks RU consumption and retry statistics
 
     Args:
         params: Dictionary containing configuration parameters
@@ -1425,17 +1065,11 @@ def process_cosmos_to_adls_activity(params: dict):
             params, container
         )
 
-        throughput_info = CosmosMetadata.get_throughput_info(
-            database, params["cosmos_container"]
-        )
-        throughput = throughput_info.get("throughput", DEFAULT_THROUGHPUT)
-
         streaming_reader = StreamingCosmosReader(
             container=container,
             pk_path=pk_path,
             pk_values=pk_values,
             batch_size=params["batch_size"],
-            throughput=throughput,
         )
 
         export_dir = (
@@ -1526,11 +1160,6 @@ def process_cosmos_to_adls_activity(params: dict):
             "duration_seconds": round(duration, 2),
             "auto_detected": not user_provided_both,
             "partition_count": len(pk_values) if pk_values else 0,
-            "throughput_ru_per_sec": throughput,
-            "total_rus_consumed": streaming_stats.get("total_rus_consumed", 0),
-            "avg_ru_per_operation": streaming_stats.get("avg_ru_per_operation", 0),
-            "total_retries": streaming_stats.get("total_retries", 0),
-            "retries_by_error_type": streaming_stats.get("retries_by_error_type", {}),
         }
 
     except Exception as e:
