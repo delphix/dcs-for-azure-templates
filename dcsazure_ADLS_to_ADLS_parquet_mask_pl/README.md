@@ -6,7 +6,7 @@ another.
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL service (version `V2025.01.15.0`+).
+1. Configure the hosted metadata database and associated Azure SQL service (version `V2026.01.14.0`+).
 1. Configure the DCS for Azure REST service.
 1. Configure the Azure Data Lake Storage service associated with your ADLS source data.
 1. Configure the Azure Data Lake Storage service associated with your ADLS sink data.
@@ -56,7 +56,7 @@ steps:
     have not had their mapping applied
 * Select Directories We Should Purge
   * Select sink directories with an incomplete mapping and based on the value of `P_TRUNCATE_SINK_BEFORE_WRITE`, create
-    a list of directories that we should purge 
+    a list of directories that we should purge
     * For Each Directory To Purge:
       * Check For The Directory
       * If the directory exists, delete all parquet files and the `_SUCCESS` file in that directory
