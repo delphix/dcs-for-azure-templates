@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.47
+* Updated the `generate_masking_parameters` stored procedure by increasing the `@specified_schema` parameter length from `NVARCHAR(128)` to `NVARCHAR(255)` to prevent truncation of long schema paths and ensure correct masking rule matching.
+
 # 0.0.46
 * Update `bootstrap.sql` script to run as a single batch.
 
