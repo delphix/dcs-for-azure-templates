@@ -1105,7 +1105,7 @@
                         "column_width_estimate": {
                           "type": "Int32",
                           "value": {
-                            "value": "@variables('TARGET_BATCH_SIZE')",
+                            "value": "@variables('COLUMN_WIDTH_ESTIMATE')",
                             "type": "Expression"
                           }
                         },
@@ -2602,13 +2602,17 @@
           "METADATA_MASKING_PARAMS_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "generate_masking_parameters"
+          },
+          "COLUMN_WIDTH_ESTIMATE": {
+            "type": "String",
+            "defaultValue": "1000"
           }
         },
         "folder": {
           "name": "dcsazure_ADLS_to_ADLS_parquet"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-12T08:53:14Z"
+        "lastPublishTime": "2026-02-13T14:46:50Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_ADLS_to_ADLS_parquet_metadata_mask_ds')]",
