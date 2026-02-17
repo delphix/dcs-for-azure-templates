@@ -54,7 +54,7 @@ CREATE OR ALTER PROCEDURE generate_masking_parameters
 AS
 BEGIN
     SET NOCOUNT ON;
-    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2026.01.14.0';
+    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2026.02.16.0';
     DECLARE @filter_alias_display NVARCHAR(128);
     SET
         @filter_alias_display = CASE
