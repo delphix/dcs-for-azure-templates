@@ -1,5 +1,8 @@
 # CHANGELOG
 
+# 0.0.47
+* Updated the `generate_masking_parameters` stored procedure to avoid truncation of long schema paths and ensure accurate masking rule resolution.
+
 # 0.0.46
 * Update `bootstrap.sql` script to run as a single batch.
 
