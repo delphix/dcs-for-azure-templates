@@ -21,6 +21,7 @@
 -- * V2026.01.20.0__add_azurepostgres_adf_type_mapping
 -- * V2026.02.11.0__empty
 -- * V2026.02.16.0__update_generate_masking_parameters_procedure
+-- * V2026.02.18.0__update_adf_event_log_table
 -- The contents of each of those files follows
 
 
@@ -4514,5 +4515,14 @@ BEGIN
         date_format_parameters AS df,
         type_casting_parameters AS a;
 END
+GO
+
+
+-- source: V2026.02.18.0__update_adf_event_log_table
+ALTER TABLE adf_events_log
+ALTER COLUMN source_schema NVARCHAR(255) COLLATE sql_latin1_general_cp1_ci_as NULL;
+
+ALTER TABLE adf_events_log
+ALTER COLUMN sink_schema NVARCHAR(255) COLLATE sql_latin1_general_cp1_ci_as NULL;
 GO
 
