@@ -129,7 +129,7 @@ class CosmosMetadata:
                 pass
 
             # Fallback: Query all and deduplicate
-            query = f"SELECT {pk_field} as pk FROM c"
+            query = f"SELECT {pk_field} AS pk FROM c"
             items = list(
                 container.query_items(query=query, enable_cross_partition_query=True)
             )
@@ -146,14 +146,14 @@ class CosmosMetadata:
 # ============================================================================
 
 
-def flatten_dict(doc: Dict, parent_key: str = "", sep: str = ".") -> Dict:
+def flatten_dict(doc: Dict, parent_key: str = "", separator: str = ".") -> Dict:
     """
     Recursively flatten a nested dictionary.
 
     Args:
         doc: Dictionary to flatten
         parent_key: Key prefix for nested values
-        sep: Separator between nested keys
+        separator: Separator between nested keys
 
     Returns:
         Flattened dictionary
@@ -163,9 +163,9 @@ def flatten_dict(doc: Dict, parent_key: str = "", sep: str = ".") -> Dict:
     """
     items = {}
     for k, v in doc.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        new_key = f"{parent_key}{separator}{k}" if parent_key else k
         if isinstance(v, dict):
-            items.update(flatten_dict(v, new_key, sep=sep))
+            items.update(flatten_dict(v, new_key, sep=separator))
         else:
             items[new_key] = v
     return items
@@ -554,12 +554,6 @@ def upload_csv_to_adls(
         except Exception:
             pass
 
-    def serialize_cell(v):
-        """Serialize cell values for CSV output."""
-        if v is None:
-            return ""
-        return v
-
     dir_client = fs_client.get_directory_client(directory)
     file_client = dir_client.get_file_client(file_name)
 
@@ -598,18 +592,15 @@ def upload_csv_to_adls(
 
                 combined_df = pd.concat([existing_df, df], ignore_index=True)
 
-                df_out = combined_df.copy()
-                for col in df_out.columns:
-                    df_out[col] = df_out[col].apply(serialize_cell)
-
                 csv_buffer = StringIO()
-                df_out.to_csv(
+                combined_df.to_csv(
                     csv_buffer,
                     index=False,
                     sep=PIPE_DELIMITER,
                     header=True,
                     quoting=0,
                     escapechar=ESCAPE_CHARACTER,
+                    na_rep="",
                 )
                 content = csv_buffer.getvalue()
 
@@ -634,25 +625,22 @@ def upload_csv_to_adls(
     if len(known_columns) > 0:
         df = df[sorted(known_columns)]
 
-    df_out = df.copy()
-    for col in df_out.columns:
-        df_out[col] = df_out[col].apply(serialize_cell)
-
     try:
         if mode == "write":
             try:
                 file_client.delete_file()
             except Exception:
-                pass
+                logging.debug(f"Could not delete {file_name} before write — may not exist yet")
 
             csv_buffer = StringIO()
-            df_out.to_csv(
+            df.to_csv(
                 csv_buffer,
                 index=False,
                 sep=PIPE_DELIMITER,
                 header=True,
                 quoting=0,
                 escapechar=ESCAPE_CHARACTER,
+                na_rep="",
             )
             content = csv_buffer.getvalue()
 
@@ -674,13 +662,14 @@ def upload_csv_to_adls(
 
             csv_buffer = StringIO()
             include_header = not file_exists
-            df_out.to_csv(
+            df.to_csv(
                 csv_buffer,
                 index=False,
                 sep=PIPE_DELIMITER,
                 header=include_header,
                 quoting=0,
                 escapechar=ESCAPE_CHARACTER,
+                na_rep="",
             )
             content = csv_buffer.getvalue()
 
@@ -995,7 +984,7 @@ def upload_child_tables(
             final_dir = f"{export_dir}/{'/'.join(path_parts)}"
 
             if separate_files_per_batch:
-                file_name = f"{path_parts[-1]}_batch_{batch_num:03d}.csv"
+                file_name = f"{path_parts[-1]}_batch_{batch_num:05d}.csv"
                 child_mode = "write"
                 if arr_name in child_schemas:
                     child_schemas[arr_name] = None
@@ -1098,7 +1087,7 @@ def process_cosmos_to_adls_activity(params: dict):
             # Upload parent table
             if params["separate_files_per_batch"]:
                 parent_file_name = (
-                    f"{params['cosmos_container']}_batch_{batch_num:03d}.csv"
+                    f"{params['cosmos_container']}_batch_{batch_num:05d}.csv"
                 )
                 mode = "write"
                 parent_schema = None

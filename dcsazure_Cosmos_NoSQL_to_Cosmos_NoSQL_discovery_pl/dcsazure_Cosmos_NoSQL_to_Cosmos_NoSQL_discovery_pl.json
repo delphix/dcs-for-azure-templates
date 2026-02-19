@@ -59,21 +59,15 @@
                   "value": "@concat(pipeline().parameters.P_COSMOS_SOURCE_DATABASE,'/',pipeline().parameters.P_COSMOS_SOURCE_CONTAINER)",
                   "type": "Expression"
                 },
-                "P_SUFFIXES_TO_SCAN": "[[\"CSV\"]",
+                "P_SUFFIXES_TO_SCAN": "[[\"csv\"]",
                 "P_SUFFIX_DELIMITER_MAP": {
                   "value": "@json('{\n    \"csv\": {\n        \"column_delimiter\": \"|\",\n        \"quote_character\": \"\\\"\",\n        \"escape_character\": \"\\\\\",\n        \"null_value\": \"\"\n    }\n}')\n",
                   "type": "Expression"
                 },
-                "P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS": {
-                  "value": "[[]",
-                  "type": "Expression"
-                },
-                "P_MIXED_FILE_SCHEMA_DISAMBIGUATION": "{\"DCS_EXAMPLE_PREFIX\":{\"suffixes\":[\"csv\"]}}",
                 "P_REDISCOVER": {
                   "value": "@pipeline().parameters.P_REDISCOVER",
                   "type": "Expression"
                 },
-                "P_DIRECTORIES_TO_EXCLUDE": "[[]",
                 "P_MAX_LEVELS_TO_RECURSE": {
                   "value": "@variables('MAX_LEVELS_TO_RECURSE')",
                   "type": "Expression"
@@ -102,9 +96,18 @@
                   "value": "@variables('NUMBER_OF_ROWS_TO_PROFILE')",
                   "type": "Expression"
                 },
-                "P_MAX_RESULTS": 5000,
-                "P_MSFT_API_VERSION": "2021-08-06",
-                "P_MSFT_BLOB_TYPE": "BlockBlob",
+                "P_MAX_RESULTS": {
+                  "value": "@variables('MAX_RESULTS')",
+                  "type": "Expression"
+                },
+                "P_MSFT_API_VERSION": {
+                  "value": "@variables('MSFT_API_VERSION')",
+                  "type": "Expression"
+                },
+                "P_MSFT_BLOB_TYPE": {
+                  "value": "@variables('MSFT_BLOB_TYPE')",
+                  "type": "Expression"
+                },
                 "P_STORAGE_ACCOUNT": {
                   "value": "@variables('STORAGE_ACCOUNT')",
                   "type": "Expression"
@@ -153,7 +156,7 @@
             "type": "IfCondition",
             "dependsOn": [
               {
-                "activity": "Until Cosmos To ADLS Duraable Function Is Success",
+                "activity": "Until Cosmos To ADLS Durable Function Is Success",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -223,7 +226,7 @@
                       },
                       "execution_end_time": {
                         "value": {
-                          "value": "@activity('Until Cosmos To ADLS Duraable Function Is Success').ExecutionEndTime",
+                          "value": "@activity('Until Cosmos To ADLS Durable Function Is Success').ExecutionEndTime",
                           "type": "Expression"
                         },
                         "type": "DateTimeOffset"
@@ -303,7 +306,8 @@
             }
           },
           {
-            "name": "Until Cosmos To ADLS Duraable Function Is Success",
+            "name": "Until Cosmos To ADLS Durable Function Is Success",
+            "description": "Polls for completion of the Cosmos To ADLS export. Retries until success or timeout.",
             "type": "Until",
             "dependsOn": [
               {
@@ -586,7 +590,8 @@
             "defaultValue": "get_columns_from_delimited_file_structure_sp"
           },
           "STORAGE_ACCOUNT": {
-            "type": "String"
+            "type": "String",
+            "defaultValue": "DCS_PLACEHOLDER"
           },
           "MAX_LEVELS_TO_RECURSE": {
             "type": "Integer",
@@ -601,13 +606,25 @@
           },
           "COSMOS_SECRET_NAME": {
             "type": "String"
+          },
+          "MAX_RESULTS": {
+            "type": "Integer",
+            "defaultValue": 5000
+          },
+          "MSFT_API_VERSION": {
+            "type": "String",
+            "defaultValue": "2021-08-06"
+          },
+          "MSFT_BLOB_TYPE": {
+            "type": "String",
+            "defaultValue": "BlockBlob"
           }
         },
         "folder": {
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-02T08:51:54Z"
+        "lastPublishTime": "2026-02-02T12:03:45Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_discovery_pl')]"
@@ -618,7 +635,6 @@
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "The storage account is set to a DCS_PLACEHOLDER, please make sure you update it to actual storage account name before publishing this pipeline",
         "activities": [
           {
             "name": "For Each Folder",
@@ -696,7 +712,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "expression": {
-                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV), 0)",
+                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.csv), 0)",
                       "type": "Expression"
                     },
                     "ifTrueActivities": [
@@ -729,7 +745,7 @@
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
-                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.csv[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.csv[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.csv[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
                               "type": "Expression"
                             },
                             "P_SUFFIX": {
@@ -757,7 +773,7 @@
                               "type": "Expression"
                             },
                             "P_FILENAME": {
-                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], '/'))",
+                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.csv[0], '/'))",
                               "type": "Expression"
                             },
                             "P_DATASET": {
@@ -809,10 +825,6 @@
                 },
                 "P_MAX_RESULTS": {
                   "value": "@pipeline().parameters.P_MAX_RESULTS",
-                  "type": "Expression"
-                },
-                "P_DIRECTORIES_TO_EXCLUDE": {
-                  "value": "@pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE",
                   "type": "Expression"
                 },
                 "P_MAX_LEVELS_TO_RECURSE": {
@@ -1351,27 +1363,9 @@
               }
             }
           },
-          "P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS": {
-            "type": "array",
-            "defaultValue": []
-          },
-          "P_MIXED_FILE_SCHEMA_DISAMBIGUATION": {
-            "type": "object",
-            "defaultValue": {
-              "DCS_EXAMPLE_PREFIX": {
-                "suffixes": [
-                  "csv"
-                ]
-              }
-            }
-          },
           "P_REDISCOVER": {
             "type": "bool",
             "defaultValue": true
-          },
-          "P_DIRECTORIES_TO_EXCLUDE": {
-            "type": "array",
-            "defaultValue": []
           },
           "P_MAX_LEVELS_TO_RECURSE": {
             "type": "int",
@@ -1379,7 +1373,7 @@
           },
           "P_METADATA_SCHEMA": {
             "type": "string",
-            "defaultValue": "dbo"
+            "defaultValue": "dcsazure_metadata_store"
           },
           "P_METADATA_RULESET_TABLE": {
             "type": "string",
@@ -1414,14 +1408,15 @@
             "defaultValue": "BlockBlob"
           },
           "P_STORAGE_ACCOUNT": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "dcscassandra"
           }
         },
         "folder": {
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-02T08:51:54Z"
+        "lastPublishTime": "2026-02-02T11:32:20Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_discovery_pl')]",
@@ -1571,12 +1566,6 @@
                       "dependencyConditions": [
                         "Succeeded"
                       ]
-                    },
-                    {
-                      "activity": "Filter Out Directories To Exclude",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
                     }
                   ],
                   "userProperties": [],
@@ -1598,7 +1587,7 @@
                         "typeProperties": {
                           "variableName": "DIR_QUEUE",
                           "value": {
-                            "value": "@union(activity('Filter Out Directories To Exclude').output.Value, skip(variables('TEMP_DIR_QUEUE'), 1))",
+                            "value": "@union(xpath(xml(activity('List Blobs').output.Response), '//BlobPrefix/Name/text()'), skip(variables('TEMP_DIR_QUEUE'), 1))",
                             "type": "Expression"
                           }
                         }
@@ -1637,7 +1626,7 @@
                         "typeProperties": {
                           "variableName": "DIR_QUEUE",
                           "value": {
-                            "value": "@union(variables('TEMP_DIR_QUEUE'), activity('Filter Out Directories To Exclude').output.Value)",
+                            "value": "@union(variables('TEMP_DIR_QUEUE'), xpath(xml(activity('List Blobs').output.Response), '//BlobPrefix/Name/text()'))",
                             "type": "Expression"
                           }
                         }
@@ -1661,30 +1650,6 @@
                   "typeProperties": {
                     "message": "Fail to fetch blobs",
                     "errorCode": "500"
-                  }
-                },
-                {
-                  "name": "Filter Out Directories To Exclude",
-                  "description": "This is where we filter out directories that are too deeply nested.",
-                  "type": "Filter",
-                  "dependsOn": [
-                    {
-                      "activity": "List Blobs",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "items": {
-                      "value": "@xpath(xml(activity('List Blobs').output.Response), '//BlobPrefix/Name/text()')",
-                      "type": "Expression"
-                    },
-                    "condition": {
-                      "value": "@and(\n    not(contains(pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE, item())), \n    lessOrEquals(\n        sub(length(split(item(), '/')), 1), \n        variables('MAX_LEVELS_TO_RECURSE')\n    )\n)",
-                      "type": "Expression"
-                    }
                   }
                 },
                 {
@@ -1800,7 +1765,7 @@
                 "exists"
               ],
               "storeSettings": {
-                "type": "AzureBlobStorageReadSettings",
+                "type": "AzureBlobFSReadSettings",
                 "enablePartitionDiscovery": false
               },
               "formatSettings": {
@@ -1916,10 +1881,6 @@
             "type": "string",
             "defaultValue": "1000"
           },
-          "P_DIRECTORIES_TO_EXCLUDE": {
-            "type": "array",
-            "defaultValue": []
-          },
           "P_MAX_LEVELS_TO_RECURSE": {
             "type": "int",
             "defaultValue": 5
@@ -1964,7 +1925,7 @@
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-02T08:51:53Z"
+        "lastPublishTime": "2026-02-02T11:29:13Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_discovery_ds')]"
@@ -2250,7 +2211,7 @@
               "variableName": "pipelineReturnValue",
               "value": [
                 {
-                  "key": "CSV",
+                  "key": "csv",
                   "value": {
                     "type": "Expression",
                     "content": "@activity('Filter CSV').output.Value"
@@ -2642,7 +2603,7 @@
             "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_DATASET as string ('ADLS-DELIMITED'),",
+            "     DF_DATASET as string ('COSMOS_NOSQL'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_COLUMN_DELIMITER as string (''),",
             "     DF_QUOTE_CHARACTER as string ('\\\"'),",

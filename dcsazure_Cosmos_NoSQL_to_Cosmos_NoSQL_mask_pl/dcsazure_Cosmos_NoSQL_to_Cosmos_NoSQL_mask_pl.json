@@ -125,7 +125,8 @@
             }
           },
           {
-            "name": "Until ADLS To Cosmos Duraable Function Is Success",
+            "name": "Until ADLS To Cosmos Durable Function Is Success",
+            "description": "Polls for completion of the ADLS To Cosmos export. Retries until success or timeout.",
             "type": "Until",
             "dependsOn": [
               {
@@ -186,7 +187,7 @@
             "type": "IfCondition",
             "dependsOn": [
               {
-                "activity": "Until ADLS To Cosmos Duraable Function Is Success",
+                "activity": "Until ADLS To Cosmos Durable Function Is Success",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -256,7 +257,7 @@
                       },
                       "execution_end_time": {
                         "value": {
-                          "value": "@activity('Until ADLS To Cosmos Duraable Function Is Success').ExecutionEndTime",
+                          "value": "@activity('Until ADLS To Cosmos Durable Function Is Success').ExecutionEndTime",
                           "type": "Expression"
                         },
                         "type": "DateTimeOffset"
@@ -599,6 +600,43 @@
                 }
               ]
             }
+          },
+          {
+            "name": "Check If AtLeast One Column Is Masked",
+            "type": "IfCondition",
+            "dependsOn": [
+              {
+                "activity": "Update Logs If Copy Data To ADLS Is True",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@equals(activity('Execute ADLS Masking Pipeline').output.pipelineReturnValue.NO_COLUMNS_MASKED,true)",
+                "type": "Expression"
+              },
+              "ifTrueActivities": [
+                {
+                  "name": "No Columns Masked",
+                  "type": "Fail",
+                  "dependsOn": [],
+                  "userProperties": [],
+                  "typeProperties": {
+                    "message": {
+                      "value": "No columns are masked in the Cosmos container '@{pipeline().parameters.P_COSMOS_CONTAINER}'. Please assign a masking algorithm to at least one column and try again.",
+                      "type": "Expression"
+                    },
+                    "errorCode": {
+                      "value": "200",
+                      "type": "Expression"
+                    }
+                  }
+                }
+              ]
+            }
           }
         ],
         "policy": {
@@ -624,10 +662,6 @@
             "type": "string"
           },
           "P_FAIL_ON_NONCONFORMANT_DATA": {
-            "type": "bool",
-            "defaultValue": true
-          },
-          "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
             "defaultValue": true
           },
@@ -690,7 +724,8 @@
             "defaultValue": "1000"
           },
           "STORAGE_ACCOUNT": {
-            "type": "String"
+            "type": "String",
+            "defaultValue": "DCS_PLACEHOLDER"
           },
           "ADLS_TO_COSMOS_COPY_BATCH_SIZE": {
             "type": "String",
@@ -707,7 +742,7 @@
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-02T12:03:45Z"
+        "lastPublishTime": "2026-02-02T12:10:34Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_mask_pl')]"
@@ -3155,6 +3190,75 @@
                 }
               ],
               "scriptBlockExecutionTimeout": "02:00:00"
+            }
+          },
+          {
+            "name": "Check If AtLeast One Column Is Masked",
+            "type": "IfCondition",
+            "dependsOn": [
+              {
+                "activity": "Select Tables That Require Masking",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
+              }
+            ],
+            "userProperties": [],
+            "typeProperties": {
+              "expression": {
+                "value": "@equals(activity('Select Tables That Require Masking').output.count,0)",
+                "type": "Expression"
+              },
+              "ifFalseActivities": [
+                {
+                  "name": "Set variable Columns Masked",
+                  "type": "SetVariable",
+                  "dependsOn": [],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "pipelineReturnValue",
+                    "value": [
+                      {
+                        "key": "NO_COLUMNS_MASKED",
+                        "value": {
+                          "type": "Boolean",
+                          "content": false
+                        }
+                      }
+                    ],
+                    "setSystemVariable": true
+                  }
+                }
+              ],
+              "ifTrueActivities": [
+                {
+                  "name": "Set variable No Columns Masked",
+                  "type": "SetVariable",
+                  "dependsOn": [],
+                  "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                  },
+                  "userProperties": [],
+                  "typeProperties": {
+                    "variableName": "pipelineReturnValue",
+                    "value": [
+                      {
+                        "key": "NO_COLUMNS_MASKED",
+                        "value": {
+                          "type": "Boolean",
+                          "content": true
+                        }
+                      }
+                    ],
+                    "setSystemVariable": true
+                  }
+                }
+              ]
             }
           }
         ],
