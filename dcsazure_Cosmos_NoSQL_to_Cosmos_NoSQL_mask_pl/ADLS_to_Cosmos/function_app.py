@@ -20,10 +20,27 @@ app = df.DFApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 # System fields to exclude from documents
 SYSTEM_FIELDS = {"_rid", "_self", "_etag", "_attachments", "_ts"}
 
+# Autoscale throughput settings
+AUTOSCALE_RU_SAFETY_MARGIN = 0.95
+AUTOSCALE_MIN_THROTTLES_BEFORE_BACKOFF = 5
+AUTOSCALE_SCALE_UP_WAIT_MS = 100
+
+# Manual/Shared throughput settings
+MANUAL_RU_SAFETY_MARGIN = 0.75
+MANUAL_MIN_THROTTLES_BEFORE_BACKOFF = 2
+
 # Concurrency limits
 MIN_CONCURRENT_OPERATIONS = 5
-MAX_CONCURRENT_OPERATIONS_ABSOLUTE = 100
-DEFAULT_CONCURRENT_OPERATIONS = 50
+MAX_CONCURRENT_OPERATIONS_ABSOLUTE = 500
+
+# Retry configuration
+RETRY_MAX_ATTEMPTS = 10
+RETRY_BASE_DELAY = 1
+BACKOFF_MULTIPLIER = 2
+
+# RU estimation
+ESTIMATED_RU_PER_UPSERT = 10
+ESTIMATED_RU_PER_KB = 5
 
 # Logging interval
 PROGRESS_LOG_INTERVAL = 100
@@ -133,7 +150,6 @@ def parse_json_string(value: str) -> Any:
     Returns:
         Parsed value (dict, list, etc.) or original string if parsing fails
     """
-    
     v = value.strip()
     if (v.startswith("[") and v.endswith("]")) or (
         v.startswith("{") and v.endswith("}")
@@ -215,7 +231,7 @@ def get_csv_row_count(
             sep=PIPE_DELIMITER,
             chunksize=chunk_size,
             iterator=True,
-            quoting=1,
+            quoting=0,
             keep_default_na=False,
             escapechar=ESCAPE_CHARACTER,
         )
@@ -266,7 +282,7 @@ def read_csv_from_adls_batched(
         read_params = {
             "sep": PIPE_DELIMITER,
             "iterator": False,
-            "quoting": 1,
+            "quoting": 0,
             "keep_default_na": False,
             "escapechar": ESCAPE_CHARACTER,
         }
@@ -336,7 +352,7 @@ def process_child_csv_streaming(
             sep=PIPE_DELIMITER,
             chunksize=chunk_size,
             iterator=True,
-            quoting=1,
+            quoting=0,
             keep_default_na=False,
             escapechar=ESCAPE_CHARACTER,
         )
@@ -421,13 +437,35 @@ def _build_child_object(row: pd.Series) -> Dict:
     return nested_obj
 
 
+def estimate_document_size_kb(doc: Dict) -> float:
+    """
+    Estimate document size in kilobytes.
+
+    Serializes the document to JSON and calculates its size in KB. This is used
+    for estimating RU consumption and optimizing batch sizes.
+
+    Args:
+        doc: Document to estimate (must be JSON-serializable)
+
+    Returns:
+        Estimated size in KB (kilobytes)
+    """
+    try:
+        doc_json = json.dumps(doc)
+        return len(doc_json.encode("utf-8")) / 1024
+    except Exception:
+        return 1
+
+
 async def discover_container_configuration(
     database, container, container_name: str
 ) -> Dict[str, Any]:
     """
     Discover Cosmos DB container configuration including throughput settings.
 
-    Queries the container and database to determine partition key and throughput type.
+    Queries the container and database to determine partition key, throughput type
+    (autoscale, manual, shared, or serverless), and provisioned RU settings. This
+    information is critical for optimizing concurrency and batch sizes.
 
     Args:
         database: Cosmos database client (async)
@@ -437,6 +475,9 @@ async def discover_container_configuration(
     Returns:
         Dictionary containing configuration details:
         - partition_key_path: Partition key path (e.g., "/id")
+        - provisioned_rus: Current RU/s provisioned
+        - min_rus: Minimum RU/s (autoscale only)
+        - max_rus: Maximum RU/s (autoscale only)
         - throughput_type: One of "autoscale", "manual", "autoscale_shared",
                           "manual_shared", or "serverless"
         - is_autoscale: Boolean indicating autoscale mode
@@ -445,6 +486,9 @@ async def discover_container_configuration(
     """
     config = {
         "partition_key_path": None,
+        "provisioned_rus": None,
+        "min_rus": None,
+        "max_rus": None,
         "throughput_type": "unknown",
         "is_autoscale": False,
         "is_serverless": False,
@@ -494,8 +538,17 @@ async def _get_throughput_configuration(database, container) -> Dict[str, Any]:
         container: Cosmos container client (async)
 
     Returns:
-        Dictionary containing throughput configuration fields
+        Dictionary containing throughput configuration fields:
+        - is_autoscale: Boolean indicating autoscale mode
+        - is_serverless: Boolean indicating serverless mode
+        - uses_shared_throughput: Boolean indicating database-level throughput
+        - throughput_type: String describing the throughput type
+        - provisioned_rus: Current RU/s provisioned
+        - min_rus: Minimum RU/s (autoscale only)
+        - max_rus: Maximum RU/s (autoscale only)
     """
+    config = {}
+
     # Try container-level throughput first
     try:
         container_offer = await container.get_throughput()
@@ -517,6 +570,9 @@ async def _get_throughput_configuration(database, container) -> Dict[str, Any]:
     return {
         "is_serverless": True,
         "throughput_type": "serverless",
+        "provisioned_rus": 1000,
+        "min_rus": 100,
+        "max_rus": 5000,
     }
 
 
@@ -525,14 +581,20 @@ def _parse_offer_properties(offer_props: Dict, is_shared: bool) -> Dict[str, Any
     Parse throughput offer properties from Cosmos DB.
 
     Extracts and interprets the throughput offer to determine whether it's
-    autoscale or manual.
+    autoscale or manual, and what the RU limits are.
 
     Args:
         offer_props: Offer properties dictionary from Cosmos DB
         is_shared: Whether this is database-level (shared) throughput
 
     Returns:
-        Dictionary containing parsed throughput configuration
+        Dictionary containing parsed throughput configuration:
+        - is_autoscale: Boolean indicating autoscale mode
+        - throughput_type: String describing the throughput type
+        - provisioned_rus: Current RU/s provisioned
+        - min_rus: Minimum RU/s
+        - max_rus: Maximum RU/s
+        - uses_shared_throughput: Boolean passed from is_shared parameter
     """
     content = offer_props.get("content", {})
     autoscale_settings = content.get("offerAutopilotSettings")
@@ -540,54 +602,351 @@ def _parse_offer_properties(offer_props: Dict, is_shared: bool) -> Dict[str, Any
     config = {"uses_shared_throughput": is_shared}
 
     if autoscale_settings:
+        max_ru = autoscale_settings.get("maxThroughput", 4000)
         config.update(
             {
                 "is_autoscale": True,
                 "throughput_type": "autoscale_shared" if is_shared else "autoscale",
+                "max_rus": max_ru,
+                "min_rus": max_ru // 10,
+                "provisioned_rus": max_ru,
             }
         )
     else:
+        manual_ru = content.get("offerThroughput", 400)
         config.update(
             {
                 "throughput_type": "manual_shared" if is_shared else "manual",
+                "provisioned_rus": manual_ru,
+                "min_rus": 400,
+                "max_rus": manual_ru,
             }
         )
 
     return config
 
 
-def calculate_concurrency(total_docs: int) -> int:
+def calculate_optimal_concurrency(
+    config: Dict[str, Any], total_docs: int, avg_doc_size_kb: float
+) -> Dict[str, int]:
     """
-    Calculate appropriate concurrency based on document count.
+    Calculate optimal concurrency settings based on throughput configuration.
+
+    Uses the container's throughput settings, document count, and average document
+    size to calculate optimal batch sizes and concurrency limits. Applies different
+    strategies for autoscale, manual, and serverless configurations.
 
     Args:
+        config: Container configuration from discover_container_configuration()
         total_docs: Total number of documents to process
+        avg_doc_size_kb: Average document size in KB
 
     Returns:
-        Concurrency level (number of parallel operations)
+        Dictionary with concurrency settings:
+        - max_concurrent_operations: Maximum number of simultaneous operations
+        - initial_batch_size: Starting batch size for processing
+        - min_batch_size: Minimum batch size (for throttle backoff)
+        - max_batch_size: Maximum batch size (for scaling up)
+        - estimated_ru_per_doc: Estimated RU cost per document
+        - available_rus_per_second: Available RUs per second after safety margin
+        - is_autoscale: Whether autoscale is enabled
     """
-    if total_docs < 1000:
-        return MIN_CONCURRENT_OPERATIONS
-    elif total_docs < 10000:
-        return 20
-    elif total_docs < 100000:
-        return 50
+    provisioned_rus = config["provisioned_rus"]
+    is_autoscale = config["is_autoscale"]
+    is_serverless = config["is_serverless"]
+
+    estimated_ru_per_doc = ESTIMATED_RU_PER_UPSERT + (
+        avg_doc_size_kb * ESTIMATED_RU_PER_KB
+    )
+
+    safety_margin = (
+        AUTOSCALE_RU_SAFETY_MARGIN if is_autoscale else MANUAL_RU_SAFETY_MARGIN
+    )
+    ru_multiplier = 1.5 if is_autoscale else 1.0
+    available_rus = provisioned_rus * safety_margin
+
+    if is_serverless:
+        max_concurrent = min(
+            int(available_rus / estimated_ru_per_doc * 2),
+            MAX_CONCURRENT_OPERATIONS_ABSOLUTE,
+        )
+        initial_batch = min(100, total_docs // 10)
+    elif is_autoscale:
+        max_concurrent = min(
+            int(available_rus / estimated_ru_per_doc * ru_multiplier),
+            MAX_CONCURRENT_OPERATIONS_ABSOLUTE,
+        )
+        initial_batch = min(100, total_docs // 10)
     else:
-        return min(MAX_CONCURRENT_OPERATIONS_ABSOLUTE, DEFAULT_CONCURRENT_OPERATIONS)
+        max_concurrent = min(
+            int(available_rus / estimated_ru_per_doc * ru_multiplier),
+            MAX_CONCURRENT_OPERATIONS_ABSOLUTE,
+        )
+        initial_batch = min(30, total_docs // 30)
+
+    max_concurrent = max(max_concurrent, MIN_CONCURRENT_OPERATIONS)
+    initial_batch = max(initial_batch, MIN_CONCURRENT_OPERATIONS)
+
+    return {
+        "max_concurrent_operations": max_concurrent,
+        "initial_batch_size": initial_batch,
+        "min_batch_size": max(5, initial_batch // 10),
+        "max_batch_size": (
+            min(300, initial_batch * 5) if is_autoscale else min(200, initial_batch * 4)
+        ),
+        "estimated_ru_per_doc": estimated_ru_per_doc,
+        "available_rus_per_second": available_rus,
+        "is_autoscale": is_autoscale,
+    }
 
 
-async def upsert_item(
+class AdaptiveThrottleManager:
+    """
+    Manages adaptive throttling and batch sizing based on Cosmos DB throughput type.
+
+    This class dynamically adjusts batch sizes and tracks performance metrics to
+    optimize throughput while minimizing throttling. It implements different strategies
+    for autoscale vs manual throughput provisioning.
+
+    For autoscale configurations:
+    - More aggressive scaling with higher tolerance for throttles
+    - Implements warmup period to allow autoscale to ramp up
+    - Tracks when maximum throughput is reached
+
+    For manual configurations:
+    - Conservative scaling to avoid throttles
+    - Faster backoff on throttling
+    - Lower tolerance for consecutive throttles
+
+    Attributes:
+        is_autoscale: Whether autoscale mode is enabled
+        current_batch_size: Current dynamic batch size
+        min_batch_size: Minimum allowed batch size
+        max_batch_size: Maximum allowed batch size
+        max_concurrent: Maximum concurrent operations
+        consecutive_successes: Count of consecutive successful operations
+        consecutive_throttles: Count of consecutive throttled operations
+        total_throttles: Total number of throttles encountered
+        total_rus_consumed: Total RUs consumed across all operations
+        total_operations: Total number of operations performed
+        avg_ru_per_operation: Running average of RU per operation
+    """
+
+    def __init__(self, concurrency_config: Dict[str, int]):
+        """
+        Initialize throttle manager with concurrency configuration.
+
+        Sets up initial batch sizes, thresholds, and tracking variables based on
+        the provided configuration.
+
+        Args:
+            concurrency_config: Configuration dictionary containing:
+                - initial_batch_size: Starting batch size
+                - min_batch_size: Minimum batch size
+                - max_batch_size: Maximum batch size
+                - max_concurrent_operations: Maximum concurrent operations
+                - is_autoscale: Whether autoscale is enabled
+                - estimated_ru_per_doc: Estimated RU per document
+        """
+        self.is_autoscale = concurrency_config.get("is_autoscale", False)
+        self.current_batch_size = concurrency_config["initial_batch_size"]
+        self.min_batch_size = concurrency_config["min_batch_size"]
+        self.max_batch_size = concurrency_config["max_batch_size"]
+        self.max_concurrent = concurrency_config["max_concurrent_operations"]
+        self.consecutive_successes = 0
+        self.consecutive_throttles = 0
+        self.total_throttles = 0
+        self.lock = asyncio.Lock()
+        self.total_rus_consumed = 0
+        self.total_operations = 0
+        self.avg_ru_per_operation = concurrency_config["estimated_ru_per_doc"]
+
+        self.autoscale_warmup_period = True
+        self.operations_since_last_throttle = 0
+        self.autoscale_max_reached = False
+        self.high_throttle_count_at_max = 0
+
+        self.throttle_tolerance = (
+            AUTOSCALE_MIN_THROTTLES_BEFORE_BACKOFF
+            if self.is_autoscale
+            else MANUAL_MIN_THROTTLES_BEFORE_BACKOFF
+        )
+
+    async def report_success(self, ru_charge: float = 0):
+        """
+        Report successful operation and adjust batch size if needed.
+
+        Records a successful operation, updates RU consumption statistics, and
+        potentially scales up the batch size based on consecutive successes.
+
+        Args:
+            ru_charge: RU charge for the operation (default: 0)
+        """
+        async with self.lock:
+            self.consecutive_successes += 1
+            self.consecutive_throttles = 0
+            self.operations_since_last_throttle += 1
+
+            if ru_charge > 0:
+                self.total_rus_consumed += ru_charge
+                self.total_operations += 1
+                self.avg_ru_per_operation = (
+                    self.total_rus_consumed / self.total_operations
+                )
+
+            self._scale_up_if_needed()
+
+    def _scale_up_if_needed(self):
+        """
+        Scale up batch size based on consecutive successes.
+
+        Implements different scaling strategies for autoscale and manual throughput:
+        - Autoscale: More aggressive scaling during warmup, conservative after max reached
+        - Manual: Moderate scaling with lower thresholds
+
+        This is an internal method called by report_success().
+        """
+        if self.is_autoscale:
+            if self.autoscale_warmup_period:
+                if (
+                    self.consecutive_successes >= 20
+                    and self.current_batch_size < self.max_batch_size
+                ):
+                    self.current_batch_size = min(
+                        int(self.current_batch_size * 1.5), self.max_batch_size
+                    )
+                    self.consecutive_successes = 0
+            else:
+                if (
+                    self.consecutive_successes >= 30
+                    and self.current_batch_size < self.max_batch_size
+                ):
+                    self.current_batch_size = min(
+                        int(self.current_batch_size * 1.1), self.max_batch_size
+                    )
+                    self.consecutive_successes = 0
+
+            if self.operations_since_last_throttle > 100:
+                self.autoscale_warmup_period = False
+
+            if self.operations_since_last_throttle > 200:
+                self.autoscale_max_reached = True
+        else:
+            if (
+                self.consecutive_successes >= 10
+                and self.current_batch_size < self.max_batch_size
+            ):
+                self.current_batch_size = min(
+                    int(self.current_batch_size * 1.2), self.max_batch_size
+                )
+                self.consecutive_successes = 0
+
+    async def report_throttle(self):
+        """
+        Report throttled operation and adjust batch size if needed.
+
+        Records a throttled request (HTTP 429) and potentially scales down the
+        batch size to reduce load on the Cosmos DB account.
+        """
+        async with self.lock:
+            self.consecutive_throttles += 1
+            self.total_throttles += 1
+            self.consecutive_successes = 0
+            self.operations_since_last_throttle = 0
+
+            self._scale_down_if_needed()
+
+    def _scale_down_if_needed(self):
+        """
+        Scale down batch size based on consecutive throttles.
+
+        Implements different backoff strategies for autoscale and manual throughput:
+        - Autoscale: Tolerates more throttles, moderate backoff
+        - Manual: Aggressive backoff to quickly reduce load
+
+        This is an internal method called by report_throttle().
+        """
+        if self.is_autoscale:
+            if self.autoscale_max_reached:
+                self.high_throttle_count_at_max += 1
+
+            if self.consecutive_throttles >= self.throttle_tolerance:
+                if self.autoscale_max_reached and self.high_throttle_count_at_max > 3:
+                    self.current_batch_size = max(
+                        int(self.current_batch_size * 0.5), self.min_batch_size
+                    )
+                elif self.autoscale_warmup_period:
+                    self.current_batch_size = max(
+                        int(self.current_batch_size * 0.8), self.min_batch_size
+                    )
+                else:
+                    self.current_batch_size = max(
+                        int(self.current_batch_size * 0.6), self.min_batch_size
+                    )
+                self.consecutive_throttles = 0
+        else:
+            if self.consecutive_throttles >= self.throttle_tolerance:
+                self.current_batch_size = max(
+                    int(self.current_batch_size * 0.5), self.min_batch_size
+                )
+                self.consecutive_throttles = 0
+
+    async def get_batch_size(self) -> int:
+        """
+        Get current batch size.
+
+        Returns:
+            Current dynamic batch size
+        """
+        async with self.lock:
+            return self.current_batch_size
+
+    async def get_stats(self) -> Dict[str, Any]:
+        """
+        Get current throttle manager statistics.
+
+        Returns:
+            Dictionary containing performance metrics:
+            - total_rus_consumed: Total RUs consumed
+            - total_operations: Total operations performed
+            - avg_ru_per_operation: Average RU per operation
+            - current_batch_size: Current batch size
+            - total_throttles: Total number of throttles
+            - is_autoscale: Whether autoscale is enabled
+        """
+        async with self.lock:
+            return {
+                "total_rus_consumed": self.total_rus_consumed,
+                "total_operations": self.total_operations,
+                "avg_ru_per_operation": self.avg_ru_per_operation,
+                "current_batch_size": self.current_batch_size,
+                "total_throttles": self.total_throttles,
+                "is_autoscale": self.is_autoscale,
+            }
+
+
+async def upsert_item_with_retry(
     container,
     doc: Dict,
     partition_key: str,
+    throttle_manager: AdaptiveThrottleManager,
+    semaphore: asyncio.Semaphore,
+    is_autoscale: bool,
 ) -> Tuple[bool, str, Dict, float]:
     """
-    Upsert a single document using SDK's built-in retry logic.
+    Upsert a single document with exponential backoff retry logic.
+
+    Attempts to upsert a document to Cosmos DB with automatic retry on throttling
+    (HTTP 429), timeouts, and transient errors. Uses exponential backoff with jitter
+    and respects Cosmos DB's retry-after headers.
 
     Args:
         container: Cosmos container client (async)
         doc: Document to upsert (must be JSON-serializable)
         partition_key: Partition key value for this document
+        throttle_manager: Throttle manager for reporting successes/throttles
+        semaphore: Asyncio semaphore for concurrency control
+        is_autoscale: Whether autoscale is enabled (affects retry timing)
 
     Returns:
         Tuple of (success, error_message, document, ru_charge):
@@ -596,14 +955,40 @@ async def upsert_item(
         - document: The original document
         - ru_charge: RU cost of the operation
     """
-    try:
-        response = await container.upsert_item(body=doc)
-        ru_charge = _extract_ru_charge(response)
-        return True, None, doc, ru_charge
+    async with semaphore:
+        for attempt in range(RETRY_MAX_ATTEMPTS):
+            try:
+                response = await container.upsert_item(body=doc)
+                ru_charge = _extract_ru_charge(response)
+                await throttle_manager.report_success(ru_charge)
+                return True, None, doc, ru_charge
 
-    except Exception as e:
-        error_msg = f"Upsert failed: {str(e)[:200]}"
-        logging.error(f"Cosmos upsert error: {error_msg}")
+            except exceptions.CosmosHttpResponseError as e:
+                if e.status_code == 429:
+                    await throttle_manager.report_throttle()
+                    wait_time = _calculate_throttle_wait_time(e, attempt, is_autoscale)
+
+                    if attempt < RETRY_MAX_ATTEMPTS - 1:
+                        await asyncio.sleep(wait_time)
+                        continue
+
+                elif e.status_code in [408, 503, 500]:
+                    wait_time = RETRY_BASE_DELAY * (BACKOFF_MULTIPLIER**attempt)
+                    if attempt < RETRY_MAX_ATTEMPTS - 1:
+                        await asyncio.sleep(wait_time)
+                        continue
+
+                error_msg = f"HTTP {e.status_code}: {str(e)[:100]}"
+                logging.error(f"Cosmos upsert failed: {error_msg}")
+                return False, error_msg, doc, 0
+
+            except Exception as e:
+                error_msg = f"Unexpected error: {str(e)[:100]}"
+                logging.error(f"Unexpected error during upsert: {str(e)}")
+                return False, error_msg, doc, 0
+
+        error_msg = f"Max retries ({RETRY_MAX_ATTEMPTS}) exceeded"
+        logging.error(error_msg)
         return False, error_msg, doc, 0
 
 
@@ -627,59 +1012,110 @@ def _extract_ru_charge(response) -> float:
         return 0
 
 
+def _calculate_throttle_wait_time(
+    error: exceptions.CosmosHttpResponseError, attempt: int, is_autoscale: bool
+) -> float:
+    """
+    Calculate wait time for throttled requests.
+
+    Determines how long to wait before retrying a throttled request, respecting
+    Cosmos DB's retry-after-ms header and applying different strategies for
+    autoscale vs manual throughput.
+
+    Args:
+        error: CosmosHttpResponseError with status code 429
+        attempt: Current retry attempt number (0-indexed)
+        is_autoscale: Whether autoscale is enabled
+
+    Returns:
+        Wait time in seconds (including jitter)
+    """
+    retry_after_ms = error.headers.get("x-ms-retry-after-ms")
+
+    if is_autoscale:
+        if retry_after_ms:
+            wait_time = float(retry_after_ms) / 1000 * 0.5
+        else:
+            wait_time = max(
+                AUTOSCALE_SCALE_UP_WAIT_MS / 1000, RETRY_BASE_DELAY * (1.5**attempt)
+            )
+        jitter = np.random.uniform(0, 0.05 * wait_time)
+    else:
+        if retry_after_ms:
+            wait_time = float(retry_after_ms) / 1000
+        else:
+            wait_time = RETRY_BASE_DELAY * (BACKOFF_MULTIPLIER**attempt)
+        jitter = np.random.uniform(0, 0.1 * wait_time)
+
+    return wait_time + jitter
+
+
 async def batch_upsert_documents(
     container,
     documents: List[Dict],
     partition_key_path: str,
+    throttle_manager: AdaptiveThrottleManager,
     max_concurrent: int,
+    is_autoscale: bool,
 ) -> Dict:
     """
     Upsert multiple documents with concurrency control.
 
     Processes a batch of documents in parallel with controlled concurrency,
-    tracking successes, failures, and RU consumption.
+    tracking successes, failures, RU consumption, and performance metrics.
 
     Args:
         container: Cosmos container client (async)
         documents: List of documents to upsert
         partition_key_path: Partition key path (e.g., "/id")
+        throttle_manager: Throttle manager instance
         max_concurrent: Maximum number of simultaneous operations
+        is_autoscale: Whether autoscale is enabled
 
     Returns:
-        Dictionary with upsert results and statistics
+        Dictionary with upsert results and statistics:
+        - total: Total number of documents processed
+        - successful: Number of successful upserts
+        - failed: Number of failed upserts
+        - failed_docs: List of documents that failed
+        - elapsed_seconds: Time taken for the batch
+        - document_rate_per_second: Throughput in documents/second
+        - total_rus_consumed: Total RUs consumed
+        - ru_rate_per_second: RU consumption rate
+        - avg_ru_per_document: Average RU per document
+        - total_throttles: Number of throttles encountered
     """
     total_docs = len(documents)
     semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def upsert_with_semaphore(doc):
-        async with semaphore:
-            return await upsert_item(
-                container,
-                doc,
-                _extract_partition_key(doc, partition_key_path),
-            )
+    tasks = [
+        upsert_item_with_retry(
+            container,
+            doc,
+            _extract_partition_key(doc, partition_key_path),
+            throttle_manager,
+            semaphore,
+            is_autoscale,
+        )
+        for doc in documents
+    ]
 
-    start_time = time.time()
-    
-    tasks = [upsert_with_semaphore(doc) for doc in documents]
     results = []
     total_rus = 0
+    start_time = time.time()
 
-    # Process in chunks for progress logging
     for i in range(0, len(tasks), PROGRESS_LOG_INTERVAL):
         chunk = tasks[i : i + PROGRESS_LOG_INTERVAL]
         chunk_results = await asyncio.gather(*chunk)
         results.extend(chunk_results)
         total_rus += sum(ru for _, _, _, ru in chunk_results)
-        
-        if (i + PROGRESS_LOG_INTERVAL) % 1000 == 0:
-            logging.info(f"Processed {i + PROGRESS_LOG_INTERVAL}/{total_docs} documents")
 
     successful = sum(1 for success, _, _, _ in results if success)
     failed = total_docs - successful
     failed_docs = [doc for success, _, doc, _ in results if not success]
 
     elapsed_total = time.time() - start_time
+    stats = await throttle_manager.get_stats()
 
     return {
         "total": total_docs,
@@ -693,6 +1129,7 @@ async def batch_upsert_documents(
         "total_rus_consumed": total_rus,
         "ru_rate_per_second": total_rus / elapsed_total if elapsed_total > 0 else 0,
         "avg_ru_per_document": total_rus / total_docs if total_docs > 0 else 0,
+        "total_throttles": stats["total_throttles"],
     }
 
 
@@ -730,7 +1167,8 @@ async def process_batch(
     cosmos_container: str,
     container,
     config: Dict,
-    max_concurrent: int,
+    throttle_manager: AdaptiveThrottleManager,
+    concurrency_config: Dict,
 ) -> Tuple[Dict, int]:
     """
     Process a batch of parent documents with their nested children.
@@ -749,11 +1187,14 @@ async def process_batch(
         export_dir: Base export directory path
         cosmos_container: Cosmos container name
         container: Cosmos container client (async)
-        config: Container configuration
-        max_concurrent: Maximum concurrent operations
+        config: Container configuration from discover_container_configuration()
+        throttle_manager: Throttle manager instance
+        concurrency_config: Concurrency configuration
 
     Returns:
-        Tuple of (upsert_result, total_child_rows_processed)
+        Tuple of (upsert_result, total_child_rows_processed):
+        - upsert_result: Dictionary with upsert results (from batch_upsert_documents)
+        - total_child_rows_processed: Total number of child rows processed
     """
     rid_to_parent = _build_rid_to_parent_mapping(batch_parents)
     all_objects_by_rid = dict(rid_to_parent)
@@ -820,7 +1261,9 @@ async def process_batch(
         container,
         documents,
         config["partition_key_path"],
-        max_concurrent,
+        throttle_manager,
+        concurrency_config["max_concurrent_operations"],
+        config["is_autoscale"],
     )
 
     return result, total_child_rows_in_batch
@@ -847,7 +1290,9 @@ def _build_rid_to_parent_mapping(batch_parents: List[Dict]) -> Dict[str, Dict]:
 
 
 def _organize_csv_paths_by_depth(
-    csv_paths: List[str], export_dir: str, cosmos_container: str
+    csv_paths: List[str], 
+    export_dir: str, 
+    cosmos_container: str
 ) -> Dict[int, List[Dict]]:
     """
     Organize CSV paths by their depth in the hierarchy.
@@ -861,7 +1306,10 @@ def _organize_csv_paths_by_depth(
         cosmos_container: Cosmos container name (parent table)
 
     Returns:
-        Dictionary mapping depth (int) to list of CSV info dictionaries
+        Dictionary mapping depth (int) to list of CSV info dictionaries:
+        - full_path: Full path to the CSV file
+        - arr_name: Array name (e.g., "orders" or "orders.items")
+        - depth: Nesting depth (0 = direct children, 1 = grandchildren, etc.)
     """
     csv_info_by_depth = {}
 
@@ -904,7 +1352,7 @@ def _determine_filter_rids(
     Determine which RIDs to filter by for a given array.
 
     Uses array markers (_has_array_*) to intelligently determine which parent
-    objects should have this particular child array.
+    objects should have this particular child array, avoiding unnecessary processing.
 
     Args:
         arr_name: Name of the array (e.g., "orders.items")
@@ -953,11 +1401,13 @@ def _record_array_markers(all_objects_by_rid: Dict, arrays_with_markers: Dict):
     """
     Record which objects have which array markers.
 
-    Scans all objects for _has_array_* fields and builds a reverse index.
+    Scans all objects for _has_array_* fields and builds a reverse index mapping
+    array names to the RIDs of objects that contain them.
 
     Args:
         all_objects_by_rid: Dictionary of all objects indexed by RID
         arrays_with_markers: Dictionary to populate with array markers
+                            (maps array_name -> set of RIDs)
     """
     for rid, obj in all_objects_by_rid.items():
         array_markers = [k for k in obj.keys() if k.startswith("_has_array_")]
@@ -972,8 +1422,14 @@ def _initialize_arrays_from_markers(all_objects_by_rid: Dict):
     """
     Initialize empty arrays based on markers in objects.
 
+    For each _has_array_* marker found, creates the corresponding empty array
+    in the nested structure and removes the marker field.
+
     Args:
         all_objects_by_rid: Dictionary of all objects indexed by RID (modified in place)
+
+    Raises:
+        Exception: If array initialization fails
     """
     try:
         for rid, obj in all_objects_by_rid.items():
@@ -1014,6 +1470,10 @@ def _assign_children_to_parents(
 ):
     """
     Assign child objects to their parent arrays.
+
+    Processes child objects table by table, grouping them by parent RID and
+    adding them to the appropriate array in the parent object. Handles nested
+    arrays and marker-based placement.
 
     Args:
         child_objects_by_table: Dictionary mapping table names to lists of child objects
@@ -1059,6 +1519,9 @@ def _clean_child_objects(children: List[Dict], all_objects_by_rid: Dict) -> List
     """
     Clean child objects by removing system fields.
 
+    Removes internal fields (_rid, _parent_rid, _has_array_*) from child objects
+    before adding them to parent arrays.
+
     Args:
         children: List of child objects to clean
         all_objects_by_rid: Dictionary to update with cleaned objects (by RID)
@@ -1093,9 +1556,12 @@ def _add_children_to_array(
     """
     Add children to the appropriate array in parent object.
 
+    Determines the correct nested location for the array based on markers and
+    adds the cleaned child objects.
+
     Args:
         parent_obj: Parent object to modify
-        arr_name: Name of the array
+        arr_name: Name of the array (e.g., "orders" or "orders.items")
         clean_children: List of cleaned child objects to add
         parent_rid: RID of the parent object
         arrays_with_markers: Dictionary mapping array names to RIDs with markers
@@ -1155,6 +1621,9 @@ def _clean_documents(documents: List[Dict]):
     """
     Recursively clean all documents.
 
+    Removes all system fields (_rid, _parent_rid, _has_array_*) from documents
+    and their nested structures.
+
     Args:
         documents: List of documents to clean (modified in place)
     """
@@ -1184,14 +1653,39 @@ async def process_adls_to_cosmos_async(body: Dict) -> Dict:
     """
     Main processing function to transfer data from ADLS to Cosmos DB.
 
-    Orchestrates the entire data transfer process using SDK's built-in
-    retry and throttle handling.
+    Orchestrates the entire data transfer process:
+    1. Validates parameters and retrieves secrets
+    2. Connects to ADLS and Cosmos DB
+    3. Discovers container configuration
+    4. Processes data in batches with adaptive throttling
+    5. Returns comprehensive statistics
 
     Args:
-        body: Request body containing configuration parameters
+        body: Request body containing configuration parameters:
+            - cosmos_url: Cosmos DB account URL
+            - cosmos_db: Database name
+            - cosmos_container: Container name
+            - key_vault_name: Key Vault name for secrets
+            - cosmos_secret_name: Secret name for Cosmos key
+            - adls_account_name: Storage account name
+            - adls_file_system: ADLS file system (container) name
+            - adls_directory: Base directory path in ADLS
+            - truncate_sink_before_write: Whether to truncate container
+            - batch_size: Number of parent rows per batch (default: 100000)
 
     Returns:
-        Dictionary with processing results and statistics
+        Dictionary with processing results and statistics:
+        - status: "completed" or "completed_with_errors"
+        - cosmos_configuration: Container config details
+        - performance_configuration: Concurrency settings used
+        - data_processing: Counts of documents/tables processed
+        - results: Success/failure counts and rates
+        - performance_metrics: Timing and RU consumption
+        - failed_document_ids: Sample of failed document IDs
+
+    Raises:
+        ValueError: If required parameters are missing or invalid
+        Exception: For various processing errors (connection, CSV parsing, etc.)
     """
     # Extract and validate parameters
     params = _extract_parameters(body)
@@ -1203,9 +1697,11 @@ async def process_adls_to_cosmos_async(body: Dict) -> Dict:
     export_dir = f"{params['adls_directory']}/{params['cosmos_container']}".strip("/")
 
     try:
-        service_client = validate_adls_connection(
-            params["adls_account_name"], 
-            params["adls_file_system"]
+        # Initialize ADLS client
+        credential = DefaultAzureCredential()
+        service_client = DataLakeServiceClient(
+            account_url=f"https://{params['adls_account_name']}.dfs.core.windows.net",
+            credential=credential,
         )
         fs_client = service_client.get_file_system_client(params["adls_file_system"])
 
@@ -1227,10 +1723,6 @@ async def process_adls_to_cosmos_async(body: Dict) -> Dict:
             1 for p in csv_paths if not p.endswith(f"/{params['cosmos_container']}.csv")
         )
 
-        # Calculate concurrency
-        max_concurrent = calculate_concurrency(total_parent_rows)
-        logging.info(f"Using concurrency level: {max_concurrent}")
-
         # Process with Cosmos DB
         async with CosmosClient(params["cosmos_url"], credential=cosmos_key) as client:
             database = client.get_database_client(params["cosmos_db"])
@@ -1246,6 +1738,13 @@ async def process_adls_to_cosmos_async(body: Dict) -> Dict:
                 database, container, params["cosmos_container"]
             )
 
+            # Calculate concurrency settings
+            concurrency_config, throttle_manager = (
+                await _initialize_concurrency_settings(
+                    service_client, params, parent_full_path, config, total_parent_rows
+                )
+            )
+
             # Process all batches
             result = await _process_all_batches(
                 service_client,
@@ -1257,16 +1756,17 @@ async def process_adls_to_cosmos_async(body: Dict) -> Dict:
                 num_child_tables,
                 container,
                 config,
-                max_concurrent,
+                throttle_manager,
+                concurrency_config,
             )
 
         return _build_response(
             result,
             config,
+            concurrency_config,
             params,
             total_parent_rows,
             num_child_tables,
-            max_concurrent,
         )
 
     except Exception as e:
@@ -1275,7 +1775,18 @@ async def process_adls_to_cosmos_async(body: Dict) -> Dict:
 
 
 def _extract_parameters(body: Dict) -> Dict:
-    """Extract parameters from request body."""
+    """
+    Extract parameters from request body.
+
+    Parses the HTTP request body and extracts all required and optional parameters
+    with appropriate defaults.
+
+    Args:
+        body: Request body dictionary
+
+    Returns:
+        Dictionary with extracted parameters
+    """
     return {
         "cosmos_url": body.get("cosmos_url"),
         "cosmos_db": body.get("cosmos_db"),
@@ -1291,7 +1802,18 @@ def _extract_parameters(body: Dict) -> Dict:
 
 
 def _validate_parameters(params: Dict):
-    """Validate required parameters."""
+    """
+    Validate required parameters.
+
+    Checks that all required parameters are present and raises ValueError if any
+    are missing.
+
+    Args:
+        params: Parameters dictionary from _extract_parameters()
+
+    Raises:
+        ValueError: If any required parameters are missing or invalid
+    """
     missing = [
         k
         for k, v in {
@@ -1317,86 +1839,22 @@ def _validate_parameters(params: Dict):
         logging.error(error_msg)
         raise ValueError(error_msg)
 
-def validate_adls_connection(adls_account_name: str, adls_file_system: str):
-    """
-    Validate ADLS connection and return service client.
-
-    Args:
-        adls_account_name: Storage account name
-        adls_file_system: Container/filesystem name
-
-    Returns:
-        DataLakeServiceClient instance
-
-    Raises:
-        ValueError: If validation fails with descriptive error message
-    """
-    try:
-        from azure.core.exceptions import ClientAuthenticationError, ResourceNotFoundError
-        
-        credential = DefaultAzureCredential()
-        service_client = DataLakeServiceClient(
-            account_url=f"https://{adls_account_name}.dfs.core.windows.net",
-            credential=credential,
-        )
-
-        fs_client = service_client.get_file_system_client(adls_file_system)
-        list(fs_client.get_paths(path="", max_results=1))
-
-        return service_client
-
-    except ClientAuthenticationError:
-        raise ValueError(
-            "ADLS authentication failed. Ensure managed identity has proper permissions."
-        )
-    except ResourceNotFoundError:
-        raise ValueError(f"ADLS filesystem '{adls_file_system}' does not exist.")
-    except Exception as e:
-        raise ValueError(f"ADLS connection validation failed: {str(e)}")
-
-
-async def validate_cosmos_connection_async(
-    cosmos_url: str, cosmos_key: str, cosmos_db: str, cosmos_container: str
-):
-    """
-    Validate Cosmos DB connection and return clients (async version).
-
-    Args:
-        cosmos_url: Cosmos DB endpoint URL
-        cosmos_key: Cosmos DB access key
-        cosmos_db: Database name
-        cosmos_container: Container name
-
-    Returns:
-        Tuple of (client, database, container)
-
-    Raises:
-        ValueError: If validation fails with descriptive error message
-    """
-    try:
-        async with CosmosClient(cosmos_url, credential=cosmos_key) as client:
-            database = client.get_database_client(cosmos_db)
-            await database.read()
-
-            container = database.get_container_client(cosmos_container)
-            await container.read()
-
-            return client, database, container
-
-    except exceptions.CosmosHttpResponseError as e:
-        if e.status_code == 401:
-            raise ValueError(
-                "Cosmos authentication failed. Invalid cosmos_key or endpoint."
-            )
-        elif e.status_code == 404:
-            raise ValueError(f"Cosmos resource not found: {str(e)}")
-        else:
-            raise ValueError(f"Cosmos connection validation failed: {str(e)}")
-    except Exception as e:
-        raise ValueError(f"Cosmos connection validation failed: {str(e)}")
 
 async def _handle_truncate(database, container, cosmos_container: str):
-    """Handle container truncation and recreation."""
+    """
+    Handle container truncation and recreation.
+
+    Reads the existing container properties, deletes the container, and recreates
+    it with the same partition key and throughput settings.
+
+    Args:
+        database: Cosmos database client (async)
+        container: Cosmos container client (async)
+        cosmos_container: Container name
+
+    Raises:
+        ValueError: If container doesn't exist (can't get properties for recreation)
+    """
     try:
         existing_container_properties = await container.read()
     except exceptions.CosmosResourceNotFoundError as e:
@@ -1445,6 +1903,56 @@ async def _handle_truncate(database, container, cosmos_container: str):
         )
 
 
+async def _initialize_concurrency_settings(
+    service_client, params, parent_full_path, config, total_parent_rows
+):
+    """
+    Initialize concurrency settings based on sample documents.
+
+    Reads a sample of documents to estimate average document size, then calculates
+    optimal concurrency settings and creates the throttle manager.
+
+    Args:
+        service_client: ADLS service client
+        params: Parameters dictionary
+        parent_full_path: Full path to parent CSV
+        config: Container configuration
+        total_parent_rows: Total number of parent rows
+
+    Returns:
+        Tuple of (concurrency_config, throttle_manager)
+    """
+    first_batch_df = read_csv_from_adls_batched(
+        service_client,
+        params["adls_file_system"],
+        parent_full_path,
+        skip_rows=0,
+        nrows=min(100, params["batch_size"]),
+    )
+
+    first_batch_flat = [row.dropna().to_dict() for _, row in first_batch_df.iterrows()]
+    sample_parents = [
+        unflatten_dict({k: v for k, v in flat.items() if k != "_parent_rid"})
+        for flat in first_batch_flat[: min(100, len(first_batch_flat))]
+    ]
+    sample_docs = [cosmos_safe(strip_system_fields(doc)) for doc in sample_parents]
+
+    avg_doc_size_kb = (
+        sum(estimate_document_size_kb(doc) for doc in sample_docs) / len(sample_docs)
+        if sample_docs
+        else 1
+    )
+
+    concurrency_config = calculate_optimal_concurrency(
+        config, total_parent_rows, avg_doc_size_kb
+    )
+    throttle_manager = AdaptiveThrottleManager(concurrency_config)
+
+    del first_batch_df, first_batch_flat, sample_parents, sample_docs
+
+    return concurrency_config, throttle_manager
+
+
 async def _process_all_batches(
     service_client,
     params,
@@ -1455,13 +1963,36 @@ async def _process_all_batches(
     num_child_tables,
     container,
     config,
-    max_concurrent,
+    throttle_manager,
+    concurrency_config,
 ):
-    """Process all batches of parent documents."""
+    """
+    Process all batches of parent documents.
+
+    Iterates through all parent rows in batches, processing each batch with its
+    associated child records and upserting to Cosmos DB.
+
+    Args:
+        service_client: ADLS service client
+        params: Parameters dictionary
+        parent_full_path: Full path to parent CSV
+        csv_paths: List of all CSV paths
+        export_dir: Export directory path
+        total_parent_rows: Total number of parent rows
+        num_child_tables: Number of child tables
+        container: Cosmos container client
+        config: Container configuration
+        throttle_manager: Throttle manager instance
+        concurrency_config: Concurrency configuration
+
+    Returns:
+        Dictionary with aggregated results from all batches
+    """
     total_successful = 0
     total_failed = 0
     total_rus = 0
     total_elapsed = 0
+    total_throttles = 0
     all_failed_docs = []
     processed_parents = 0
     total_child_rows_processed = 0
@@ -1496,13 +2027,15 @@ async def _process_all_batches(
             params["cosmos_container"],
             container,
             config,
-            max_concurrent,
+            throttle_manager,
+            concurrency_config,
         )
 
         total_successful += batch_result["successful"]
         total_failed += batch_result["failed"]
         total_rus += batch_result["total_rus_consumed"]
         total_elapsed += batch_result["elapsed_seconds"]
+        total_throttles += batch_result["total_throttles"]
         all_failed_docs.extend(batch_result["failed_docs"][:20])
         processed_parents += len(batch_parents)
         total_child_rows_processed += batch_child_rows
@@ -1523,6 +2056,7 @@ async def _process_all_batches(
         "avg_ru_per_document": (
             total_rus / total_parent_rows if total_parent_rows > 0 else 0
         ),
+        "total_throttles": total_throttles,
         "num_batches": num_batches,
         "num_child_tables": num_child_tables,
         "total_child_rows": total_child_rows_processed,
@@ -1530,7 +2064,19 @@ async def _process_all_batches(
 
 
 def _prepare_batch_parents(parent_df: pd.DataFrame) -> List[Dict]:
-    """Prepare parent documents from DataFrame."""
+    """
+    Prepare parent documents from DataFrame.
+
+    Converts a DataFrame of parent rows to a list of nested document structures,
+    preserving array markers for later child assignment.
+
+    Args:
+        parent_df: DataFrame containing parent rows
+
+    Returns:
+        List of parent document dictionaries with nested structures
+
+    """
     parent_flat = [row.dropna().to_dict() for _, row in parent_df.iterrows()]
     batch_parents = []
 
@@ -1555,23 +2101,44 @@ def _prepare_batch_parents(parent_df: pd.DataFrame) -> List[Dict]:
 def _build_response(
     result: Dict,
     config: Dict,
+    concurrency_config: Dict,
     params: Dict,
     total_parent_rows: int,
     num_child_tables: int,
-    max_concurrent: int,
 ) -> Dict:
-    """Build final response dictionary."""
+    """
+    Build final response dictionary.
+
+    Assembles all processing results and statistics into a comprehensive response
+    structure for the caller.
+
+    Args:
+        result: Results from _process_all_batches()
+        config: Container configuration
+        concurrency_config: Concurrency configuration used
+        params: Original parameters
+        total_parent_rows: Total parent rows processed
+        num_child_tables: Number of child tables processed
+
+    Returns:
+        Comprehensive response dictionary with all statistics and results
+    """
     return {
         "status": "completed" if result["failed"] == 0 else "completed_with_errors",
         "cosmos_configuration": {
             "partition_key": config["partition_key_path"],
             "throughput_type": config["throughput_type"],
+            "provisioned_rus": config["provisioned_rus"],
             "is_autoscale": config["is_autoscale"],
             "is_serverless": config["is_serverless"],
             "uses_shared_throughput": config["uses_shared_throughput"],
         },
         "performance_configuration": {
-            "max_concurrent_operations": max_concurrent,
+            "max_concurrent_operations": concurrency_config[
+                "max_concurrent_operations"
+            ],
+            "initial_batch_size": concurrency_config["initial_batch_size"],
+            "estimated_ru_per_doc": concurrency_config["estimated_ru_per_doc"],
             "batch_size": params["batch_size"],
             "num_batches_processed": result["num_batches"],
         },
@@ -1589,6 +2156,7 @@ def _build_response(
                 if result["total"] > 0
                 else 0
             ),
+            "total_throttles": result["total_throttles"],
         },
         "performance_metrics": {
             "elapsed_seconds": round(result["elapsed_seconds"], 2),
@@ -1605,13 +2173,32 @@ def _build_response(
 
 @app.activity_trigger(input_name="params")
 def process_adls_to_cosmos_activity(params: dict):
-    """Activity trigger for processing ADLS to Cosmos DB transfer."""
+    """
+    Activity trigger for processing ADLS to Cosmos DB transfer.
+
+    This is the Durable Functions activity that wraps the async processing function.
+    It's invoked by the orchestrator.
+
+    Args:
+        params: Parameters dictionary containing all configuration
+
+    Returns:
+        Processing results dictionary from process_adls_to_cosmos_async()
+    """
     return asyncio.run(process_adls_to_cosmos_async(params))
 
 
 @app.orchestration_trigger(context_name="context")
 def adls_to_cosmos_orchestrator(context: df.DurableOrchestrationContext):
-    """Orchestrator for ADLS to Cosmos DB transfer."""
+    """
+    Orchestrator for ADLS to Cosmos DB transfer.
+
+    Args:
+        context: Durable orchestration context
+
+    Returns:
+        Activity result
+    """
     params = context.get_input()
     result = yield context.call_activity("process_adls_to_cosmos_activity", params)
     return result
@@ -1620,7 +2207,16 @@ def adls_to_cosmos_orchestrator(context: df.DurableOrchestrationContext):
 @app.route(route="ADLS_to_Cosmos_v1", methods=["POST"])
 @app.durable_client_input(client_name="client")
 async def adls_to_cosmos_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
-    """HTTP trigger to start ADLS to Cosmos DB transfer."""
+    """
+    HTTP trigger to start ADLS to Cosmos DB transfer.
+
+    Args:
+        req: HTTP request
+        client: Durable orchestration client
+
+    Returns:
+        HTTP response with status
+    """
     try:
         body = req.get_json()
     except Exception as e:
