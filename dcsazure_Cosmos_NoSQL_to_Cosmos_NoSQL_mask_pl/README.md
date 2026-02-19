@@ -123,6 +123,7 @@ have customized your metadata store, then these variables may need editing.
 * `P_ADLS_SINK_CONTAINER` – String – ADLS filesystem/container for masked data
 * `P_ADLS_SINK_STORAGE_KEY` – SecureString – ADLS storage account key
 * `P_FAIL_ON_NONCONFORMANT_DATA` – Bool – Fail pipeline if non-conformant data is encountered (default `true`)
+* `P_COPY_UNMASKED_TABLES` – Bool – Copy data even when no masking rules are defined (default `true`)
 * `P_COPY_USE_DATAFLOW` – Bool – Use dataflow instead of copy activity when copying data (default `false`)
 * `P_TRUNCATE_SINK_BEFORE_WRITE` – Bool – Truncate target Cosmos container before writing masked data (default `true`)
 * `P_REAPPLY_MAPPING` – Bool – Reapply source-to-sink mapping before masking (default `true`)

@@ -615,7 +615,7 @@
             "userProperties": [],
             "typeProperties": {
               "expression": {
-                "value": "@equals(activity('Execute ADLS Masking Pipeline').output.pipelineReturnValue.NO_COLUMNS_MASKED,true)",
+                "value": "@if(\n    equals(pipeline().parameters.P_COPY_UNMASKED_TABLES, false),\n    equals(activity('Execute ADLS Masking Pipeline').output.pipelineReturnValue.NO_COLUMNS_MASKED, true),\n    false\n)",
                 "type": "Expression"
               },
               "ifTrueActivities": [
@@ -662,6 +662,10 @@
             "type": "string"
           },
           "P_FAIL_ON_NONCONFORMANT_DATA": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
             "defaultValue": true
           },
