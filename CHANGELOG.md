@@ -1,8 +1,14 @@
 # CHANGELOG
 
-# 0.0.47
+# 0.0.49
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_ADLS_to_ADLS_parquet_mask_pl`
 * Fix reading from source dataset in the `dcsazure_ADLS_to_ADLS_parquet_filtered_mask_df`
+
+# 0.0.48
+* The size for `source_schema` and `sink_schema` columns in the `adf_events_log` table increased to accommodate longer dataset paths to fix insert failure due to truncation error.
+
+# 0.0.47
+* Updated the `generate_masking_parameters` stored procedure to avoid truncation of long schema paths and ensure accurate masking rule resolution.
 
 # 0.0.46
 * Update `bootstrap.sql` script to run as a single batch.
