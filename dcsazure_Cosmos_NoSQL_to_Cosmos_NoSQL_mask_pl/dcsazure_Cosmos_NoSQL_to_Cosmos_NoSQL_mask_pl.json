@@ -602,7 +602,7 @@
             }
           },
           {
-            "name": "Check If AtLeast One Column Is Masked",
+            "name": "Check If At Least One Column Is Masked",
             "type": "IfCondition",
             "dependsOn": [
               {
@@ -661,10 +661,6 @@
           "P_ADLS_SINK_CONTAINER": {
             "type": "string"
           },
-          "P_FAIL_ON_NONCONFORMANT_DATA": {
-            "type": "bool",
-            "defaultValue": true
-          },
           "P_COPY_UNMASKED_TABLES": {
             "type": "bool",
             "defaultValue": true
@@ -672,6 +668,10 @@
           "P_COPY_USE_DATAFLOW": {
             "type": "bool",
             "defaultValue": false
+          },
+          "P_FAIL_ON_NONCONFORMANT_DATA": {
+            "type": "bool",
+            "defaultValue": true
           },
           "P_TRUNCATE_SINK_BEFORE_WRITE": {
             "type": "bool",
@@ -729,7 +729,7 @@
           },
           "STORAGE_ACCOUNT": {
             "type": "String",
-            "defaultValue": "DCS_PLACEHOLDER"
+            "defaultValue": "DCS_PALCEHOLDER"
           },
           "ADLS_TO_COSMOS_COPY_BATCH_SIZE": {
             "type": "String",
@@ -3197,7 +3197,7 @@
             }
           },
           {
-            "name": "Check If AtLeast One Column Is Masked",
+            "name": "Check If At Least One Column Is Masked",
             "type": "IfCondition",
             "dependsOn": [
               {
