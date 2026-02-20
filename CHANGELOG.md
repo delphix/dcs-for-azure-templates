@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.49
+* Replace masking parameter dataflows with SQL stored procedure in `dcsazure_ADLS_to_ADLS_parquet_mask_pl`
+* Fix reading from source dataset in the `dcsazure_ADLS_to_ADLS_parquet_filtered_mask_df`
+
 # 0.0.48
 * The size for `source_schema` and `sink_schema` columns in the `adf_events_log` table increased to accommodate longer dataset paths to fix insert failure due to truncation error.
 
@@ -14,7 +18,7 @@
 * Added Azure Postgres to Azure Postgres Masking Pipeline template `dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl`.
 
 # 0.0.44
-* Updated `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused 
+* Updated `dcsazure_AzureSQL_MI_to_AzureSQL_MI_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused
   by tables with zero records, by adding a `row_count > 0` condition in the `Select Tables That Require Masking` step
 * Implemented a Lookup activity in the masking pipeline to list tables ignored during masking due to empty data.
 
@@ -22,7 +26,7 @@
 * Updated the generate_masking_parameters stored procedure to resolve an issue where columns with identical names up to 29 characters were generating duplicate hex codes.
 
 # 0.0.42
-* Updated `dcsazure_AzureSQL_to_AzureSQL_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused 
+* Updated `dcsazure_AzureSQL_to_AzureSQL_mask_pl` to resolve failures in the `Lookup Masking Parameters` activity caused
   by tables with zero records, by adding a `row_count > 0` condition in the `Select Tables That Require Masking` step
 * Updated `generate_masking_parameters` stored procedure to cast the NumberOfBatches parameter to INT to prevent type mismatch errors.
 * Updated the Create Constraint Pipeline and Drop Constraint Pipeline sink configuration to fully qualify the table type with the metadata schema.
@@ -89,7 +93,7 @@
 # 0.0.28
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_AzureSQL_to_AzureSQL_mask_pl`
   * Unified and optimized conditional and non-conditional masking parameter generation in a single stored procedure
-* Fixed type casting bug where `treat_as_string` flag caused zero rows in sink table (#65)  
+* Fixed type casting bug where `treat_as_string` flag caused zero rows in sink table (#65)
 * Add SQLFluff configuration for T-SQL formatting standards
 
 # 0.0.27
@@ -98,7 +102,7 @@
 # 0.0.26
 * Updated the resource activity `Determine All Heterogeneous Schema` name to title case in `dcsazure_ADLS_to_ADLS_delimited_discovery_pl` pipeline template.
 
-# 0.0.25 
+# 0.0.25
 * Introduced functionality for identifying nested directories in the `dcsazure_ADLS_to_ADLS_delimited_discovery_pl` pipeline.
 * Modified queries to select the root schema and execute the masking job at the entire container level in the `dcsazure_ADLS_to_ADLS_delimited_masking_pl` pipeline.
 
