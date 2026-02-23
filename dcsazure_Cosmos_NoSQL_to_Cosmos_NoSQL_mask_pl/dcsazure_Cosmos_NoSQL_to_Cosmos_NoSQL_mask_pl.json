@@ -47,7 +47,10 @@
               },
               "waitOnCompletion": true,
               "parameters": {
-                "P_COPY_UNMASKED_TABLES": true,
+                "P_COPY_UNMASKED_TABLES": {
+                  "value": "@pipeline().parameters.P_COPY_UNMASKED_TABLES",
+                  "type": "Expression"
+                },
                 "P_COPY_USE_DATAFLOW": {
                   "value": "@pipeline().parameters.P_COPY_USE_DATAFLOW",
                   "type": "Expression"
@@ -60,7 +63,10 @@
                   "value": "@pipeline().parameters.P_REAPPLY_MAPPING",
                   "type": "Expression"
                 },
-                "P_TRUNCATE_SINK_BEFORE_WRITE": true,
+                "P_TRUNCATE_SINK_BEFORE_WRITE": {
+                  "value": "@pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE",
+                  "type": "Expression"
+                },
                 "P_SOURCE_CONTAINER": {
                   "value": "@pipeline().parameters.P_ADLS_SOURCE_CONTAINER",
                   "type": "Expression"
@@ -385,7 +391,7 @@
             "type": "IfCondition",
             "dependsOn": [
               {
-                "activity": "Check If At Least One Column Is Masked",
+                "activity": "Execute ADLS Masking Pipeline",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -600,43 +606,6 @@
                 }
               ]
             }
-          },
-          {
-            "name": "Check If At Least One Column Is Masked",
-            "type": "IfCondition",
-            "dependsOn": [
-              {
-                "activity": "Execute ADLS Masking Pipeline",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "expression": {
-                "value": "@if(\n    equals(pipeline().parameters.P_COPY_UNMASKED_TABLES, false),\n    equals(activity('Execute ADLS Masking Pipeline').output.pipelineReturnValue.NO_COLUMNS_MASKED, true),\n    false\n)",
-                "type": "Expression"
-              },
-              "ifTrueActivities": [
-                {
-                  "name": "No Columns Masked",
-                  "type": "Fail",
-                  "dependsOn": [],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "message": {
-                      "value": "No columns are masked in the Cosmos container '@{pipeline().parameters.P_COSMOS_CONTAINER}'. Please assign a masking algorithm to at least one column and try again.",
-                      "type": "Expression"
-                    },
-                    "errorCode": {
-                      "value": "200",
-                      "type": "Expression"
-                    }
-                  }
-                }
-              ]
-            }
           }
         ],
         "policy": {
@@ -746,7 +715,7 @@
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-02T12:10:34Z"
+        "lastPublishTime": "2026-02-23T07:34:47Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_mask_pl')]"
@@ -1456,6 +1425,12 @@
                 "dependencyConditions": [
                   "Succeeded"
                 ]
+              },
+              {
+                "activity": "Check If At Least One Column Is Masked",
+                "dependencyConditions": [
+                  "Succeeded"
+                ]
               }
             ],
             "policy": {
@@ -1511,7 +1486,7 @@
                 "type": "Expression"
               },
               "condition": {
-                "value": "@pipeline().parameters.P_COPY_UNMASKED_TABLES",
+                "value": "@equals(1,1)",
                 "type": "Expression"
               }
             }
@@ -2718,56 +2693,21 @@
             "userProperties": [],
             "typeProperties": {
               "expression": {
-                "value": "@equals(activity('Select Tables That Require Masking').output.count,0)",
+                "value": "@if(\n    equals(pipeline().parameters.P_COPY_UNMASKED_TABLES, false),\n    equals(activity('Select Tables That Require Masking').output.count,0),\n    false\n)",
                 "type": "Expression"
               },
-              "ifFalseActivities": [
-                {
-                  "name": "Set variable Columns Masked",
-                  "type": "SetVariable",
-                  "dependsOn": [],
-                  "policy": {
-                    "secureOutput": false,
-                    "secureInput": false
-                  },
-                  "userProperties": [],
-                  "typeProperties": {
-                    "variableName": "pipelineReturnValue",
-                    "value": [
-                      {
-                        "key": "NO_COLUMNS_MASKED",
-                        "value": {
-                          "type": "Boolean",
-                          "content": false
-                        }
-                      }
-                    ],
-                    "setSystemVariable": true
-                  }
-                }
-              ],
               "ifTrueActivities": [
                 {
-                  "name": "Set variable No Columns Masked",
-                  "type": "SetVariable",
+                  "name": "No Columns Masked",
+                  "type": "Fail",
                   "dependsOn": [],
-                  "policy": {
-                    "secureOutput": false,
-                    "secureInput": false
-                  },
                   "userProperties": [],
                   "typeProperties": {
-                    "variableName": "pipelineReturnValue",
-                    "value": [
-                      {
-                        "key": "NO_COLUMNS_MASKED",
-                        "value": {
-                          "type": "Boolean",
-                          "content": true
-                        }
-                      }
-                    ],
-                    "setSystemVariable": true
+                    "message": {
+                      "value": "No columns are masked in the Cosmos container '@{pipeline().parameters.P_SOURCE_CONTAINER}'. Please assign a masking algorithm to at least one column and try again.",
+                      "type": "Expression"
+                    },
+                    "errorCode": "500"
                   }
                 }
               ]
@@ -2843,7 +2783,7 @@
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-02T11:32:20Z"
+        "lastPublishTime": "2026-02-23T07:34:46Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds')]",
