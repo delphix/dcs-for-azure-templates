@@ -62,23 +62,31 @@ def is_valid_azure_function_folder(filename: pathlib.Path) -> bool:
     """
     # filename.parts: (<template_dir>, <function_dir>, <file>)
     if len(filename.parts) != 3:
-        return False
+        raise helpers.InvalidTemplateNameException(
+            f"Invalid Azure Function file path '{filename}'. "
+            f"Expected structure: <template_dir>/<function_dir>/<file>"
+        )
 
-    function_dir = filename.parts[1]
-    file_name = filename.name
+    _, function_dir, file_name = filename.parts
 
+    # Validate function directory name
     if not helpers.FUNCTION_DIR_REGEX.match(function_dir):
-        return False
+        raise helpers.InvalidTemplateNameException(
+            f"Invalid Azure Function directory '{function_dir}' in '{filename}'. "
+            f"Expected format: <Source>_to_<Sink>, where Source and Sink are one of "
+            f"{', '.join(sorted(helpers.ALLOWED_SYSTEMS))}."
+        )
 
-    expected_zip = f"{function_dir}.zip"
-
-    if file_name == expected_zip:
-        return True
-
+    # Allow only required files
     if file_name in helpers.FUNCTION_REQUIRED_FILES:
         return True
 
-    return False
+    # Reject everything else
+    raise helpers.InvalidTemplateNameException(
+        f"Invalid file '{file_name}' in Azure Function directory '{function_dir}'. "
+        f"Only the following files are allowed: "
+        f"{', '.join(sorted(helpers.FUNCTION_REQUIRED_FILES))}"
+    )
 
 def get_name_from_resource(resource_name: str) -> str:
     """
@@ -314,7 +322,7 @@ def is_valid_template_file_name(filename: pathlib.Path) -> bool:
 
     # Case 2: Files inside Azure Function folder (ONE level deep)
     if len(filename.parts) == 3:
-        return is_valid_function_file(filename)
+        return is_valid_azure_function_folder(filename)
 
     # Any deeper nesting is invalid
     return False

@@ -99,7 +99,6 @@ have customized your metadata store, then these variables may need editing.
 * `METADATA_ADF_TYPE_MAPPING_TABLE` – Table mapping dataset data types to ADF data types (default `adf_type_mapping`)
 * `TARGET_BATCH_SIZE` – Target number of rows per batch during masking (default `50000`)
 * `DATASET` – Dataset identifier used in the metadata store (default `COSMOS_NOSQL`)
-* `CONDITIONAL_MASKING_RESERVED_CHARACTER` – Reserved character used for shorthand column references in conditional masking filters (default `%`)
 * `METADATA_EVENT_PROCEDURE_NAME` – Stored procedure used to capture masking execution events and update masking state (default `insert_adf_masking_event`)
 * `METADATA_MASKING_PARAMS_PROCEDURE_NAME` – Stored procedure used to generate Cosmos NoSQL masking parameters (default `generate_cosmos_no_sql_masking_parameters`)
 * `COLUMN_WIDTH_ESTIMATE` – Estimated column width used for batch size calculation when schema width is unavailable (default `1000`)

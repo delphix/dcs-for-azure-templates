@@ -145,6 +145,42 @@ def get_existing_migration_files(scripts_dir: Path, new_files: tp.List[str]) -> 
     ]
 
 
+def validate_migration_file_go_statement(new_migration_files: tp.List[str]) -> None:
+    """
+    Validate that migration files containing SQL statements like CREATE, UPDATE, INSERT,
+    ALTER, DELETE end with a GO statement. Empty files pass the check without requiring
+    a GO statement.
+    """
+    sql_statement_pattern = re.compile(
+        r'\b(CREATE|UPDATE|INSERT|ALTER|DELETE)\b',
+        re.IGNORECASE
+    )
+    go_statement_pattern = re.compile(r'^\s*GO\s*$', re.IGNORECASE | re.MULTILINE)
+
+    metadata_store_scripts_dir = helpers.get_project_root() / METADATA_STORE_SCRIPTS_DIR
+
+    for migration_file in new_migration_files:
+        if migration_file == BOOTSTRAP_FILE:
+            continue
+
+        file_path = metadata_store_scripts_dir / migration_file
+        file_content = file_path.read_text()
+
+        # Skip empty files
+        if not file_content.strip():
+            continue
+
+        # Check if file contains any SQL statements
+        if sql_statement_pattern.search(file_content):
+            # File contains SQL statements, check if it ends with GO
+            if not go_statement_pattern.search(file_content):
+                raise MigrationValidationError(
+                    f"Migration file {migration_file} contains SQL statements but does"
+                    f" not end with a GO statement. Please add 'GO' statement at the"
+                    f" end of the file."
+                )
+
+
 def main():
     try:
         changed_files = helpers.get_all_modified_files()
@@ -164,6 +200,7 @@ def main():
         check_new_migration_file_format(new_migration_files)
         check_duplicate_migration_versions(new_migration_files, old_migration_files)
         validate_new_migration_dates(new_migration_files, old_migration_files)
+        validate_migration_file_go_statement(new_migration_files)
         validate_if_bootstrap_file_is_updated(new_migration_files)
         return 0
 

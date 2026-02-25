@@ -19,7 +19,10 @@
 -- * V2025.12.18.0__update_generate_masking_parameters_procedure
 -- * V2026.01.14.0__update_generate_masking_parameters_procedure
 -- * V2026.01.20.0__add_azurepostgres_adf_type_mapping
--- * V2026.02.02.0__add_cosmosnosql_adf_type_mapping
+-- * V2026.02.11.0__empty
+-- * V2026.02.16.0__update_generate_masking_parameters_procedure
+-- * V2026.02.18.0__update_adf_event_log_table
+-- * V2026.02.25.0__add_cosmosnosql_adf_type_mapping
 -- The contents of each of those files follows
 
 
@@ -101,6 +104,7 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    ('DATABRICKS', 'FLOAT', 'float'),
    ('DATABRICKS', 'STRING', 'string')
 ;
+GO
 -- source: V2024.04.18.0__add_adls_to_adls_support
 CREATE PROCEDURE get_columns_from_adls_file_structure_sp
 	@adf_file_structure NVARCHAR(MAX),
@@ -195,9 +199,11 @@ BEGIN
 			PRINT 'adf_file_structure is NULL or empty';
 		END
 END;
+GO
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    VALUES
    ('ADLS', 'String', 'string');
+GO
 -- source: V2024.05.02.0__update_adls_to_adls_support
 ALTER PROCEDURE get_columns_from_adls_file_structure_sp
 	@adf_file_structure NVARCHAR(MAX),
@@ -287,6 +293,7 @@ BEGIN
 			PRINT 'adf_file_structure is NULL or empty';
 		END
 END;
+GO
 -- source: V2024.08.25.0__add_conditional_masking_support
 ALTER TABLE discovered_ruleset ALTER COLUMN assigned_algorithm VARCHAR(MAX);
 
@@ -326,6 +333,7 @@ CREATE TABLE adf_events_log (
     filter_condition VARCHAR(MAX),
     last_inserted DATETIME DEFAULT getdate(),
 CONSTRAINT adf_execution_log_pk PRIMARY KEY (event_id));
+GO
 
 CREATE PROCEDURE insert_adf_discovery_event
 (
@@ -401,6 +409,7 @@ BEGIN
             PRINT 'pipeline_run_id is invalid';
         END
 END;
+GO
 
 CREATE PROCEDURE insert_adf_masking_event
 (
@@ -562,6 +571,7 @@ BEGIN
         END
 -- End stored procedure definition
 END;
+GO
 
 -- source: V2024.12.02.0__add_azuresql_to_azuresql_support
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
@@ -624,6 +634,7 @@ CREATE TABLE capture_constraints (
         constraint_name
     )
 );
+GO
 
 -- source: V2024.12.26.0__add_adls_to_adls_parquet_support
 CREATE PROCEDURE get_columns_from_parquet_file_structure_sp
@@ -707,6 +718,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    VALUES
@@ -725,9 +737,11 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
    ('ADLS-PARQUET', 'String', 'string'),
    ('ADLS-PARQUET', 'Time', 'timestamp'),
    ('ADLS-PARQUET', 'Timestamp', 'timestamp');
+GO
 
 -- Drop existing procedure that is specific to delimited files
 DROP PROCEDURE get_columns_from_adls_file_structure_sp;
+GO
 
 -- Recreate procedure that is specific to delimited files
 CREATE PROCEDURE get_columns_from_delimited_file_structure_sp
@@ -819,6 +833,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 -- BEGIN: Rename the ADLS dataset to ADLS-DELIMITED to avoid confusion
 -- Update this in the discovered ruleset table
@@ -845,10 +860,12 @@ SET
     sink_dataset = 'ADLS-DELIMITED'
 WHERE sink_dataset = 'ADLS';
 -- END: Rename the ADLS dataset to ADLS-DELIMITED to avoid confusion
+GO
 
 
 -- source: V2025.01.15.0__separate_algorithm_and_source_metadata
 ALTER TABLE discovered_ruleset ADD algorithm_metadata NVARCHAR(MAX);
+GO
 
 -- Move the `date_format` key/value pair out of the metadata column and into the `algorithm_metadata` column
 UPDATE discovered_ruleset
@@ -874,6 +891,7 @@ WHERE
 
 -- Rename the `metadata` column to `source_metadata` for clarity
 EXEC sp_rename 'discovered_ruleset.metadata', 'source_metadata', 'COLUMN';
+GO
 
 -- Update stored procedures to use new source_metadata column
 ALTER PROCEDURE get_columns_from_parquet_file_structure_sp
@@ -957,6 +975,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 ALTER PROCEDURE get_columns_from_delimited_file_structure_sp
     @adf_file_structure NVARCHAR(MAX),
@@ -1047,6 +1066,7 @@ BEGIN
             PRINT 'adf_file_structure is NULL or empty';
         END
 END;
+GO
 
 -- source: V2025.01.30.0__create_constraints_stored_procedure
 
@@ -1067,6 +1087,7 @@ CREATE TYPE sink_drop_constraint_type AS TABLE
     drop_timestamp DATETIME,
     post_create_status NVARCHAR(255)
 );
+GO
 
 -- Create a stored procedure to insert constraint information
 -- into the capture_constraints table
@@ -1153,6 +1174,7 @@ BEGIN
             sink_constraints.post_create_status
         );
 END;
+GO
 
 -- Create a table type to store constraint information
 -- after creating the constraints
@@ -1170,6 +1192,7 @@ CREATE TYPE sink_create_constraint_type AS TABLE
     post_create_status NVARCHAR(255),
     create_timestamp DATETIME
 );
+GO
 
 -- Create a stored procedure to update the status of constraints
 -- in the capture_constraints table after they are created
@@ -1195,6 +1218,7 @@ BEGIN
             ct.post_create_status = sink_constraints.post_create_status,
             ct.create_timestamp = sink_constraints.create_timestamp;
 END;
+GO
 
 -- source: V2025.02.04.0__add_azuremi_to_azuremi_support
 
@@ -1250,6 +1274,7 @@ INSERT INTO adf_type_mapping(dataset, dataset_type, adf_type)
 ('AZURESQL-MI', 'uniqueidentifier', 'string'),
 ('AZURESQL-MI', 'xml', 'string')
 ;
+GO
 
 
 -- source: V2025.07.22.0__add_generate_masking_parameters_procedure
@@ -1730,6 +1755,7 @@ VALUES
 ('DATAVERSE', 'Picklist', 'string'),
 ('DATAVERSE', 'String', 'string'),
 ('DATAVERSE', 'Uniqueidentifier', 'string');
+GO
 
 
 -- source: V2025.09.10.0__add_generate_dataverse_masking_parameters_procedure
@@ -4018,12 +4044,494 @@ VALUES
  * Columns of these types may be excluded from discovery or treated as
  * unsupported explicitly to avoid silent data loss or unpredictable behavior.
 */
+GO
 
 
--- source: V2026.02.02.0__add_cosmosnosql_adf_type_mapping
+-- source: V2026.02.11.0__empty
+
+
+-- source: V2026.02.16.0__update_generate_masking_parameters_procedure
+/*
+ * generate_masking_parameters - Generates masking parameters for Azure Data Factory dataflows.
+ *
+ * This stored procedure replaces the ADF dataflows previously used for generating
+ * masking parameters, providing improved performance and maintainability. It reconstructs
+ * the ruleset logic by filtering for the appropriate assigned algorithms and
+ * conditional assignments (where applicable), and generates all necessary parameters
+ * for masking a specific table using Delphix Compliance Services APIs within
+ * Azure Data Factory pipelines.
+ *
+ * PARAMETERS:
+ * @dataset - Dataset type identifier
+ * @specified_database - Source database name
+ * @specified_schema - Source schema name
+ * @identified_table - Source table name
+ * @column_width_estimate - Estimated column width for batch calculations (default: 1000)
+ * @filter_alias - Optional filter key for conditional masking (default: '')
+ * @capped_identified_column_max_length - Optional, additional capping on
+ *   identified_column_max_length value (defaults to 1 MiB or 1048576 bytes)
+ *
+ * OUTPUT PARAMETERS:
+ * - FieldAlgorithmAssignments: JSON mapping of encoded column names to masking algorithms
+ * - ColumnsToMask: JSON array of column names requiring masking
+ * - DataFactoryTypeMapping: ADF schema definition for API response parsing
+ * - NumberOfBatches: Calculated batch count for optimal processing
+ * - TrimLengths: JSON array of column max lengths for output trimming
+ * - DateFormatAssignments: JSON mapping of columns to their date format strings
+ * - ColumnsToCastAsStrings: JSON array of columns requiring string casting
+ * - ColumnsToCastBackTo*: JSON arrays of columns to cast back to specific ADF types
+ *
+ * DEPENDENCIES:
+ * - discovered_ruleset table: Contains masking rules and algorithm assignments
+ * - adf_type_mapping table: Maps database types to ADF types
+ * - Supports conditional masking via JSON structures in assigned_algorithm column
+ *
+ * ERROR HANDLING:
+ * If no masking rules exist for the specified table and filter alias, an error is raised and
+ * no record is returned. This prevents silent failures and ensures pipeline errors are visible.
+ *
+ * NOTES:
+ * - Empty JSON arrays are converted to [""] for ADF UI compatibility
+ * - Uses hex-encoded column names to avoid ADF pipeline issues with special characters
+ * - Supports treat_as_string flag for type casting feature
+ */
+CREATE OR ALTER PROCEDURE generate_masking_parameters
+    @dataset NVARCHAR(128),
+    @specified_database NVARCHAR(128),
+    @specified_schema NVARCHAR(255),
+    @identified_table NVARCHAR(128),
+    @column_width_estimate INT = 1000,
+    @filter_alias NVARCHAR(128) = '',  -- Optional filter key for conditional masking
+    -- Additional capping on identified column max length (defaults to 1 MiB or 1048576 bytes)
+    @capped_identified_column_max_length INT = 1048576
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @StoredProcedureVersion VARCHAR(13) = 'V2026.02.16.0';
+    DECLARE @filter_alias_display NVARCHAR(128);
+    SET
+        @filter_alias_display = CASE
+            WHEN @filter_alias = ''
+                THEN 'No filter set'
+            ELSE @filter_alias
+        END;
+    DECLARE @msg NVARCHAR(400);
+    SET
+        @msg = 'No masking rules found for the specified parameters. Ensure the '
+        + 'discovered_ruleset table has valid entries for dataset: %s, '
+        + 'database: %s, schema: %s, table: %s, filter: %s.';
+
+    -- Check if the discovered_ruleset table has valid entries for the specified parameters
+    IF
+        NOT EXISTS (
+            SELECT 1
+            FROM discovered_ruleset AS r
+            OUTER APPLY (
+                SELECT 1 AS filter_found
+                FROM
+                    OPENJSON (r.assigned_algorithm)
+                    WITH (
+                        [key_column] NVARCHAR(255) '$.key_column',
+                        [conditions] NVARCHAR(MAX) '$.conditions' AS JSON
+                    ) AS aa
+                CROSS APPLY
+                    OPENJSON (aa.[conditions])
+                    WITH (
+                        [condition_alias] NVARCHAR(255) '$.alias',
+                        [algorithm] NVARCHAR(255) '$.algorithm'
+                    ) AS cond
+                WHERE
+                    r.assigned_algorithm IS NOT NULL
+                    AND r.assigned_algorithm <> ''
+                    AND ISJSON(r.assigned_algorithm) = 1
+                    AND JSON_VALUE(r.assigned_algorithm, '$.key_column') IS NOT NULL
+                    AND cond.[condition_alias] IS NOT NULL
+                    AND cond.[condition_alias] = @filter_alias
+            ) AS filter_check
+            WHERE
+                r.dataset = @dataset
+                AND r.specified_database = @specified_database
+                AND r.specified_schema = @specified_schema
+                AND r.identified_table = @identified_table
+                AND r.assigned_algorithm IS NOT NULL
+                AND r.assigned_algorithm <> ''
+                AND NOT (
+                    ISJSON(r.assigned_algorithm) = 1
+                    AND (LEFT(LTRIM(r.assigned_algorithm), 1) = '[')
+                )
+                AND (
+                    @filter_alias = ''
+                    OR filter_check.filter_found = 1
+                )
+        )
+        BEGIN
+            RAISERROR (
+                @msg,
+                16, 1, -- Severity and State
+                @dataset,
+                @specified_database,
+                @specified_schema,
+                @identified_table,
+                @filter_alias_display
+            );
+            RETURN;
+        END;
+
+    -- base_ruleset_filter - Filter to target table, add ADF type mappings,
+    -- compute metadata, and exclude key columns
+    WITH base_ruleset_filter AS (
+        SELECT
+            r.dataset,
+            r.specified_database,
+            r.specified_schema,
+            r.identified_table,
+            r.identified_column,
+            r.identified_column_type,
+            r.identified_column_max_length,
+            r.row_count,
+            r.ordinal_position,
+            r.assigned_algorithm,
+            r.algorithm_metadata,
+            t.adf_type,
+            CONCAT(
+                'x',
+                CONVERT(
+                    VARCHAR(MAX),
+                    CONVERT(VARBINARY(MAX), r.identified_column),
+                    2
+                )
+            ) AS encoded_column_name,
+            -- algorithm_metadata is always expected to be a JSON object (or NULL),
+            -- so JSON_VALUE is safe without ISJSON/CASE
+            JSON_VALUE(r.algorithm_metadata, '$.date_format') AS [date_format],
+            CONVERT(BIT, JSON_VALUE(r.algorithm_metadata, '$.treat_as_string')) AS treat_as_string,
+            -- Add column width estimate, if column max length is known, add 4 bytes of overhead
+            -- In cases where max length is excessive, provide a cap to improve computation accuracy
+            CASE
+                WHEN
+                    r.identified_column_max_length > 0
+                    AND r.identified_column_max_length <= @capped_identified_column_max_length
+                    THEN r.identified_column_max_length + 4
+                WHEN
+                    r.identified_column_max_length > 0
+                    AND r.identified_column_max_length > @capped_identified_column_max_length
+                    THEN @capped_identified_column_max_length + 4
+                ELSE @column_width_estimate
+            END AS column_width_estimate
+        FROM discovered_ruleset AS r
+        INNER JOIN adf_type_mapping AS t
+            ON
+                r.identified_column_type = t.dataset_type
+                AND r.dataset = t.dataset
+        WHERE
+            r.dataset = @dataset
+            AND r.specified_database = @specified_database
+            AND r.specified_schema = @specified_schema
+            AND r.identified_table = @identified_table
+            AND r.assigned_algorithm IS NOT NULL
+            AND r.assigned_algorithm <> ''
+            -- Exclude key columns for conditional masking: key columns have
+            -- assigned_algorithm as a JSON array
+            AND NOT (
+                ISJSON(r.assigned_algorithm) = 1
+                AND (LEFT(LTRIM(r.assigned_algorithm), 1) = '[')
+            )
+    ),
+
+    -- conditional_algorithm_extraction - Extract conditional algorithms for matching filter key
+    conditional_algorithm_extraction AS (
+        SELECT
+            brf.*,
+            aa.[key_column],
+            aa.[conditions],
+            c.[condition_alias],
+            c.[algorithm] AS resolved_algorithm
+        FROM base_ruleset_filter AS brf
+        CROSS APPLY
+            OPENJSON (brf.assigned_algorithm)
+            WITH (
+                [key_column] NVARCHAR(255) '$.key_column',
+                [conditions] NVARCHAR(MAX) '$.conditions' AS JSON
+            ) AS aa
+        CROSS APPLY
+            OPENJSON (aa.[conditions])
+            WITH (
+                [condition_alias] NVARCHAR(255) '$.alias',
+                [algorithm] NVARCHAR(255) '$.algorithm'
+            ) AS c
+        WHERE
+            ISJSON(brf.assigned_algorithm) = 1
+            AND JSON_VALUE(brf.assigned_algorithm, '$.key_column') IS NOT NULL
+            AND c.[condition_alias] = @filter_alias
+            AND @filter_alias <> ''
+    ),
+
+    -- standard_algorithm_handling - Handle non-conditional algorithms
+    standard_algorithm_handling AS (
+        SELECT
+            brf.*,
+            brf.assigned_algorithm AS resolved_algorithm
+        FROM base_ruleset_filter AS brf
+        WHERE
+            ISJSON(brf.assigned_algorithm) = 0
+            OR @filter_alias = ''
+    ),
+
+    -- algorithm_resolution - Combine conditional and standard algorithms
+    algorithm_resolution AS (
+        SELECT
+            dataset,
+            specified_database,
+            specified_schema,
+            identified_table,
+            identified_column,
+            identified_column_type,
+            identified_column_max_length,
+            row_count,
+            ordinal_position,
+            encoded_column_name,
+            resolved_algorithm AS assigned_algorithm
+        FROM conditional_algorithm_extraction
+
+        UNION ALL
+
+        SELECT
+            dataset,
+            specified_database,
+            specified_schema,
+            identified_table,
+            identified_column,
+            identified_column_type,
+            identified_column_max_length,
+            row_count,
+            ordinal_position,
+            encoded_column_name,
+            resolved_algorithm AS assigned_algorithm
+        FROM standard_algorithm_handling
+        WHERE
+            resolved_algorithm IS NOT NULL
+            AND resolved_algorithm <> ''
+            AND ISJSON(resolved_algorithm) = 0
+    ),
+
+    -- generate_mask_parameters - Create core masking parameters with fallback defaults
+    generate_mask_parameters AS (
+        SELECT
+            -- JSON mapping: encoded column name -> algorithm
+            COALESCE(
+                '{'
+                + STRING_AGG(
+                    '"' + LOWER(brf.encoded_column_name) + '":"' + ar.assigned_algorithm + '"',
+                    ','
+                )
+                + '}',
+                '{}'
+            ) AS [FieldAlgorithmAssignments],
+            -- JSON array of column names to mask
+            COALESCE(
+                JSON_QUERY(
+                    '['
+                    + STRING_AGG('"' + brf.identified_column + '"', ',')
+                    + ']'
+                ),
+                '[]'
+            ) AS [ColumnsToMask],
+            -- ADF data flow expression for DCS masking API response parsing
+            ''''
+            + '(timestamp as date, status as string, message as string, trace_id as string, '
+            + 'items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long'
+            + COALESCE(
+                ', '
+                + STRING_AGG(
+                    LOWER(
+                        CONCAT(
+                            brf.encoded_column_name,
+                            ' as ',
+                            CASE WHEN brf.treat_as_string = 1 THEN 'string' ELSE brf.adf_type END
+                        )
+                    ),
+                    ', '
+                ),
+                ''
+            )
+            + ')[])'
+            + '''' AS [DataFactoryTypeMapping],
+            COALESCE(
+                CASE
+                    WHEN MAX(brf.row_count) = -1 THEN -1
+                    WHEN
+                        CEILING(
+                            MAX(brf.row_count)
+                            * (
+                                SUM(brf.column_width_estimate)
+                                + LOG10(MAX(brf.row_count))
+                                + 1
+                            )
+                            / (2000000 * 0.9)
+                        ) < 1
+                        THEN 1
+                    ELSE CONVERT(INT, CEILING(
+                        MAX(brf.row_count)
+                        * (
+                            SUM(brf.column_width_estimate)
+                            + LOG10(MAX(brf.row_count))
+                            + 1
+                        )
+                        / (2000000 * 0.9)
+                    ))
+                END, 1
+            -- Optimal batch count (minimum 1, or -1 when row_count is unavailable)
+            ) AS [NumberOfBatches],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CONVERT(NVARCHAR(10), brf.identified_column_max_length), ','
+                ) + ']', '[]'
+            ) AS [TrimLengths]   -- JSON array of column max lengths
+        FROM algorithm_resolution AS ar
+        INNER JOIN base_ruleset_filter AS brf
+            ON ar.identified_column = brf.identified_column
+    ),
+
+    -- conditional_date_formats - Extract conditional date formats for filter key
+    conditional_date_formats AS (
+        SELECT
+            brf.identified_column,
+            brf.encoded_column_name,
+            c.[condition_alias],
+            c.[date_format] AS conditional_date_format
+        FROM base_ruleset_filter AS brf
+        CROSS APPLY
+            OPENJSON (brf.algorithm_metadata, '$.conditions')
+            WITH (
+                [condition_alias] NVARCHAR(255) '$.alias',
+                [date_format] NVARCHAR(255) '$.date_format'
+            ) AS c
+        WHERE
+            @filter_alias <> ''
+            AND brf.algorithm_metadata IS NOT NULL
+            AND c.[condition_alias] = @filter_alias
+            AND c.[date_format] IS NOT NULL
+    ),
+
+    -- date_format_resolution - Merge conditional and standard date formats
+    date_format_resolution AS (
+        SELECT
+            brf.identified_column,
+            brf.encoded_column_name,
+            COALESCE(cdf.conditional_date_format, brf.[date_format]) AS final_date_format
+        FROM base_ruleset_filter AS brf
+        LEFT JOIN conditional_date_formats AS cdf
+            ON brf.identified_column = cdf.identified_column
+        WHERE
+            brf.[date_format] IS NOT NULL
+            OR cdf.conditional_date_format IS NOT NULL
+    ),
+
+    -- date_format_parameters - Create JSON mapping with fallback default
+    date_format_parameters AS (
+        SELECT
+            COALESCE(
+                '{' + STRING_AGG(
+                    '"'
+                    + LOWER(encoded_column_name)
+                    + '":"'
+                    + REPLACE(final_date_format, '''', '\''')
+                    + '"',
+                    ','
+                ) + '}',
+                '{}'
+            ) AS [DateFormatAssignments]
+        FROM date_format_resolution
+    ),
+
+    -- type_casting_parameters - Create casting arrays with fallback defaults
+    type_casting_parameters AS (
+        SELECT
+            COALESCE(
+                '[' + STRING_AGG('"' + identified_column + '"', ',') + ']', '[""]'
+            ) AS [ColumnsToCastAsStrings],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'binary' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToBinary],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'boolean' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToBoolean],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'date' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToDate],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'double' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToDouble],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'float' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToFloat],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'integer' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToInteger],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'long' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToLong],
+            COALESCE(
+                '[' + STRING_AGG(
+                    CASE WHEN adf_type = 'timestamp' THEN '"' + identified_column + '"' END, ','
+                ) + ']', '[""]'
+            ) AS [ColumnsToCastBackToTimestamp]
+        FROM base_ruleset_filter
+        WHERE treat_as_string = 1
+    )
+
+    -- Combine all parameters
+    SELECT
+        g.[FieldAlgorithmAssignments],
+        g.[ColumnsToMask],
+        g.[DataFactoryTypeMapping],
+        g.[NumberOfBatches],
+        g.[TrimLengths],
+        df.[DateFormatAssignments],
+        a.[ColumnsToCastAsStrings],
+        a.[ColumnsToCastBackToBinary],
+        a.[ColumnsToCastBackToBoolean],
+        a.[ColumnsToCastBackToDate],
+        a.[ColumnsToCastBackToDouble],
+        a.[ColumnsToCastBackToFloat],
+        a.[ColumnsToCastBackToInteger],
+        a.[ColumnsToCastBackToLong],
+        a.[ColumnsToCastBackToTimestamp],
+        @StoredProcedureVersion AS [StoredProcedureVersion]
+    FROM generate_mask_parameters AS g,
+        date_format_parameters AS df,
+        type_casting_parameters AS a;
+END
+GO
+
+
+-- source: V2026.02.18.0__update_adf_event_log_table
+ALTER TABLE adf_events_log
+ALTER COLUMN source_schema NVARCHAR(255) COLLATE sql_latin1_general_cp1_ci_as NULL;
+
+ALTER TABLE adf_events_log
+ALTER COLUMN sink_schema NVARCHAR(255) COLLATE sql_latin1_general_cp1_ci_as NULL;
+GO
+
+
+-- source: V2026.02.25.0__add_cosmosnosql_adf_type_mapping
 -- Insert type mapping
 INSERT INTO adf_type_mapping
 (dataset, dataset_type, adf_type)
 VALUES
 ('COSMOS_NOSQL', 'String', 'string');
-
+GO

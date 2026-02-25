@@ -216,11 +216,11 @@
                   "userProperties": [],
                   "typeProperties": {
                     "message": {
-                      "value": "@activity('ADLS to Cosmos Status').output.output.failed_document_ids",
+                      "value": "@activity('ADLS To Cosmos Status').output.output.failed_document_ids",
                       "type": "Expression"
                     },
                     "errorCode": {
-                      "value": "@activity('ADLS to Cosmos Status').output.output.results.failed",
+                      "value": "@activity('ADLS To Cosmos Status').output.output.results.failed",
                       "type": "Expression"
                     }
                   }
@@ -676,10 +676,6 @@
             "type": "String",
             "defaultValue": "COSMOS_NOSQL"
           },
-          "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
-            "type": "String",
-            "defaultValue": "%"
-          },
           "METADATA_EVENT_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "insert_adf_masking_event"
@@ -697,8 +693,8 @@
             "defaultValue": "DCS_PLACEHOLDER"
           },
           "ADLS_TO_COSMOS_COPY_BATCH_SIZE": {
-            "type": "String",
-            "defaultValue": "50000"
+            "type": "Integer",
+            "defaultValue": 50000
           },
           "COSMOS_KEY_VAULT_NAME": {
             "type": "String"
@@ -711,7 +707,7 @@
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-23T07:34:47Z"
+        "lastPublishTime": "2026-02-25T14:03:25Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_mask_pl')]"
@@ -2739,7 +2735,7 @@
           "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-23T08:50:01Z"
+        "lastPublishTime": "2026-02-25T09:19:43Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds')]",

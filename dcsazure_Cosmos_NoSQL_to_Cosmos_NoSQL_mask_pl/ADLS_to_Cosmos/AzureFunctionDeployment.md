@@ -47,13 +47,13 @@ This document describes the standard process for deploying an Azure Function App
 
 1. If the deployment is successful, Azure CLI returns a response similar to the following:
 
-```
-
-* Deployment status: Succeeded
-* Deployment message: Created via a push deployment
-* Application mode: Run-from-package (read-only)
-
-```
+    ```
+    
+    * Deployment status: Succeeded
+    * Deployment message: Created via a push deployment
+    * Application mode: Run-from-package (read-only)
+    
+    ```
 
 1. This confirms that the ZIP package has been uploaded successfully and mounted by the Function App.
 

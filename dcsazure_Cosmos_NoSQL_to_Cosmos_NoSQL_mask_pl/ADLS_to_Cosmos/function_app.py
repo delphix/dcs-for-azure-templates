@@ -15,7 +15,7 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.filedatalake import DataLakeServiceClient
 
-app = df.DFApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+app = df.DFApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 # System fields to exclude from documents
 SYSTEM_FIELDS = {"_rid", "_self", "_etag", "_attachments", "_ts"}

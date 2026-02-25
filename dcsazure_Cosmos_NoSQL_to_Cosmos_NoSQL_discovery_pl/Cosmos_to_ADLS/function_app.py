@@ -37,7 +37,7 @@ ESCAPE_CHARACTER = "\\"
 # AZURE FUNCTIONS APP
 # ============================================================================
 
-app = df.DFApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+app = df.DFApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 
 # ============================================================================
