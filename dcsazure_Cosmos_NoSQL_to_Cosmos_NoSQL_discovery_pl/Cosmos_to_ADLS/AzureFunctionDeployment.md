@@ -19,6 +19,8 @@ This document describes the standard process for deploying an Azure Function App
 
    ```bash
    az login
+   ```
+   
 1. A browser window will open prompting you to sign in with your Azure credentials.
 
 1. After successful authentication, select the appropriate subscription if prompted.
@@ -33,6 +35,7 @@ This document describes the standard process for deploying an Azure Function App
       --name <FUNCTION_APP_NAME> \
       --src "<FULL_PATH_TO_ZIP_FILE>"
       --build-remote true
+    ```
 
 1. Parameters
 
@@ -44,9 +47,13 @@ This document describes the standard process for deploying an Azure Function App
 
 1. If the deployment is successful, Azure CLI returns a response similar to the following:
 
+```
+
 * Deployment status: Succeeded
 * Deployment message: Created via a push deployment
 * Application mode: Run-from-package (read-only)
+
+```
 
 1. This confirms that the ZIP package has been uploaded successfully and mounted by the Function App.
 

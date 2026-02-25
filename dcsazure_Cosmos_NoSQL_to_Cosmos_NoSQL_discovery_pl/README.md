@@ -8,7 +8,7 @@ This pipeline will perform automated sensitive data discovery on your Azure Cosm
 1. Configure the hosted metadata database and associated Azure SQL linked service (version `V2026.02.02.0`).
 1. Configure the DCS for Azure REST linked service.
 1. Configure the Azure Data Lake Storage (Gen 2) linked service for staging exported Cosmos DB data.
-1. [Assign a managed identity with a storage blob data contributor role for the Data Factory instance within the storage account](https://help.delphix.com/dcs/current/content/docs/configure_adls_delimited_pipelines.htm).
+1. [Assign a managed identity with a Storage Blob Data Contributor role for the Data Factory instance within the storage account](https://help.delphix.com/dcs/current/content/docs/configure_adls_delimited_pipelines.htm).
 1. [Repeat the above step for the Azure Function by assigning a managed identity with the Storage Blob Data Contributor role](External_Document_URL).
 1. [Create an Azure Function app for exporting Cosmos DB data to Azure Data Lake Storage (ADLS)](External_Document_URL) (version `Cosmos_to_ADLS_V1`).
 1. [Deploy the Azure Function to the Function App created in the previous step](./Cosmos_to_ADLS/AzureFunctionDeployment.md).
@@ -122,5 +122,6 @@ If you have configured your database using the metadata store scripts, these var
   CROSS APPLY OPENJSON(d.source_metadata, '$.partition_values') pv
   WHERE d.dataset = 'COSMOS_NOSQL'
     AND d.specified_schema LIKE 'COSMOS-DATABASE/COSMOS-CONTAINER-NAME%';
+  ```
 * If the pipeline is rerun for the same container with a different set of `P_LOGICAL_PARTITION_ID`, the data in ADLS is overwritten with the new partition’s data, and the corresponding partition metadata in the ruleset is updated.
 * Historical information about previously discovered partitions can be obtained from the `adf_events` log table.
