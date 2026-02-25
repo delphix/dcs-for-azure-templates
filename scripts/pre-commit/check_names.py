@@ -56,7 +56,7 @@ def validate_file_and_directory_names(files: tp.Set[pathlib.Path]) -> None:
             "\n".join([file.absolute().as_uri() for file in invalid_files])
         )
 
-def is_valid_function_file(filename: pathlib.Path) -> bool:
+def is_valid_azure_function_folder(filename: pathlib.Path) -> bool:
     """
     Validate files inside Azure Function folder
     """
