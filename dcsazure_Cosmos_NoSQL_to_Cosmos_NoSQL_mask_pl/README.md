@@ -5,15 +5,16 @@ This pipeline will perform masking of your Azure Cosmos DB (NoSQL API) data.
 
 ### Prerequisites
 
-1. Configure the hosted metadata database and associated Azure SQL linked service (version `V2026.02.02.0`).
+1. Configure the hosted metadata database and associated Azure SQL linked service (version `V2026.02.25.0`).
 1. Configure the DCS for Azure REST linked service.
 1. Configure the Azure Data Lake Storage linked service associated with your ADLS source data.
 1. Configure the Azure Data Lake Storage linked service associated with your ADLS sink data.
 1. [Assign a managed identity with a Storage Blob Data Contributor role for the Data Factory instance within the storage account](https://help.delphix.com/dcs/current/content/docs/configure_adls_delimited_pipelines.htm).
-1. [Repeat the above step for the Azure Function by assigning a managed identity with the Storage Blob Data Contributor role](External_Document_URL).
-1. [Create an Azure Function for exporting masked data from Azure Data Lake Storage(ADLS) data to Cosmos DB](External_Document_URL) (version `ADLS_to_Cosmos_V1`).
-1. [Deploy the Azure Function to the Function App created in the previous step](./ADLS_to_Cosmos/AzureFunctionDeployment.md).
-1. [Configure an Azure Key Vault for storing the Cosmos DB access key and assign a managed identity with the Key Vault Secrets User role to the Azure Function](External_Document_URL).
+1. [Create an Azure Function app for exporting Cosmos DB data to Azure Data Lake Storage (ADLS)](https://help.delphix.com/dcs/current/content/docs/create_an_azure_function.htm) (version `Cosmos_to_ADLS_V1`).
+1. [Assign a managed identity with a Storage Blob Data Contributor role for the Azure Function instance within the storage account](https://help.delphix.com/dcs/current/content/docs/create_an_azure_function.htm).
+1. [Configure an Azure Key Vault for storing the Cosmos DB access key and assign a managed identity with the Key Vault Secrets User role to the Azure Function](https://help.delphix.com/dcs/current/content/docs/configure_azure_function_access_to_cosmos_db_secret_using_azure_key_vault.htm).
+1. [Deploy the Azure Function to the Function App created in the previous step](./Cosmos_to_ADLS/AzureFunctionDeployment.md).
+1. [Configure the Azure Function Linked service](https://help.delphix.com/dcs/current/content/docs/linked_service_for_azure_cosmos_db_nosql_source.htm).
 
 ### Importing
 There are several linked services that will need to be selected in order to perform the masking of your Cosmos NoSQL data.
