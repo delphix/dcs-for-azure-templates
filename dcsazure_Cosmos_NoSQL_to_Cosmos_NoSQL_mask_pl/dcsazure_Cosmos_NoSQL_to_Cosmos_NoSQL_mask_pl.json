@@ -638,11 +638,11 @@
             "type": "bool",
             "defaultValue": true
           },
-          "P_REAPPLY_MAPPING": {
+          "P_TRUNCATE_SINK_BEFORE_WRITE": {
             "type": "bool",
             "defaultValue": true
           },
-          "P_TRUNCATE_SINK_BEFORE_WRITE": {
+          "P_REAPPLY_MAPPING": {
             "type": "bool",
             "defaultValue": true
           },
