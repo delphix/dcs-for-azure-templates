@@ -20,5 +20,7 @@ This document provides an overview and links to the README files for various Azu
 - [dcsazure_Dataverse_to_Dataverse_in_place_mask_pl](../dcsazure_Dataverse_to_Dataverse_in_place_mask_pl/README.md): Dataverse in place Masking Pipeline
 - [dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl](../dcsazure_Azure_Postgres_to_Azure_Postgres_discovery_pl/README.md): Azure Postgres to Azure Postgres Discovery Pipeline
 - [dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl](../dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl/README.md): Azure Postgres to Azure Postgres Masking Pipeline
+- [dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl](../dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/README.md): Cosmos NoSQL to Cosmos NoSQL Discovery Pipeline
+- [dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl](../dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/README.md): Cosmos NoSQL to Cosmos NoSQL Masking Pipeline
 
 Please refer to the respective README files for detailed information on each pipeline.

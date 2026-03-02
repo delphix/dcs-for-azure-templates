@@ -22,6 +22,7 @@
 -- * V2026.02.11.0__empty
 -- * V2026.02.16.0__update_generate_masking_parameters_procedure
 -- * V2026.02.18.0__update_adf_event_log_table
+-- * V2026.02.25.0__add_cosmosnosql_adf_type_mapping
 -- The contents of each of those files follows
 
 
@@ -4526,3 +4527,11 @@ ALTER TABLE adf_events_log
 ALTER COLUMN sink_schema NVARCHAR(255) COLLATE sql_latin1_general_cp1_ci_as NULL;
 GO
 
+
+-- source: V2026.02.25.0__add_cosmosnosql_adf_type_mapping
+-- Insert type mapping
+INSERT INTO adf_type_mapping
+(dataset, dataset_type, adf_type)
+VALUES
+('COSMOS_NOSQL', 'String', 'string');
+GO

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.50
+* Added Cosmos NoSQL to Cosmos NoSQL Discovery Pipeline template `dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl`.
+* Added Cosmos NoSQL to Cosmos NoSQL Masking Pipeline template `dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl`.
+
 # 0.0.49
 * Replace masking parameter dataflows with SQL stored procedure in `dcsazure_ADLS_to_ADLS_parquet_mask_pl`
 * Fix reading from source dataset in the `dcsazure_ADLS_to_ADLS_parquet_filtered_mask_df`
