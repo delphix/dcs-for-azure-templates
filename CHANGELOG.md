@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.51
+* Added the zip‑creation command to the documentation for generating the Azure Functions deployment package.
+* Included Azure Functions zip packages (Cosmos_to_ADLS.zip and ADLS_to_Cosmos.zip) in the release bundle.
+
 # 0.0.50
 * Added Cosmos NoSQL to Cosmos NoSQL Discovery Pipeline template `dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl`.
 * Added Cosmos NoSQL to Cosmos NoSQL Masking Pipeline template `dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl`.
