@@ -26,7 +26,7 @@ This document describes the standard process for deploying an Azure Function App
 1. After successful authentication, select the appropriate subscription if prompted.
 
 ## Deploy the Azure Function App
-1. zip the ADLS_to_Cosmos Azure Function App code and configuration into a single archive file (e.g., `ADLS_to_Cosmos.zip`).
+1. Zip the ADLS_to_Cosmos Azure Functions app code and configuration into a single archive file (e.g., `ADLS_to_Cosmos.zip`).
    ```
    zip ADLS_to_Cosmos.zip host.json function_app.py requirements.txt
    ```
