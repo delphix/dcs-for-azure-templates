@@ -8,7 +8,7 @@ This document describes the standard process for deploying an Azure Function App
 ## Prerequisites
 - Azure CLI installed on the local machine
 - Access to an Azure subscription with permission to deploy Azure Function Apps
-- ADLS_to_Cosmos ZIP file containing the Azure Function App code and configuration
+- ADLS_to_Cassandra ZIP file containing the Azure Function App code and configuration
 
 ---
 
@@ -26,9 +26,9 @@ This document describes the standard process for deploying an Azure Function App
 1. After successful authentication, select the appropriate subscription if prompted.
 
 ## Deploy the Azure Function App
-1. Zip the ADLS_to_Cosmos Azure Functions app code and configuration into a single archive file (e.g., `ADLS_to_Cassandra.zip`).
+1. Zip the ADLS_to_Cassandra Azure Functions app code and configuration into a single archive file (e.g., `ADLS_to_Cassandra.zip`).
    ```
-   zip ADLS_to_Cosmos.zip host.json function_app.py requirements.txt
+   zip ADLS_to_Cassandra.zip host.json function_app.py requirements.txt
    ```
 
 1. Use the following command to deploy the ZIP package to the Azure Function App:
@@ -43,9 +43,9 @@ This document describes the standard process for deploying an Azure Function App
 
 1. Parameters
 
-* `resource-group` : The Azure resource group that contains the ADLS_to_Cosmos Azure Function App
-* `name` : The name of the ADLS_to_Cosmos Azure Function App
-* `src` : The full path to the ADLS_to_Cosmos ZIP package containing the Function App code
+* `resource-group` : The Azure resource group that contains the ADLS_to_Cassandra Azure Function App
+* `name` : The name of the ADLS_to_Cassandra Azure Function App
+* `src` : The full path to the ADLS_to_Cassandra ZIP package containing the Function App code
     
 ## Deployment Result
 
