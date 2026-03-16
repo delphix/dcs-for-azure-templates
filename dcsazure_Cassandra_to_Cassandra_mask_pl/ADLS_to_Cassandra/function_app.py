@@ -1,27 +1,14 @@
-"""
-ADLS_to_Cassandra.py
-====================
-Azure Durable Function — reverse of Cassandra_to_ADLS.py.
-
-Reads pipe-delimited CSVs written by Cassandra_to_ADLS, reconstructs
-(un-flattens) the original Cassandra rows in batch-wise chunks, and
-inserts them back into a Cassandra table.
-
-All known bugs fixed, including the critical linking of nested arrays
-(servers, teams, employees, tasks).  The unflattening logic now mirrors
-the working ADLS‑to‑Cosmos implementation.
-"""
-
-import ast
 import ctypes
 import gc
 import json
 import logging
 import time
-from collections import defaultdict
+import uuid
+from collections import deque
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple
+from io import StringIO
+from typing import Dict, Iterator, List, Optional, Tuple
 
 import azure.durable_functions as df
 import azure.functions as func
@@ -33,25 +20,18 @@ from azure.storage.filedatalake import DataLakeServiceClient
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
 from cassandra.policies import DCAwareRoundRobinPolicy, RoundRobinPolicy
-from cassandra.query import BatchStatement, BatchType
 
 # ============================================================================
 # CONSTANTS
 # ============================================================================
 
-DEFAULT_BATCH_SIZE = 10_000
-DEFAULT_CHILD_CHUNK = 10_000
-DEFAULT_INSERT_CHUNK = 10
-DEFAULT_MAX_RETRIES = 5
-DEFAULT_BASE_DELAY = 0.5
-DEFAULT_MAX_DELAY = 60.0
-DEFAULT_CONCURRENT_INSERTS = 64
-
-PIPE_DELIMITER = "|"
-ESCAPE_CHAR = "\\"
-
-SYSTEM_FIELDS: Set[str] = {"_rid", "_parent_rid", "_row_rid"}
-_CQL_JSON_TEXT_TYPES: Set[str] = {"text", "varchar", "ascii"}
+DEFAULT_BATCH_SIZE           = 50000
+ARRAY_PROCESSING_BATCH_SIZE  = 5000
+DEFAULT_MAX_RETRIES          = 5
+DEFAULT_BASE_DELAY           = 0.5
+DEFAULT_MAX_DELAY            = 60.0
+PIPE_DELIMITER               = "|"
+ESCAPE_CHARACTER             = "\\"
 
 # ============================================================================
 # AZURE FUNCTIONS APP
@@ -88,11 +68,11 @@ def release_dataframe(df_obj: Optional[pd.DataFrame]) -> None:
 
 
 @contextmanager
-def memory_managed_batch(label: str = "batch"):
+def memory_managed_batch(batch_label: str = "batch"):
     try:
         yield
     finally:
-        logging.debug(f"[memory] flush after {label}")
+        logging.debug(f"[memory] flushing after {batch_label}")
         force_gc()
 
 
@@ -101,28 +81,14 @@ def memory_managed_batch(label: str = "batch"):
 # ============================================================================
 
 def get_secret(key_vault_name: str, secret_name: str) -> str:
-    kv_uri = f"https://{key_vault_name}.vault.azure.net"
+    kv_uri     = f"https://{key_vault_name}.vault.azure.net"
     credential = DefaultAzureCredential()
-    client = SecretClient(vault_url=kv_uri, credential=credential)
+    client     = SecretClient(vault_url=kv_uri, credential=credential)
     return client.get_secret(secret_name).value
 
 
 # ============================================================================
-# BOOLEAN PARAMETER HELPER
-# ============================================================================
-
-def _bool_param(value: Any, default: bool = False) -> bool:
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in ("true", "1", "yes")
-    return bool(value)
-
-
-# ============================================================================
-# CASSANDRA
+# CASSANDRA CONNECTION
 # ============================================================================
 
 def build_cassandra_cluster(
@@ -132,34 +98,39 @@ def build_cassandra_cluster(
     password: str,
     preferred_node: Optional[str] = None,
 ) -> Cluster:
-    auth = PlainTextAuthProvider(username=username, password=password)
-    lb = (
+    auth_provider = PlainTextAuthProvider(username=username, password=password)
+    lb_policy = (
         DCAwareRoundRobinPolicy(local_dc=preferred_node)
-        if preferred_node else RoundRobinPolicy()
+        if preferred_node
+        else RoundRobinPolicy()
     )
+    profile = ExecutionProfile(load_balancing_policy=lb_policy)
     return Cluster(
         contact_points=contact_points,
         port=port,
-        auth_provider=auth,
-        execution_profiles={EXEC_PROFILE_DEFAULT: ExecutionProfile(load_balancing_policy=lb)},
+        auth_provider=auth_provider,
+        execution_profiles={EXEC_PROFILE_DEFAULT: profile},
         connect_timeout=30,
         control_connection_timeout=30,
+        compression=True,
+        protocol_version=4,
+        executor_threads=4,
     )
 
 
 def validate_cassandra_connection(
     contact_points, port, username, password, keyspace, table, preferred_node=None
-):
+) -> Tuple:
     try:
         cluster = build_cassandra_cluster(contact_points, port, username, password, preferred_node)
         session = cluster.connect(keyspace)
         rows = session.execute(
-            "SELECT table_name FROM system_schema.tables WHERE keyspace_name=%s AND table_name=%s",
+            "SELECT table_name FROM system_schema.tables "
+            "WHERE keyspace_name=%s AND table_name=%s ALLOW FILTERING",
             (keyspace, table),
         )
         if not rows.one():
             raise ValueError(f"Table '{table}' not found in keyspace '{keyspace}'.")
-        del rows
         return cluster, session
     except ValueError:
         raise
@@ -168,166 +139,26 @@ def validate_cassandra_connection(
 
 
 def shutdown_cassandra(cluster, session) -> None:
-    for obj in (session, cluster):
-        try:
-            if obj:
-                obj.shutdown()
-        except Exception:
-            pass
-    force_gc()
-
-
-def get_cassandra_columns(session, keyspace: str, table: str) -> List[str]:
-    rows = session.execute(
-        "SELECT column_name FROM system_schema.columns WHERE keyspace_name=%s AND table_name=%s",
-        (keyspace, table),
-    )
-    cols = [r.column_name for r in rows]
-    del rows
-    force_gc()
-    return cols
-
-
-def get_cassandra_column_types(session, keyspace: str, table: str) -> Dict[str, str]:
-    rows = session.execute(
-        "SELECT column_name, type FROM system_schema.columns WHERE keyspace_name=%s AND table_name=%s",
-        (keyspace, table),
-    )
-    types = {r.column_name: r.type for r in rows}
-    del rows
-    force_gc()
-    return types
-
-
-def get_cassandra_key_columns(session, keyspace: str, table: str) -> Tuple[List[str], List[str]]:
-    rows = session.execute(
-        """
-        SELECT column_name, kind, position
-        FROM system_schema.columns
-        WHERE keyspace_name=%s AND table_name=%s
-        """,
-        (keyspace, table),
-    )
-    partition_keys: List[Tuple[int, str]] = []
-    clustering_keys: List[Tuple[int, str]] = []
-    for r in rows:
-        if r.kind == "partition_key":
-            partition_keys.append((r.position, r.column_name))
-        elif r.kind == "clustering":
-            clustering_keys.append((r.position, r.column_name))
-    partition_keys.sort()
-    clustering_keys.sort()
-    pk = [c for _, c in partition_keys]
-    ck = [c for _, c in clustering_keys]
-    logging.info(f"Schema auto-discovered — partition keys: {pk}  clustering keys: {ck}")
-    del rows
-    force_gc()
-    return pk, ck
-
-
-# Common datetime formats
-_DATETIME_FORMATS = [
-    "%Y-%m-%dT%H:%M:%S.%fZ",
-    "%Y-%m-%dT%H:%M:%SZ",
-    "%Y-%m-%dT%H:%M:%S.%f",
-    "%Y-%m-%dT%H:%M:%S",
-    "%Y-%m-%d %H:%M:%S.%f",
-    "%Y-%m-%d %H:%M:%S",
-    "%Y-%m-%d",
-]
-
-_CQL_TIMESTAMP_TYPES = {"timestamp", "date", "time"}
-_CQL_UUID_TYPES = {"uuid", "timeuuid"}
-_CQL_INT_TYPES = {"int", "tinyint", "smallint", "bigint", "varint", "counter"}
-_CQL_FLOAT_TYPES = {"float", "double", "decimal"}
-_CQL_BOOL_TYPES = {"boolean"}
-_CQL_INET_TYPES = {"inet"}
-
-
-def coerce_value_for_cassandra(value: Any, cql_type: str) -> Any:
-    import uuid as _uuid
-    import ipaddress
-
-    if value is None:
-        return None
-
-    base_type = cql_type.strip().lower()
-    for wrapper in ("frozen<", "list<", "set<", "tuple<"):
-        if base_type.startswith(wrapper):
-            base_type = base_type[len(wrapper):].rstrip(">").strip()
-            break
-    if base_type.startswith("map<"):
-        inner = base_type[4:].rstrip(">")
-        parts = inner.split(",", 1)
-        base_type = parts[1].strip() if len(parts) == 2 else parts[0].strip()
-
-    if not isinstance(value, str):
-        return value
-
-    v = value.strip()
-    if v == "":
-        return None
-
-    if base_type in _CQL_TIMESTAMP_TYPES:
-        for fmt in _DATETIME_FORMATS:
-            try:
-                return datetime.strptime(v, fmt)
-            except ValueError:
-                continue
-        try:
-            return pd.Timestamp(v).to_pydatetime()
-        except Exception:
-            pass
-        logging.warning(f"Cannot parse datetime '{v}' — passing as-is.")
-        return value
-
-    if base_type in _CQL_UUID_TYPES:
-        try:
-            return _uuid.UUID(v)
-        except (ValueError, AttributeError):
-            logging.warning(f"Cannot parse UUID '{v}' — passing as-is.")
-            return value
-
-    if base_type in _CQL_INT_TYPES:
-        try:
-            return int(float(v)) if "." in v else int(v)
-        except (ValueError, TypeError):
-            logging.warning(f"Cannot parse int '{v}' — passing as-is.")
-            return value
-
-    if base_type in _CQL_FLOAT_TYPES:
-        try:
-            return float(v)
-        except (ValueError, TypeError):
-            logging.warning(f"Cannot parse float '{v}' — passing as-is.")
-            return value
-
-    if base_type in _CQL_BOOL_TYPES:
-        lower_v = v.lower()
-        if lower_v in ("true", "1", "yes"):
-            return True
-        if lower_v in ("false", "0", "no"):
-            return False
-        logging.warning(f"Cannot parse boolean '{v}' — passing as-is.")
-        return value
-
-    if base_type in _CQL_INET_TYPES:
-        try:
-            ipaddress.ip_address(v)
-        except ValueError:
-            logging.warning(f"Invalid inet address '{v}' — passing as-is.")
-        return v
-
-    return value
-
-
-# ============================================================================
-# ADLS
-# ============================================================================
-
-def validate_adls_connection(adls_account_name: str, adls_file_system: str) -> DataLakeServiceClient:
     try:
-        credential = DefaultAzureCredential()
+        if session:
+            session.shutdown()
+    except Exception:
+        pass
+    try:
+        if cluster:
+            cluster.shutdown()
+    except Exception:
+        pass
+    force_gc()
+
+
+# ============================================================================
+# ADLS CONNECTION
+# ============================================================================
+
+def validate_adls_connection(adls_account_name: str, adls_file_system: str):
+    try:
+        credential     = DefaultAzureCredential()
         service_client = DataLakeServiceClient(
             account_url=f"https://{adls_account_name}.dfs.core.windows.net",
             credential=credential,
@@ -336,1009 +167,807 @@ def validate_adls_connection(adls_account_name: str, adls_file_system: str) -> D
         list(fs_client.get_paths(path="", max_results=1))
         return service_client
     except ClientAuthenticationError:
-        raise ValueError("ADLS authentication failed. Check managed identity permissions.")
+        raise ValueError("ADLS authentication failed.")
     except ResourceNotFoundError:
         raise ValueError(f"ADLS filesystem '{adls_file_system}' does not exist.")
     except Exception as e:
         raise ValueError(f"ADLS connection failed: {str(e)}")
 
 
-def get_csv_row_count(service_client, file_system, full_path, chunk_size=50_000) -> int:
+# ============================================================================
+# CASSANDRA SCHEMA UTILITIES
+# ============================================================================
+
+def get_column_type(session, keyspace: str, table: str, column: str) -> str:
     try:
-        fs_client = service_client.get_file_system_client(file_system)
-        download = fs_client.get_file_client(full_path).download_file()
-        total = 0
-        for chunk in pd.read_csv(
-            download, sep=PIPE_DELIMITER, chunksize=chunk_size,
-            iterator=True, keep_default_na=False, escapechar=ESCAPE_CHAR,
-        ):
-            total += len(chunk)
-            del chunk
-        return total
+        row = session.execute(
+            "SELECT type FROM system_schema.columns "
+            "WHERE keyspace_name=%s AND table_name=%s AND column_name=%s ALLOW FILTERING",
+            (keyspace, table, column),
+        ).one()
+        return row.type if row else "text"
     except Exception as e:
-        logging.error(f"Error counting rows in '{full_path}': {str(e)}")
-        raise
+        logging.warning(f"[get_column_type] Could not fetch type for {column!r}: {e}")
+        return "text"
 
 
-def read_csv_from_adls_batched(
-    service_client, file_system, full_path, skip_rows=0, nrows=None
-) -> pd.DataFrame:
-    try:
-        fs_client = service_client.get_file_system_client(file_system)
-        download = fs_client.get_file_client(full_path).download_file()
-
-        read_params: Dict[str, Any] = {
-            "sep": PIPE_DELIMITER, "keep_default_na": False,
-            "escapechar": ESCAPE_CHAR, "dtype": str,
-        }
-        if skip_rows > 0:
-            read_params["skiprows"] = range(1, skip_rows + 1)
-        if nrows:
-            read_params["nrows"] = nrows
-
-        df_out = pd.read_csv(download, **read_params)
-        df_out = df_out.where(df_out != "", other=None)
-        return df_out
-    except Exception as e:
-        logging.error(f"Error reading CSV '{full_path}' (skip={skip_rows}, nrows={nrows}): {e}")
-        raise
-
-
-def discover_all_csv_paths(service_client, file_system, export_dir) -> List[str]:
-    fs_client = service_client.get_file_system_client(file_system)
-    paths: List[str] = []
-    try:
-        for item in fs_client.get_paths(path=export_dir, recursive=True):
-            if not item.is_directory and item.name.endswith(".csv"):
-                paths.append(item.name)
-    except Exception as e:
-        logging.warning(f"Could not list paths under '{export_dir}': {e}")
-    return paths
-
-
-# ============================================================================
-# CSV PATH CLASSIFICATION (adapted from Cosmos working version)
-# ============================================================================
-
-def get_json_col_scalar_paths(csv_paths, export_dir, table) -> Dict[str, str]:
-    parent_csv = f"{export_dir}/{table}.csv"
-    scalar_map: Dict[str, str] = {}
-    for full_path in csv_paths:
-        if full_path == parent_csv:
-            continue
-        rel = full_path[len(export_dir):].lstrip("/")
-        parts = [p for p in rel.split("/") if p]
-        if len(parts) == 2 and parts[-1].rsplit(".", 1)[0] == parts[0]:
-            scalar_map[parts[0]] = full_path
-    return scalar_map
-
-
-def organize_csv_paths_by_depth(
-    csv_paths,
-    export_dir,
-    table,
-    cassandra_col_types: Optional[Dict[str, str]] = None,
-) -> Dict[int, List[Dict]]:
-    parent_csv = f"{export_dir}/{table}.csv"
-
-    # Pass 1: known jcol names from scalar CSVs
-    known_jcols: Set[str] = set()
-    for full_path in csv_paths:
-        if full_path == parent_csv:
-            continue
-        rel = full_path[len(export_dir):].lstrip("/")
-        parts = [p for p in rel.split("/") if p]
-        if len(parts) == 2 and parts[-1].rsplit(".", 1)[0] == parts[0]:
-            known_jcols.add(parts[0])
-
-    # Pass 1.5: detect array-only JSON columns using schema
-    if cassandra_col_types:
-        for full_path in csv_paths:
-            if full_path == parent_csv:
-                continue
-            rel = full_path[len(export_dir):].lstrip("/")
-            parts = [p for p in rel.split("/") if p]
-            if not parts:
-                continue
-            candidate = parts[0]
-            if candidate in known_jcols:
-                continue
-            cql_type = cassandra_col_types.get(candidate, "").strip().lower()
-            if cql_type in _CQL_JSON_TEXT_TYPES:
-                known_jcols.add(candidate)
-                logging.info(f"[path-classify] '{candidate}' added via schema (array-only)")
-
-    result: Dict[int, List[Dict]] = {}
-
-    # Pass 2: classify arrays based on directory structure (always include)
-    for full_path in sorted(csv_paths):
-        if full_path == parent_csv:
-            continue
-        rel = full_path[len(export_dir):].lstrip("/")
-        parts = [p for p in rel.split("/") if p]
-        if not parts:
-            continue
-
-        filename_stem = parts[-1].rsplit(".", 1)[0]
-
-        # Skip scalar JSON-column CSVs
-        if len(parts) == 2 and filename_stem == parts[0]:
-            continue
-
-        if parts[0] not in known_jcols:
-            # Top-level array
-            arr_dirs = parts[:-1]
-            arr_name = ".".join(arr_dirs)
-            depth = len(arr_dirs) - 1
-            jcol = None
-            result.setdefault(depth, []).append({
-                "full_path": full_path,
-                "arr_name": arr_name,
-                "jcol": jcol,
-                "depth": depth,
-            })
-        else:
-            # JSON-column array
-            jcol = parts[0]
-            start_idx = 2 if len(parts) > 2 and parts[1] == jcol else 1
-            arr_dirs = parts[start_idx:-1]
-            if arr_dirs:
-                arr_name = ".".join(arr_dirs)
-                depth = len(arr_dirs) - 1
-            else:
-                arr_name = filename_stem
-                depth = 0
-
-            result.setdefault(depth, []).append({
-                "full_path": full_path,
-                "arr_name": arr_name,
-                "jcol": jcol,
-                "depth": depth,
-            })
-
-    return result
-
-
-# ============================================================================
-# UNFLATTEN HELPERS (from Cosmos, with boolean fix)
-# ============================================================================
-
-def parse_json_string(value: str) -> Any:
+def _parse_cassandra_timestamp(value: str):
+    from datetime import datetime as _dt
+    if not value or not isinstance(value, str): return value
     v = value.strip()
-    if v.lower() == "true":
-        return True
-    if v.lower() == "false":
-        return False
-    if (v.startswith("[") and v.endswith("]")) or (v.startswith("{") and v.endswith("}")):
-        try:
-            return json.loads(v)
-        except Exception:
-            try:
-                return ast.literal_eval(v)
-            except Exception:
-                pass
-    return value
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"):
+        try: return _dt.strptime(v, fmt)
+        except ValueError: continue
+    logging.warning(f"[_parse_cassandra_timestamp] Cannot parse {v!r}.")
+    return v
 
+def _parse_cassandra_date(value: str):
+    from datetime import date as _date, datetime as _dt
+    if not value or not isinstance(value, str): return value
+    v = value.strip()
+    try: return _date.fromisoformat(v)
+    except ValueError: pass
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
+        try: return _dt.strptime(v, fmt).date()
+        except ValueError: continue
+    logging.warning(f"[_parse_cassandra_date] Cannot parse {v!r}.")
+    return v
 
-def unflatten_dict(flat: Dict[str, Any], sep: str = ".") -> Dict:
-    result: Dict = {}
-    for key, value in flat.items():
-        if isinstance(value, str):
-            value = parse_json_string(value)
-        parts = key.split(sep)
-        current = result
-        for i, part in enumerate(parts):
-            if i == len(parts) - 1:
-                current[part] = value
-            else:
-                if part not in current or not isinstance(current[part], dict):
-                    current[part] = {}
-                current = current[part]
-    return result
+def _parse_cassandra_time(value: str):
+    from datetime import datetime as _dt
+    if not value or not isinstance(value, str): return value
+    v = value.strip()
+    for fmt in ("%H:%M:%S.%f", "%H:%M:%S", "%H:%M"):
+        try: return _dt.strptime(v, fmt).time()
+        except ValueError: continue
+    logging.warning(f"[_parse_cassandra_time] Cannot parse {v!r}.")
+    return v
 
-
-def strip_system_fields(obj: Any) -> Any:
-    if isinstance(obj, dict):
-        return {
-            k: strip_system_fields(v)
-            for k, v in obj.items()
-            if k not in SYSTEM_FIELDS and not k.startswith("_has_array_")
-        }
-    if isinstance(obj, list):
-        return [strip_system_fields(v) for v in obj]
-    return obj
-
-
-def cassandra_safe(obj: Any) -> Any:
-    if isinstance(obj, dict):
-        return {str(k): cassandra_safe(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [cassandra_safe(v) for v in obj]
+def coerce_to_cql_type(value: str, cql_type: str):
+    t = (cql_type or "text").lower().strip()
     try:
-        import numpy as np
-        if isinstance(obj, (np.integer,)):
-            return int(obj)
-        if isinstance(obj, (np.floating,)):
-            return float(obj)
-        if isinstance(obj, (np.bool_,)):
-            return bool(obj)
-    except ImportError:
-        pass
-    try:
-        if isinstance(obj, float) and pd.isna(obj):
-            return None
-        if obj is pd.NaT:
-            return None
-    except Exception:
-        pass
-    return obj
-
-
-# ============================================================================
-# PREPARE BATCH PARENTS (unchanged)
-# ============================================================================
-
-def prepare_batch_parents(parent_df: pd.DataFrame) -> List[Dict]:
-    parents: List[Dict] = []
-    for _, row in parent_df.iterrows():
-        flat = {k: v for k, v in row.items() if v is not None and v == v}
-
-        has_array_fields = {k: v for k, v in flat.items() if k.startswith("_has_array_")}
-        regular_fields = {
-            k: v for k, v in flat.items()
-            if not k.startswith("_has_array_") and k != "_parent_rid"
-        }
-
-        nested = unflatten_dict(regular_fields)
-        nested.update(has_array_fields)
-        parents.append(nested)
-    return parents
-
-
-# ============================================================================
-# CHILD OBJECT BUILDER (from Cosmos, with boolean fix)
-# ============================================================================
-
-def _is_boolean_string(v: Any) -> bool:
-    return isinstance(v, str) and v.strip().lower() in ("true", "false")
-
-
-def _build_child_object(row: pd.Series) -> Dict:
-    rid = str(row.get("_rid", "") or "") if pd.notna(row.get("_rid")) else None
-    parent_rid = str(row.get("_parent_rid", "") or "") if pd.notna(row.get("_parent_rid")) else None
-
-    obj = {}
-    obj["_rid"] = rid
-    obj["_parent_rid"] = parent_rid
-
-    for k, v in row.items():
-        if k in ("_rid", "_parent_rid"):
-            continue
-        if pd.notna(v):
-            obj[k] = v
-
-    has_array_fields = {k: v for k, v in obj.items() if k.startswith("_has_array_")}
-    regular_fields = {
-        k: v
-        for k, v in obj.items()
-        if k not in ("_rid", "_parent_rid") and not k.startswith("_has_array_")
-    }
-
-    nested_obj = unflatten_dict(regular_fields)
-    nested_obj.update(has_array_fields)
-    nested_obj["_rid"] = obj["_rid"]
-    nested_obj["_parent_rid"] = obj["_parent_rid"]
-
-    return nested_obj
-
-
-# ============================================================================
-# STREAM CHILD CSV (from Cosmos)
-# ============================================================================
-
-def process_child_csv_streaming(
-    service_client,
-    file_system: str,
-    full_path: str,
-    parent_rids: Set[str],
-    arr_name: str,
-    all_objects_by_rid: Dict,
-    child_objects_by_table: Dict,
-) -> Tuple[int, Set[str]]:
-    try:
-        logging.debug(f"  Reading child array from: {full_path} for {arr_name}")
-        fs_client = service_client.get_file_system_client(file_system)
-        download = fs_client.get_file_client(full_path).download_file()
-
-        child_rids: Set[str] = set()
-        row_count = 0
-
-        if arr_name not in child_objects_by_table:
-            child_objects_by_table[arr_name] = []
-
-        chunk_iter = pd.read_csv(
-            download,
-            sep=PIPE_DELIMITER, chunksize=DEFAULT_CHILD_CHUNK,
-            iterator=True, keep_default_na=False, escapechar=ESCAPE_CHAR, dtype=str,
-        )
-
-        for chunk in chunk_iter:
-            if "_parent_rid" not in chunk.columns:
-                del chunk
-                continue
-
-            chunk["_parent_rid"] = chunk["_parent_rid"].astype(str)
-            filtered_chunk = chunk[chunk["_parent_rid"].isin(parent_rids)]
-            del chunk
-
-            if filtered_chunk.empty:
-                release_dataframe(filtered_chunk)
-                continue
-
-            if "_rid" in filtered_chunk.columns:
-                filtered_chunk["_rid"] = filtered_chunk["_rid"].astype(str)
-
-            for _, r in filtered_chunk.iterrows():
-                obj = _build_child_object(r)
-                child_objects_by_table[arr_name].append(obj)
-
-                if obj["_rid"]:
-                    child_rids.add(str(obj["_rid"]))
-                    all_objects_by_rid[str(obj["_rid"])] = obj
-
-                row_count += 1
-
-            release_dataframe(filtered_chunk)
-
-        logging.debug(f"  [{arr_name}] {row_count} rows, {len(child_rids)} child RIDs")
-        return row_count, child_rids
-
+        if t in ("int", "smallint", "tinyint", "varint"):  return int(value)
+        if t in ("bigint", "counter"):                     return int(value)
+        if t in ("float",):                                return float(value)
+        if t in ("double", "decimal"):                     return float(value)
+        if t in ("boolean",):                              return value.strip().lower() in ("true", "1", "yes")
+        if t in ("uuid", "timeuuid"):                      return uuid.UUID(value)
+        if t in ("timestamp",):                            return _parse_cassandra_timestamp(value)
+        if t in ("date",):                                 return _parse_cassandra_date(value)
+        if t in ("time",):                                 return _parse_cassandra_time(value)
+        return value
     except Exception as e:
-        logging.error(f"Error streaming child CSV '{full_path}': {e}")
-        raise
+        logging.warning(f"[coerce_to_cql_type] Cannot coerce {value!r} → {cql_type!r}: {e}")
+        return value
 
 
-# ============================================================================
-# ARRAY MARKER HANDLING (from Cosmos)
-# ============================================================================
+class CassandraMetadata:
 
-def _record_array_markers(all_objects_by_rid: Dict, arrays_with_markers: Dict,
-                          row_rid_to_parent: Optional[Dict] = None) -> None:
-    for rid, obj in all_objects_by_rid.items():
-        for key in list(obj.keys()):
-            if key.startswith("_has_array_"):
-                arr_name = key[len("_has_array_"):]
-                arrays_with_markers.setdefault(arr_name, set()).add(rid)
-
-    if row_rid_to_parent:
-        for row_rid, obj in row_rid_to_parent.items():
-            for key in list(obj.keys()):
-                if key.startswith("_has_array_"):
-                    arr_name = key[len("_has_array_"):]
-                    arrays_with_markers.setdefault(arr_name, set()).add(row_rid)
-
-
-def _initialize_arrays_from_markers(all_objects_by_rid: Dict) -> None:
-    for _rid, obj in all_objects_by_rid.items():
-        markers = [k for k in list(obj.keys()) if k.startswith("_has_array_")]
-        for marker in markers:
-            arr_name = marker[len("_has_array_"):]
-            path_parts = arr_name.split(".")
-            target = obj
-            ok = True
-            for part in path_parts[:-1]:
-                if part not in target:
-                    target[part] = {}
-                elif not isinstance(target[part], dict):
-                    ok = False
-                    break
-                target = target[part]
-            if ok:
-                final = path_parts[-1]
-                if final not in target:
-                    target[final] = []
-                elif not isinstance(target[final], list):
-                    target[final] = [target[final]] if target[final] is not None else []
-            if marker in obj:
-                del obj[marker]
-
-
-def _determine_filter_rids(
-    arr_name: str,
-    current_depth: int,
-    parent_rids: Set[str],
-    rids_by_depth: Dict[int, Set[str]],
-    all_objects_by_rid: Dict,
-) -> Set[str]:
-    arr_parts = arr_name.split(".")
-    possible_markers = [".".join(arr_parts[i:]) for i in range(len(arr_parts))]
-
-    for marker_suffix in possible_markers:
-        marker_key = f"_has_array_{marker_suffix}"
-        rids_with_marker = {
-            rid for rid, obj in all_objects_by_rid.items() if marker_key in obj
-        }
-
-        if rids_with_marker:
-            if current_depth == 0:
-                valid_rids = rids_with_marker & parent_rids
-                if valid_rids:
-                    return valid_rids
-            else:
-                valid_rids = set()
-                for depth in range(current_depth + 1):
-                    if depth in rids_by_depth:
-                        valid_rids.update(rids_with_marker & rids_by_depth[depth])
-                if valid_rids:
-                    return valid_rids
-
-    # Fallback
-    if current_depth == 0:
-        return parent_rids
-
-    for d in range(current_depth, -1, -1):
-        if d in rids_by_depth and rids_by_depth[d]:
-            return rids_by_depth[d]
-
-    return set()
-
-
-def _assign_children_to_parents(
-    child_objects_by_table: Dict,
-    all_objects_by_rid: Dict,
-    rid_to_parent: Dict,
-    arrays_with_markers: Dict,
-) -> None:
-    sorted_tables = sorted(child_objects_by_table.items(), key=lambda x: x[0].count("."))
-
-    for arr_name, objects in sorted_tables:
-        if not objects:
-            continue
-
-        grouped: Dict[str, List[Dict]] = defaultdict(list)
-        for obj in objects:
-            p_rid = str(obj.get("_parent_rid", "") or "")
-            if p_rid and p_rid != "None":
-                grouped[p_rid].append(obj)
-
-        for p_rid, children in grouped.items():
-            parent_obj = all_objects_by_rid.get(p_rid) or rid_to_parent.get(p_rid)
-            if parent_obj is None:
-                continue
-
-            clean_children = _clean_child_objects(children, all_objects_by_rid)
-            _add_children_to_array(
-                parent_obj,
-                arr_name,
-                clean_children,
-                p_rid,
-                arrays_with_markers,
-                rid_to_parent,
-            )
-
-
-def _clean_child_objects(children: List[Dict], all_objects_by_rid: Dict) -> List[Dict]:
-    clean_children = []
-    for child in children:
-        child_rid = str(child.get("_rid", "") or "")
-        clean = {
-            k: v
-            for k, v in child.items()
-            if k not in ("_rid", "_parent_rid") and not k.startswith("_has_array_")
-        }
-        clean_children.append(clean)
-
-        if child_rid and child_rid in all_objects_by_rid:
-            all_objects_by_rid[child_rid] = clean
-
-    return clean_children
-
-
-def _add_children_to_array(
-    parent_obj: Dict,
-    arr_name: str,
-    clean_children: List[Dict],
-    parent_rid: str,
-    arrays_with_markers: Dict,
-    rid_to_parent: Dict,
-) -> None:
-    has_marker_in_parent = False
-    actual_marker_name = None
-
-    if parent_rid in arrays_with_markers.get(arr_name, set()):
-        has_marker_in_parent = True
-        actual_marker_name = arr_name
-    else:
-        parent_markers = [
-            marker for marker, rids in arrays_with_markers.items() if parent_rid in rids
-        ]
-
-        if parent_markers:
-            for marker in parent_markers:
-                if arr_name.endswith(marker) or arr_name == marker:
-                    has_marker_in_parent = True
-                    actual_marker_name = marker
-                    break
-
-    if has_marker_in_parent:
-        target = parent_obj
-        path_segments = actual_marker_name.split(".")
-
-        for part in path_segments[:-1]:
-            if part not in target:
-                target[part] = {}
-            elif not isinstance(target[part], dict):
-                return
-            target = target[part]
-
-        final_array_key = path_segments[-1]
-        if final_array_key not in target:
-            target[final_array_key] = []
-
-        if isinstance(target[final_array_key], list):
-            target[final_array_key].extend(clean_children)
-        else:
-            target[final_array_key] = clean_children
-    else:
-        path_segments = arr_name.split(".")
-        final_array_key = path_segments[-1]
-
-        if final_array_key not in parent_obj:
-            parent_obj[final_array_key] = []
-
-        if isinstance(parent_obj[final_array_key], list):
-            parent_obj[final_array_key].extend(clean_children)
-        else:
-            parent_obj[final_array_key] = clean_children
-
-
-def _clean_documents(documents: List[Dict]) -> None:
-    def clean_recursive(obj):
-        if isinstance(obj, dict):
-            return {
-                k: clean_recursive(v)
-                for k, v in obj.items()
-                if k not in ("_rid", "_parent_rid") and not k.startswith("_has_array_")
-            }
-        elif isinstance(obj, list):
-            return [clean_recursive(item) for item in obj]
-        else:
-            return obj
-
-    for doc in documents:
-        for key in list(doc.keys()):
-            if key not in ("_rid", "_parent_rid") and not key.startswith("_has_array_"):
-                doc[key] = clean_recursive(doc[key])
-
-        doc.pop("_rid", None)
-        doc.pop("_parent_rid", None)
-
-
-# ============================================================================
-# JSON COLUMN SCALAR CSV (unchanged, with boolean fix)
-# ============================================================================
-
-def process_json_col_scalar_csv(
-    service_client,
-    file_system: str,
-    scalar_path: str,
-    jcol: str,
-    parent_row_rids: Set[str],
-    row_rid_to_parent: Dict,
-) -> None:
-    try:
-        fs_client = service_client.get_file_system_client(file_system)
-        download = fs_client.get_file_client(scalar_path).download_file()
-
-        chunk_iter = pd.read_csv(
-            download, sep=PIPE_DELIMITER, chunksize=DEFAULT_CHILD_CHUNK,
-            iterator=True, keep_default_na=False, escapechar=ESCAPE_CHAR, dtype=str,
+    @staticmethod
+    def get_column_metadata(session, keyspace: str, table: str) -> List[Dict]:
+        rows   = session.execute(
+            "SELECT column_name, type FROM system_schema.columns "
+            "WHERE keyspace_name=%s AND table_name=%s ALLOW FILTERING",
+            (keyspace, table),
         )
+        result = [{"column_name": r.column_name, "type": r.type} for r in rows]
+        del rows
+        force_gc()
+        return result
 
-        for chunk in chunk_iter:
-            if "_row_rid" not in chunk.columns:
-                del chunk
-                continue
+    @staticmethod
+    def classify_columns(column_metadata: List[Dict]) -> Tuple[List[str], List[str]]:
+        relational, json_candidates = [], []
+        for col in column_metadata:
+            cname, ctype = col["column_name"], col["type"].lower()
+            if ctype in ("text", "varchar"):
+                json_candidates.append(cname)
+            else:
+                relational.append(cname)
+        return relational, json_candidates
 
-            chunk["_row_rid"] = chunk["_row_rid"].fillna("").astype(str)
-            filtered = chunk[chunk["_row_rid"].isin(parent_row_rids)].copy()
-            del chunk
+    @staticmethod
+    def get_clustering_keys(session, keyspace: str, table: str) -> List[str]:
+        """Fetch clustering key column names from Cassandra system schema."""
+        rows = session.execute(
+            "SELECT column_name FROM system_schema.columns "
+            "WHERE keyspace_name=%s AND table_name=%s AND kind='clustering' ALLOW FILTERING",
+            (keyspace, table),
+        )
+        result = [r.column_name for r in rows]
+        del rows
+        force_gc()
+        return result
 
-            if filtered.empty:
-                release_dataframe(filtered)
-                continue
+    @staticmethod
+    def detect_json_columns(
+        session, keyspace, table, candidate_columns,
+        partition_key=None, partition_key_value=None, sample_size=2,
+        clustering_key=None, clustering_key_value=None,
+    ) -> List[str]:
+        if not candidate_columns:
+            return []
+        cols_expr = ", ".join(f'"{c}"' for c in candidate_columns)
+        logging.info(f"{partition_key}partition_key_value {partition_key_value}")
+        if partition_key and partition_key_value:
 
-            for _, row in filtered.iterrows():
-                row_rid = str(row.get("_row_rid", "") or "")
-                parent = row_rid_to_parent.get(row_rid)
-                if parent is None:
-                    continue
+            pk_type = get_column_type(session, keyspace, table, partition_key)
 
-                scalar_flat: Dict[str, Any] = {}
-                for k, v in row.items():
-                    if k in SYSTEM_FIELDS or k.startswith("_has_array_"):
-                        continue
-                    if _is_boolean_string(v):
-                        scalar_flat[k] = v
-                        continue
-                    if pd.notna(v) and v != "":
-                        scalar_flat[k] = v
+            # Ensure value is list for IN
+            if isinstance(partition_key_value, str):
+                partition_key_value = [v.strip() for v in partition_key_value.split(",") if v.strip()]
+            elif not isinstance(partition_key_value, list):
+                partition_key_value = [partition_key_value]
 
-                if not scalar_flat:
-                    continue
+            coerced_values = [
+                coerce_to_cql_type(v, pk_type) for v in partition_key_value
+            ]
 
-                nested_scalars = unflatten_dict(scalar_flat)
+            placeholders = ",".join(["%s"] * len(coerced_values))
 
-                existing = parent.get(jcol)
-                if isinstance(existing, dict):
-                    existing.update(nested_scalars)
-                else:
-                    parent[jcol] = nested_scalars
+            where_clause = f'WHERE "{partition_key}" IN ({placeholders})'
+            bind_values = coerced_values
 
-            release_dataframe(filtered)
+            logging.info(f"{clustering_key}clustering_key_value {clustering_key_value}")
 
-    except Exception as e:
-        logging.error(f"Error in scalar CSV '{scalar_path}' for column '{jcol}': {e}")
-        raise
+            if clustering_key and clustering_key_value:
 
+                ck_type = get_column_type(session, keyspace, table, clustering_key)
 
-# ============================================================================
-# CORE BATCH PROCESSING (adapted from Cosmos)
-# ============================================================================
+                if isinstance(clustering_key_value, str):
+                    clustering_key_value = [v.strip() for v in clustering_key_value.split(",") if v.strip()]
+                elif not isinstance(clustering_key_value, list):
+                    clustering_key_value = [clustering_key_value]
 
-def process_batch(
-    batch_parents: List[Dict],
-    service_client,
-    file_system: str,
-    export_dir: str,
-    table: str,
-    json_col_scalar_paths: Dict[str, str],
-    csv_info_by_depth: Dict[int, List[Dict]],
-) -> Tuple[List[Dict], int]:
-    # Build lookups
-    rid_to_parent: Dict[str, Dict] = {}
-    row_rid_to_parent: Dict[str, Dict] = {}
+                coerced_ck_values = [
+                    coerce_to_cql_type(v, ck_type) for v in clustering_key_value
+                ]
 
-    for parent in batch_parents:
-        rrid = str(parent.get("_row_rid", "") or "")
-        rid = str(parent.get("_rid", "") or "")
-        if rrid:
-            row_rid_to_parent[rrid] = parent
-        if rid:
-            rid_to_parent[rid] = parent
+                ck_placeholders = ",".join(["%s"] * len(coerced_ck_values))
 
-    all_objects_by_rid: Dict[str, Dict] = dict(rid_to_parent)
-    parent_rids = set(rid_to_parent.keys())
-    total_child_rows = 0
+                where_clause += f' AND "{clustering_key}" IN ({ck_placeholders})'
 
-    # Process JSON scalar CSVs
-    for jcol, scalar_path in json_col_scalar_paths.items():
-        try:
-            process_json_col_scalar_csv(
-                service_client=service_client,
-                file_system=file_system,
-                scalar_path=scalar_path,
-                jcol=jcol,
-                parent_row_rids=set(row_rid_to_parent.keys()),
-                row_rid_to_parent=row_rid_to_parent,
+                bind_values.extend(coerced_ck_values)
+
+            cql = (
+                f'SELECT {cols_expr} FROM "{keyspace}"."{table}" '
+                f'{where_clause} ALLOW FILTERING'
             )
-        except Exception as e:
-            logging.error(f"Scalar CSV error for '{jcol}': {e} — continuing.")
+            logging.info(f"Fitering Check this : {cql}")
+            rows = list(session.execute(cql, tuple(bind_values)))
+        else:
+            cql  = f'SELECT {cols_expr} FROM "{keyspace}"."{table}" ALLOW FILTERING'
+            rows = list(session.execute(cql))
 
-    # Prepare RID sets per depth
-    rids_by_depth: Dict[int, Set[str]] = {0: parent_rids}
-    child_objects_by_table: Dict[str, List[Dict]] = {}
-    arrays_with_markers: Dict[str, Set[str]] = {}
-
-    max_depth = max(csv_info_by_depth.keys()) if csv_info_by_depth else -1
-
-    # Process depths in increasing order
-    for depth in range(max_depth + 1):
-        if depth not in csv_info_by_depth:
-            continue
-
-        if depth + 1 not in rids_by_depth:
-            rids_by_depth[depth + 1] = set()
-
-        for csv_info in csv_info_by_depth[depth]:
-            filter_rids = _determine_filter_rids(
-                arr_name=csv_info["arr_name"],
-                current_depth=depth,
-                parent_rids=parent_rids,
-                rids_by_depth=rids_by_depth,
-                all_objects_by_rid=all_objects_by_rid,
-            )
-
-            if not filter_rids:
-                logging.debug(f"    No filter RIDs for '{csv_info['arr_name']}' depth={depth}")
-                continue
-
-            try:
-                child_count, child_rids = process_child_csv_streaming(
-                    service_client=service_client,
-                    file_system=file_system,
-                    full_path=csv_info["full_path"],
-                    parent_rids=filter_rids,
-                    arr_name=csv_info["arr_name"],
-                    all_objects_by_rid=all_objects_by_rid,
-                    child_objects_by_table=child_objects_by_table,
-                )
-
-                total_child_rows += child_count
-                if child_rids:
-                    rids_by_depth[depth + 1].update(child_rids)
-
-            except Exception as e:
-                logging.error(f"Error processing '{csv_info['full_path']}': {e}")
-                continue
-
-    # Assign children into parents
-    _record_array_markers(all_objects_by_rid, arrays_with_markers,
-                          row_rid_to_parent=row_rid_to_parent)
-    _initialize_arrays_from_markers(all_objects_by_rid)
-    _initialize_arrays_from_markers(row_rid_to_parent)
-
-    _assign_children_to_parents(
-        child_objects_by_table,
-        all_objects_by_rid,
-        rid_to_parent,
-        arrays_with_markers,
-    )
-
-    # Clean metadata
-    _clean_documents(batch_parents)
-    documents = [cassandra_safe(strip_system_fields(doc)) for doc in batch_parents]
-
-    # Cleanup
-    del rid_to_parent, row_rid_to_parent, all_objects_by_rid
-    del child_objects_by_table, arrays_with_markers, rids_by_depth
-    force_gc()
-
-    return documents, total_child_rows
+        confirmed_json: set = set()
+        for row in rows:
+            for col in candidate_columns:
+                val = getattr(row, col, None)
+                if val and isinstance(val, str):
+                    stripped = val.strip()
+                    if stripped.startswith(("{", "[")):
+                        try:
+                            json.loads(val)
+                            confirmed_json.add(col)
+                        except (json.JSONDecodeError, ValueError):
+                            pass
+        del rows
+        force_gc()
+        return list(confirmed_json)
 
 
 # ============================================================================
-# RETRY STRATEGY (unchanged)
+# RETRY STRATEGY
 # ============================================================================
 
 class CassandraRetryStrategy:
+
     def __init__(self, max_retries=DEFAULT_MAX_RETRIES, base_delay=DEFAULT_BASE_DELAY, max_delay=DEFAULT_MAX_DELAY):
         self.max_retries = max_retries
-        self.base_delay = base_delay
-        self.max_delay = max_delay
-        self.retry_counts: Dict[str, int] = {}
+        self.base_delay  = base_delay
+        self.max_delay   = max_delay
+        self.retry_count_by_error: Dict[str, int] = {}
 
-    def execute_with_retry(self, operation, name="op"):
+    def execute_with_retry(self, operation, operation_name: str = "operation"):
         import random
         for attempt in range(self.max_retries + 1):
             try:
                 return operation()
             except Exception as e:
-                etype = self._classify(str(e))
-                self.retry_counts[etype] = self.retry_counts.get(etype, 0) + 1
+                error_type = self._classify_error(str(e))
+                self.retry_count_by_error[error_type] = self.retry_count_by_error.get(error_type, 0) + 1
                 if attempt < self.max_retries:
                     wait = min(self.base_delay * (2 ** attempt), self.max_delay)
                     wait += random.uniform(0, 0.1 * wait)
-                    logging.warning(f"[retry] {name} ({etype}) attempt {attempt+1}/{self.max_retries+1} wait={wait:.2f}s")
+                    logging.warning(f"Retryable error in {operation_name} ({error_type}) attempt {attempt+1}. Waiting {wait:.2f}s.")
                     time.sleep(wait)
                 else:
-                    logging.error(f"[retry] {name} failed: {e}")
+                    logging.error(f"{operation_name} failed after {self.max_retries+1} attempts: {e}")
                     raise
 
-    def _classify(self, msg):
+    def _classify_error(self, msg: str) -> str:
         m = msg.lower()
-        if "unavailable" in m:
-            return "Unavailable"
-        if "timeout" in m:
-            return "Timeout"
-        if "overloaded" in m:
-            return "Overloaded"
-        if "connection" in m:
-            return "Connection"
+        if "unavailable" in m:                 return "UnavailableException"
+        if "timeout" in m or "timed out" in m: return "Timeout"
+        if "overloaded" in m:                  return "Overloaded"
+        if "connection" in m:                  return "ConnectionError"
         return "Other"
 
-    def get_stats(self):
-        return {"total_retries": sum(self.retry_counts.values()), "retries_by_error_type": dict(self.retry_counts)}
+    def get_stats(self) -> Dict:
+        return {"total_retries": sum(self.retry_count_by_error.values()), "retries_by_error_type": self.retry_count_by_error.copy()}
 
 
 # ============================================================================
-# CASSANDRA INSERT (unchanged)
+# STREAMING CASSANDRA READER
 # ============================================================================
 
-def insert_rows_into_cassandra(
-    session, keyspace, table, rows, cassandra_columns, retry_strategy, batch_size=DEFAULT_BATCH_SIZE,
-    col_types: Optional[Dict[str, str]] = None,
-    concurrency: int = DEFAULT_CONCURRENT_INSERTS,
-    total_inserted_so_far: int = 0,
-) -> Tuple[int, int]:
-    if not rows:
-        return 0, 0
+class StreamingCassandraReader:
 
-    cassandra_col_set = set(cassandra_columns)
-    all_keys = [c for c in cassandra_columns if any(c in row for row in rows) and c in cassandra_col_set]
+    def __init__(self, session, keyspace, table, batch_size,
+                 partition_key=None, partition_key_value=None, retry_strategy=None,
+                 clustering_key=None, clustering_key_value=None):
+        self.session               = session
+        self.keyspace              = keyspace
+        self.table                 = table
+        self.batch_size            = batch_size
+        self.partition_key         = (partition_key         or "").strip() or None
+        self.partition_key_value   = partition_key_value
+        self.clustering_key        = (clustering_key        or "").strip() or None
+        self.clustering_key_value  = clustering_key_value
+        self.retry_strategy        = retry_strategy or CassandraRetryStrategy()
+        self._rows_read            = 0
 
-    if not all_keys:
-        logging.warning("No matching Cassandra columns in rows — skipping insert.")
-        return 0, len(rows)
+    def stream_rows(self) -> Iterator[List]:
+        if self.partition_key and self.partition_key_value:
+            logging.info(f"[stream_rows] PARTITION mode — key={self.partition_key!r} value={self.partition_key_value!r}")
+            yield from self._stream_partition()
+        else:
+            if self.partition_key or self.partition_key_value:
+                logging.warning("[stream_rows] Both partition key AND value required. Falling back to FULL TABLE SCAN.")
+            else:
+                logging.info("[stream_rows] FULL TABLE SCAN mode")
+            yield from self._stream_all()
 
-    col_list = ", ".join(f'"{c}"' for c in all_keys)
-    val_list = ", ".join("?" * len(all_keys))
-    cql = f'INSERT INTO "{keyspace}"."{table}" ({col_list}) VALUES ({val_list})'
+    def _stream_partition(self) -> Iterator[List]:
+        pk_type       = get_column_type(self.session, self.keyspace, self.table, self.partition_key)
+        
+        # Ensure values are lists for IN operator
+        if isinstance(self.partition_key_value, str):
+            pkv_list = [v.strip() for v in self.partition_key_value.split(",") if v.strip()]
+        elif isinstance(self.partition_key_value, list):
+            pkv_list = self.partition_key_value
+        else:
+            pkv_list = [self.partition_key_value]
 
-    try:
-        prepared = session.prepare(cql)
-    except Exception as e:
-        logging.error(f"Failed to prepare INSERT: {e}")
-        raise
+        coerced_values = [coerce_to_cql_type(v, pk_type) for v in pkv_list]
+        placeholders = ",".join(["?"] * len(coerced_values))
+        bind_values  = coerced_values
+        where_clause = f'WHERE "{self.partition_key}" IN ({placeholders})'
 
-    inserted = failed = 0
-    total_rows = len(rows)
+        if self.clustering_key and self.clustering_key_value:
+            ck_type = get_column_type(self.session, self.keyspace, self.table, self.clustering_key)
+            
+            if isinstance(self.clustering_key_value, str):
+                ckv_list = [v.strip() for v in self.clustering_key_value.split(",") if v.strip()]
+            elif isinstance(self.clustering_key_value, list):
+                ckv_list = self.clustering_key_value
+            else:
+                ckv_list = [self.clustering_key_value]
 
-    for batch_start in range(0, total_rows, batch_size):
-        sub_rows = rows[batch_start: batch_start + batch_size]
+            coerced_ck_values = [coerce_to_cql_type(v, ck_type) for v in ckv_list]
+            ck_placeholders = ",".join(["?"] * len(coerced_ck_values))
+            where_clause    += f' AND "{self.clustering_key}" IN ({ck_placeholders})'
+            bind_values.extend(coerced_ck_values)
+            logging.info(f"[stream_rows] CLUSTERING filter — key={self.clustering_key!r} value={ckv_list!r}")
 
-        batch = BatchStatement(batch_type=BatchType.UNLOGGED)
-        for row in sub_rows:
-            values = []
-            for c in all_keys:
-                val = cassandra_safe(row.get(c))
-                if isinstance(val, (dict, list)):
-                    val = json.dumps(val, ensure_ascii=False, default=str)
-                if col_types and c in col_types:
-                    val = coerce_value_for_cassandra(val, col_types[c])
-                values.append(val)
-            batch.add(prepared, tuple(values))
-
-        def _execute(b=batch):
-            session.execute(b)
-
-        try:
-            retry_strategy.execute_with_retry(_execute, f"insert_batch_{batch_start}")
-            inserted += len(sub_rows)
-        except Exception as e:
-            logging.error(f"Batch insert failed start={batch_start}: {e}. Skipping {len(sub_rows)} rows.")
-            failed += len(sub_rows)
-
-        batch.clear()
-        del batch, sub_rows
-
-        running_total = total_inserted_so_far + inserted
-        logging.info(
-            f"  [INSERT PROGRESS] sub-batch {batch_start // batch_size + 1}"
-            f" | this_chunk={len(rows[batch_start: batch_start + batch_size])} failed={failed}"
-            f" | rows transferred so far: {running_total:,}"
+        cql = (
+            f'SELECT * FROM "{self.keyspace}"."{self.table}" '
+            f'{where_clause} ALLOW FILTERING'
         )
+        logging.info(f"filter query: {cql}")
+                     
+        def _execute():
+            stmt = self.session.prepare(cql)
+            stmt.fetch_size = self.batch_size
+            return self.session.execute(stmt, tuple(bind_values))
+        try:
+            result_set = self.retry_strategy.execute_with_retry(_execute, "stream_partition")
+        except Exception as e:
+            logging.error(f"[_stream_partition] Query failed: {e}")
+            return
+        yield from self._paginate(result_set)
 
-    force_gc()
-    return inserted, failed
+    def _stream_all(self) -> Iterator[List]:
+        cql = f'SELECT * FROM "{self.keyspace}"."{self.table}" ALLOW FILTERING'
+        def _execute():
+            stmt = self.session.prepare(cql)
+            stmt.fetch_size = self.batch_size
+            return self.session.execute(stmt)
+        try:
+            result_set = self.retry_strategy.execute_with_retry(_execute, "stream_all")
+        except Exception as e:
+            logging.error(f"[_stream_all] Query failed: {e}")
+            return
+        yield from self._paginate(result_set)
+
+    def _paginate(self, result_set) -> Iterator[List]:
+        batch: List = []
+        batch_count = 0
+        for row in result_set:
+            batch.append(row)
+            self._rows_read += 1
+            if len(batch) >= self.batch_size:
+                yield batch
+                batch = []
+                batch_count += 1
+                if batch_count % 5 == 0:
+                    force_gc()
+        if batch:
+            yield batch
+            force_gc()
+
+    def get_stats(self) -> Dict:
+        return {"rows_read": self._rows_read}
 
 
 # ============================================================================
-# ADLS FOLDER DELETION (unchanged)
+# DATA TRANSFORMATION  — OPTIMISED
 # ============================================================================
 
-def delete_adls_table_folder(
-    adls_account_name: str,
-    table: str,
-    source_keyspace: str,
-    target_keyspace: str,
-) -> Dict[str, Any]:
-    credential = DefaultAzureCredential()
-    service_client = DataLakeServiceClient(
-        account_url=f"https://{adls_account_name}.dfs.core.windows.net",
-        credential=credential,
-    )
+def flatten_no_arrays(d: Dict, parent: str = "") -> Dict:
+    """Iterative flatten (avoids recursion overhead on deep docs)."""
+    flat: Dict = {}
+    stack = [(d, parent)]
+    while stack:
+        current_dict, current_parent = stack.pop()
+        for k, v in current_dict.items():
+            key = f"{current_parent}.{k}" if current_parent else k
+            if isinstance(v, list):
+                flat[key] = v
+            elif isinstance(v, dict):
+                stack.append((v, key))
+            else:
+                flat[key] = v
+    return flat
 
-    results: Dict[str, str] = {}
 
-    for keyspace_dir, label in [
-        (source_keyspace, "source"),
-        (target_keyspace, "target"),
-    ]:
-        if not keyspace_dir:
-            logging.warning(f"[ADLS DELETE] {label} keyspace directory not provided — skipping.")
-            results[label] = "skipped (no directory provided)"
+def _process_flat_fields(
+    flat: Dict,
+    row_rid: str,
+    base_table: str,
+    parent_fields: Dict,
+    child_queue: deque,
+):
+    """
+    Split a flat dict into scalar parent fields and array children.
+    Mutates parent_fields in-place. Pushes children onto child_queue.
+    Avoids creating intermediate dicts.
+    """
+    for key, value in flat.items():
+        if not isinstance(value, list):
+            parent_fields[key] = value
+            continue
+        primitives = [v for v in value if not isinstance(v, dict)]
+        dicts      = [v for v in value if isinstance(v, dict)]
+        if primitives and not dicts:
+            parent_fields[key] = value
+            continue
+        parent_fields[f"_has_array_{key}"] = True
+        child_table = f"{base_table}.{key}" if base_table else key
+        for item in dicts:
+            child_queue.append((item, child_table, row_rid))
+
+
+def extract_arrays_streaming(
+    doc: Dict,
+    root_rid: str,
+    base_table: str = "",
+) -> Tuple[Dict, Dict[str, List[Dict]]]:
+    """
+    OPTIMISED replacement for extract_arrays_from_json_doc.
+
+    Key changes vs original:
+    - Single iterative pass with a deque (no nested pd.DataFrame creation mid-row)
+    - Returns raw row-dicts per child table, NOT DataFrames
+      → caller accumulates across many source rows before calling pd.DataFrame once
+    - base_table is the JSON column name (e.g. "orders"), so child array folders
+      are named after the column — never the "_root_" sentinel.
+    """
+    doc["_rid"] = root_rid
+    parent_fields: Dict = {}
+    child_rows: Dict[str, List[Dict]] = {}
+
+    flat_root = flatten_no_arrays(doc)
+    child_queue: deque = deque()
+    _process_flat_fields(flat_root, root_rid, base_table, parent_fields, child_queue)
+    del flat_root
+
+    while child_queue:
+        item, table_name, parent_rid = child_queue.popleft()
+        child_rid  = str(uuid.uuid4())
+        flat_child = flatten_no_arrays(item)
+        row: Dict  = {"_rid": child_rid, "_parent_rid": parent_rid}
+
+        _process_flat_fields(flat_child, child_rid, table_name, row, child_queue)
+        del flat_child
+
+        data_keys = {k for k in row if k not in ("_rid", "_parent_rid")}
+        if data_keys:
+            child_rows.setdefault(table_name, []).append(row)
+
+    return parent_fields, child_rows
+
+
+# ============================================================================
+# ROW-LEVEL PROCESSING
+# ============================================================================
+
+def _process_single_row(
+    row,
+    column_names: List[str],
+    relational_cols: List[str],
+    json_cols: List[str],
+) -> Tuple[Dict, Dict[str, Dict]]:
+    """
+    Process ONE Cassandra row → (parent_record_dict, per_json_col child rows).
+
+    Returns raw dicts, NOT DataFrames — DataFrame construction is deferred to
+    batch-flush time so we only call pd.DataFrame(records) ONCE per batch.
+    """
+    row_rid       = str(uuid.uuid4())
+    parent_record = {"_row_rid": row_rid}
+
+    for col in relational_cols:
+        parent_record[col] = getattr(row, col, None)
+
+    json_col_output: Dict[str, Dict] = {}
+
+    for jcol in json_cols:
+        raw = getattr(row, jcol, None)
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
             continue
 
-        folder_path = f"{keyspace_dir}/{table}"
-
         try:
-            try:
-                fs_client = service_client.get_file_system_client(keyspace_dir)
-                dir_client = fs_client.get_directory_client(table)
-            except Exception:
-                fs_client = service_client.get_file_system_client(file_system="$root")
-                dir_client = fs_client.get_directory_client(folder_path)
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, ValueError):
+            json_col_output.setdefault(jcol, {"parent": [], "children": {}})
+            json_col_output[jcol]["parent"].append({"_row_rid": row_rid, jcol: raw})
+            continue
 
-            dir_client.delete_directory()
-            logging.info(f"[ADLS DELETE] {label} folder deleted: '{folder_path}'")
-            results[label] = f"deleted: {folder_path}"
+        if isinstance(parsed, dict):
+            doc = parsed
+        elif isinstance(parsed, list):
+            doc = {jcol: parsed}
+        else:
+            json_col_output.setdefault(jcol, {"parent": [], "children": {}})
+            json_col_output[jcol]["parent"].append({"_row_rid": row_rid, jcol: parsed})
+            continue
 
-        except ResourceNotFoundError:
-            logging.warning(f"[ADLS DELETE] {label} folder not found (already deleted?): '{folder_path}'")
-            results[label] = f"not found: {folder_path}"
-        except Exception as e:
-            logging.error(f"[ADLS DELETE] Failed to delete {label} folder '{folder_path}': {e}")
-            results[label] = f"error: {str(e)}"
+        parent_fields, child_rows = extract_arrays_streaming(doc, row_rid, base_table=jcol)
+        parent_fields["_row_rid"] = row_rid
+        parent_fields.pop("_rid", None)
 
-    return results
+        entry = json_col_output.setdefault(jcol, {"parent": [], "children": {}})
+        if parent_fields:
+            entry["parent"].append(parent_fields)
+        for arr_name, rows_list in child_rows.items():
+            entry["children"].setdefault(arr_name, []).extend(rows_list)
+
+        del child_rows, parent_fields, parsed, doc
+
+    return parent_record, json_col_output
+
+
+def process_cassandra_batch_streaming(
+    rows: List,
+    column_names: List[str],
+    relational_cols: List[str],
+    json_cols: List[str],
+) -> Tuple[pd.DataFrame, Dict[str, Dict[str, pd.DataFrame]]]:
+    """
+    OPTIMISED batch processor.
+
+    Strategy:
+    1. Accumulate raw dicts for ALL rows in the batch (no per-row DataFrame).
+    2. Build DataFrames ONCE at the end of the batch with pd.DataFrame(records).
+    3. This cuts DataFrame construction overhead from O(N) to O(1) per batch.
+    4. JSON child tables are also built from accumulated dicts → one concat call.
+
+    Returns:
+        parent_df          — relational columns, one row per Cassandra row
+        json_col_results   — { jcol: { "parent": DataFrame, "children": { arr: DataFrame } } }
+    """
+    parent_records: List[Dict] = []
+    accumulator: Dict[str, Dict] = {jcol: {"parent": [], "children": {}} for jcol in json_cols}
+
+    for row in rows:
+        parent_record, json_col_output = _process_single_row(row, column_names, relational_cols, json_cols)
+        parent_records.append(parent_record)
+
+        for jcol, data in json_col_output.items():
+            accumulator[jcol]["parent"].extend(data["parent"])
+            for arr_name, child_list in data["children"].items():
+                accumulator[jcol]["children"].setdefault(arr_name, []).extend(child_list)
+
+        del json_col_output
+
+    parent_df = pd.DataFrame(parent_records) if parent_records else pd.DataFrame()
+    del parent_records
+    force_gc()
+
+    json_col_results: Dict[str, Dict[str, pd.DataFrame]] = {}
+
+    for jcol, data in accumulator.items():
+        parent_df_jcol = pd.DataFrame(data["parent"]) if data["parent"] else pd.DataFrame()
+
+        children_dfs: Dict[str, pd.DataFrame] = {}
+        for arr_name, row_list in data["children"].items():
+            if row_list:
+                children_dfs[arr_name] = pd.DataFrame(row_list)
+            del row_list
+
+        json_col_results[jcol] = {"parent": parent_df_jcol, "children": children_dfs}
+        del parent_df_jcol, children_dfs, data
+
+    del accumulator
+    force_gc()
+
+    return parent_df, json_col_results
 
 
 # ============================================================================
-# ADLS CSV RECORD TRUNCATION (unchanged)
+# DATA CLEANING
 # ============================================================================
 
-def truncate_adls_csv_records(
-    service_client: DataLakeServiceClient,
-    file_system: str,
-    all_csv_paths: List[str],
-) -> Dict[str, Any]:
-    truncated: List[str] = []
-    skipped: List[str] = []
-    failed: List[Dict[str, str]] = []
+def clean_dataframe(df_obj: Optional[pd.DataFrame]) -> pd.DataFrame:
+    if df_obj is None or df_obj.empty:
+        return pd.DataFrame()
 
-    fs_client = service_client.get_file_system_client(file_system)
+    def fix_value(val):
+        if val is None:                                                  return None
+        if isinstance(val, (str, int, float, bool)):                    return val
+        if isinstance(val, list) and all(not isinstance(i, dict) for i in val): return val
+        if isinstance(val, (dict, list)):                               return None
+        try:                                                             return str(val)
+        except Exception:                                               return None
 
-    for full_path in all_csv_paths:
-        try:
-            raw_bytes: bytes = fs_client.get_file_client(full_path).download_file().readall()
+    for col in df_obj.columns:
+        if df_obj[col].dtype == object:
+            df_obj[col] = df_obj[col].apply(fix_value)
 
-            if not raw_bytes:
-                logging.info(f"[TRUNCATE] '{full_path}' is already empty — skipping.")
-                skipped.append(full_path)
-                continue
+    meta_cols = {"_rid", "_parent_rid", "_row_rid"}
+    data_cols = [c for c in df_obj.columns if c not in meta_cols]
+    if data_cols:
+        df_obj = df_obj.dropna(subset=data_cols, how="all")
 
-            pos_crlf = raw_bytes.find(b"\r\n")
-            pos_lf = raw_bytes.find(b"\n")
+    return df_obj.reset_index(drop=True)
 
-            if pos_crlf != -1 and (pos_lf == -1 or pos_crlf <= pos_lf):
-                header_bytes = raw_bytes[: pos_crlf + 2]
-            elif pos_lf != -1:
-                header_bytes = raw_bytes[: pos_lf + 1]
-            else:
-                logging.info(f"[TRUNCATE] '{full_path}' has no data rows — skipping.")
-                skipped.append(full_path)
-                continue
 
-            file_client = fs_client.get_file_client(full_path)
-            file_client.create_file()
-            file_client.append_data(header_bytes, offset=0, length=len(header_bytes))
-            file_client.flush_data(len(header_bytes))
+def cassandra_row_to_dict(row, column_names: List[str]) -> Dict:
+    return {col: getattr(row, col, None) for col in column_names}
 
-            logging.info(f"[TRUNCATE] '{full_path}' → header only ({len(header_bytes)} bytes).")
-            truncated.append(full_path)
 
-        except Exception as e:
-            logging.error(f"[TRUNCATE] Failed on '{full_path}': {e}")
-            failed.append({"path": full_path, "error": str(e)})
+# ============================================================================
+# ADLS UPLOAD  (unchanged logic, kept intact)
+# ============================================================================
 
-    logging.info(
-        f"[TRUNCATE] Done — truncated={len(truncated)} "
-        f"skipped={len(skipped)} failed={len(failed)}"
+def _serialize_df(df_obj: pd.DataFrame, include_header: bool = True) -> bytes:
+    buf = StringIO()
+    df_obj.fillna("").to_csv(
+        buf, index=False, sep=PIPE_DELIMITER,
+        header=include_header, quoting=0, escapechar=ESCAPE_CHARACTER,
     )
-    return {"truncated": truncated, "skipped": skipped, "failed": failed}
+    return buf.getvalue().encode("utf-8")
+
+
+def _ensure_adls_directory(fs_client, directory: str) -> None:
+    """Create directory hierarchy in ADLS, swallow errors if already exists."""
+    dir_segments = directory.strip("/").split("/") if directory else []
+    curr = ""
+    for seg in dir_segments:
+        curr = f"{curr}/{seg}" if curr else seg
+        try:
+            fs_client.get_directory_client(curr).create_directory()
+        except Exception:
+            pass
+
+
+def _delete_adls_file_if_exists(file_client) -> None:
+    """Silently delete an ADLS file — no-op if it does not exist."""
+    try:
+        file_client.delete_file()
+    except Exception:
+        pass
+
+
+def _get_committed_file_size(file_client) -> int:
+    """
+    Re-fetch the ACTUAL committed byte length from ADLS every time.
+
+    Never track size locally across calls — the local estimate goes stale if
+    a previous upload partially failed, the SDK cached an old value, or a
+    schema-evolution rewrite replaced the file mid-stream.
+    Fetching fresh properties is one cheap API call but eliminates
+    InvalidFlushPosition entirely.
+    """
+    try:
+        return file_client.get_file_properties().size
+    except Exception:
+        return 0
+
+
+def _write_fresh_file(dir_client, file_name: str, content_bytes: bytes) -> None:
+    """Create a brand-new ADLS file and write content_bytes starting at offset 0."""
+    fc = dir_client.create_file(file_name)
+    fc.append_data(content_bytes, offset=0, length=len(content_bytes))
+    fc.flush_data(len(content_bytes))
+
+
+def upload_csv_to_adls(
+    service_client,
+    file_system: str,
+    directory: str,
+    file_name: str,
+    df_input: pd.DataFrame,
+    mode: str = "write",
+    known_columns: Optional[set] = None,
+) -> set:
+    """
+    Upload a DataFrame as a pipe-delimited CSV to ADLS Gen2.
+
+    mode="write"  → delete any existing file, write fresh (batch 1 of a job run)
+    mode="append" → append to existing file; include header only if file is new.
+
+    Correctness rules:
+    - NEVER track offset locally across calls. Always call _get_committed_file_size()
+      immediately before each append so the offset is always fresh.
+    - Schema evolution (new columns mid-stream): download existing, merge, rewrite
+      the entire file from offset 0 on a brand-new file handle.
+    - flush_data(offset + len) where offset = freshly-fetched committed size.
+    """
+    df_input = clean_dataframe(df_input)
+    if df_input is None or df_input.empty:
+        return known_columns or set()
+
+    fs_client       = service_client.get_file_system_client(file_system)
+    _ensure_adls_directory(fs_client, directory)
+
+    dir_client      = fs_client.get_directory_client(directory)
+    file_client     = dir_client.get_file_client(file_name)
+    current_columns = set(df_input.columns)
+
+    if known_columns is None:
+        known_columns = current_columns
+
+    new_columns = current_columns - known_columns
+
+    # ── Schema evolution: new columns appeared — download, merge, rewrite ─────
+    if mode == "append" and new_columns:
+        try:
+            committed_size = _get_committed_file_size(file_client)
+            if committed_size > 0:
+                existing_content = file_client.download_file().readall().decode("utf-8")
+                existing_df      = pd.read_csv(
+                    StringIO(existing_content), sep=PIPE_DELIMITER, keep_default_na=False
+                )
+                del existing_content
+
+                known_columns = known_columns | new_columns
+                for col in known_columns:
+                    if col not in existing_df.columns: existing_df[col] = None
+                    if col not in df_input.columns:    df_input[col]    = None
+
+                column_order = sorted(known_columns)
+                combined_df  = pd.concat(
+                    [existing_df[column_order], df_input[column_order]], ignore_index=True
+                )
+                release_dataframe(existing_df)
+
+                content_bytes = _serialize_df(combined_df, include_header=True)
+                release_dataframe(combined_df)
+
+                _delete_adls_file_if_exists(file_client)
+                _write_fresh_file(dir_client, file_name, content_bytes)
+                del content_bytes
+                force_gc()
+                return known_columns
+        except Exception as exc:
+            logging.warning(
+                f"[upload] Schema-evolution rewrite failed for {file_name}: {exc}. "
+                "Falling through to standard append."
+            )
+
+    # ── Align columns to known schema ─────────────────────────────────────────
+    for col in known_columns:
+        if col not in df_input.columns:
+            df_input[col] = None
+    if known_columns:
+        df_input = df_input[sorted(known_columns)]
+
+    try:
+        if mode == "write":
+            _delete_adls_file_if_exists(file_client)
+            content_bytes = _serialize_df(df_input, include_header=True)
+            release_dataframe(df_input)
+            _write_fresh_file(dir_client, file_name, content_bytes)
+            del content_bytes
+
+        else:
+            committed_size = _get_committed_file_size(file_client)
+            file_is_new    = committed_size == 0
+
+            content_bytes = _serialize_df(df_input, include_header=file_is_new)
+            release_dataframe(df_input)
+
+            if file_is_new:
+                file_client = dir_client.create_file(file_name)
+
+            file_client.append_data(content_bytes, offset=committed_size, length=len(content_bytes))
+            file_client.flush_data(committed_size + len(content_bytes))
+            del content_bytes
+
+    except Exception as e:
+        logging.error(f"[upload] Failed for {file_name}: {e}")
+        raise
+    finally:
+        force_gc()
+
+    return known_columns | current_columns
+
+
+def upload_json_col_child_tables(
+    service_client,
+    adls_file_system: str,
+    export_dir: str,
+    json_col_name: str,
+    children: Dict[str, pd.DataFrame],
+    child_schemas: Dict,
+    mode: str,
+) -> Dict:
+    for arr_name, child_df in children.items():
+        cleaned_df = clean_dataframe(child_df)
+        release_dataframe(child_df)
+
+        if cleaned_df is None or cleaned_df.empty:
+            release_dataframe(cleaned_df)
+            continue
+
+        path_parts = arr_name.split(".")
+        final_dir  = f"{export_dir}/{json_col_name}/{'/'.join(path_parts)}"
+        file_name  = f"{path_parts[-1]}.csv"
+        schema_key = f"{json_col_name}.{arr_name}"
+
+        child_schemas[schema_key] = upload_csv_to_adls(
+            service_client, adls_file_system, final_dir,
+            file_name, cleaned_df, mode, child_schemas.get(schema_key),
+        )
+        release_dataframe(cleaned_df)
+
+    force_gc()
+    return child_schemas
 
 
 # ============================================================================
-# PARAMETER VALIDATION (unchanged)
+# PARAMETER VALIDATION
 # ============================================================================
 
 def validate_and_extract_params(params: dict) -> dict:
     required = {
-        "ADLS account name": params.get("adls_account_name"),
-        "ADLS file system": params.get("adls_file_system"),
-        "Cassandra contact points": params.get("cassandra_contact_points"),
-        "Cassandra username": params.get("cassandra_username"),
-        "Cassandra keyspace": params.get("cassandra_keyspace"),
-        "Cassandra table": params.get("cassandra_table"),
-        "Cassandra Key Vault name": params.get("Cassandra_key_vault_name"),
-        "Cassandra Key Vault secret name": params.get("Cassandra_key_vault_secret_name"),
+        "adls_account_name":               params.get("adls_account_name"),
+        "adls_file_system":                params.get("adls_file_system"),
+        "cassandra_contact_points":        params.get("cassandra_contact_points"),
+        "cassandra_username":              params.get("cassandra_username"),
+        "cassandra_keyspace":              params.get("cassandra_keyspace"),
+        "cassandra_table":                 params.get("cassandra_table"),
+        "Cassandra_key_vault_name":        params.get("Cassandra_key_vault_name"),
+        "Cassandra_key_vault_secret_name": params.get("Cassandra_key_vault_secret_name"),
     }
     missing = [k for k, v in required.items() if not v]
     if missing:
         raise ValueError(f"Missing required parameters: {missing}")
-    if params.get("truncate_sink_before_write") is None:
-        raise ValueError("Missing required parameter: truncate_sink_before_write")
 
     raw_cp = params["cassandra_contact_points"]
     contact_points = (
@@ -1346,51 +975,100 @@ def validate_and_extract_params(params: dict) -> dict:
         if isinstance(raw_cp, str) else list(raw_cp)
     )
 
-    def _int(key, default):
-        try:
-            v = int(params.get(key, default))
-            return v if v > 0 else default
-        except (ValueError, TypeError):
-            return default
+    try:    port = int(params.get("cassandra_port", 9042))
+    except: port = 9042
 
-    return {
-        "adls_account_name": params["adls_account_name"],
-        "adls_file_system": params["adls_file_system"],
-        "adls_directory": params.get("adls_directory", "").rstrip("/"),
-        "cassandra_contact_points": contact_points,
-        "cassandra_port": _int("cassandra_port", 9042),
-        "cassandra_preferred_node": params.get("cassandra_preferred_node") or None,
-        "cassandra_preferred_port": _int("cassandra_preferred_port", 9042),
-        "cassandra_username": params["cassandra_username"],
-        "cassandra_keyspace": params["cassandra_keyspace"],
-        "cassandra_table": params["cassandra_table"],
-        "cassandra_batch_size": _int("cassandra_batch_size", DEFAULT_BATCH_SIZE),
-        "insert_chunk_size": _int("insert_chunk_size", DEFAULT_INSERT_CHUNK),
-        "concurrent_inserts": _int("concurrent_inserts", DEFAULT_CONCURRENT_INSERTS),
-        "key_vault_name": params["Cassandra_key_vault_name"],
-        "key_vault_secret_name": params["Cassandra_key_vault_secret_name"],
+    try:    preferred_port = int(params.get("cassandra_preferred_port", port))
+    except: preferred_port = port
 
-        "truncate_sink_before_write": _bool_param(params.get("truncate_sink_before_write"), False),
-        "delete_adls_after_load": _bool_param(params.get("delete_adls_after_load"), False),
-        "P_Delete_ADLS_Records": _bool_param(params.get("P_Delete_ADLS_Records"), False),
+    raw_batch = params.get("adls_batch_size") or params.get("cassandra_batch_size") or DEFAULT_BATCH_SIZE
+    try:    batch_size = max(1, int(raw_batch))
+    except: batch_size = DEFAULT_BATCH_SIZE
 
-        "P_CASSANDRA_SOURCE_KEYSPACE": params.get("P_CASSANDRA_SOURCE_KEYSPACE", "").rstrip("/"),
-        "P_CASSANDRA_TARGET_KEYSPACE": params.get("P_CASSANDRA_TARGET_KEYSPACE", "").rstrip("/"),
-        "P_CASSANDRA_TABLE": params.get("P_CASSANDRA_TABLE", ""),
+    try:    array_batch = max(1, int(params.get("array_processing_batch_size", ARRAY_PROCESSING_BATCH_SIZE)))
+    except: array_batch = ARRAY_PROCESSING_BATCH_SIZE
+
+    raw_pk  = (params.get("cassandra_partition_key")       or "").strip()
+    raw_pkv = params.get("cassandra_partition_key_value")
+
+    if bool(raw_pk) != (raw_pkv is not None):
+        logging.warning("[validate_params] Both partition key and value must be set. Falling back to full-table scan.")
+        raw_pk, raw_pkv = "", None
+
+    raw_ck  = (params.get("cassandra_clustering_key")       or "").strip()
+    raw_ckv = params.get("cassandra_clustering_key_value")
+
+    if bool(raw_ck) != (raw_ckv is not None):
+        logging.warning("[validate_params] Both clustering key and value must be set. Ignoring clustering key filter.")
+        raw_ck, raw_ckv = "", None
+
+    if raw_ck and not raw_pk:
+        logging.warning("[validate_params] Clustering key filter requires a partition key. Ignoring clustering key filter.")
+        raw_ck, raw_ckv = "", None
+
+    raw_trunc = params.get("truncate_sink_before_write", False)
+    truncate  = (raw_trunc.strip().lower() in ("true", "1", "yes") if isinstance(raw_trunc, str) else bool(raw_trunc))
+
+    extracted = {
+        "adls_account_name":              params["adls_account_name"],
+        "adls_file_system":               params["adls_file_system"],
+        "adls_directory":                 (params.get("adls_directory") or "").strip(),
+        "cassandra_contact_points":       contact_points,
+        "cassandra_port":                 port,
+        "cassandra_preferred_node":       (params.get("cassandra_preferred_node") or "").strip() or None,
+        "cassandra_preferred_port":       preferred_port,
+        "cassandra_username":             params["cassandra_username"],
+        "cassandra_keyspace":             params["cassandra_keyspace"],
+        "cassandra_table":                params["cassandra_table"],
+        "cassandra_partition_key":        raw_pk  or None,
+        "cassandra_partition_key_value":  raw_pkv,
+        "cassandra_clustering_key":       raw_ck  or None,
+        "cassandra_clustering_key_value": raw_ckv,
+        "key_vault_name":                 params["Cassandra_key_vault_name"],
+        "key_vault_secret_name":          params["Cassandra_key_vault_secret_name"],
+        "batch_size":                     batch_size,
+        "array_processing_batch_size":    array_batch,
+        "truncate_sink_before_write":     truncate,
     }
 
+    logging.info(
+        f"[validate_params] "
+        f"table={extracted['cassandra_keyspace']}.{extracted['cassandra_table']} | "
+        f"partition_key={extracted['cassandra_partition_key']!r} | "
+        f"partition_value={extracted['cassandra_partition_key_value']!r} | "
+        f"clustering_key={extracted['cassandra_clustering_key']!r} | "
+        f"clustering_value={extracted['cassandra_clustering_key_value']!r} | "
+        f"batch_size={extracted['batch_size']} | "
+        f"truncate={extracted['truncate_sink_before_write']}"
+    )
+    return extracted
+
 
 # ============================================================================
-# MAIN ACTIVITY FUNCTION (unchanged except for the new process_batch)
+# MAIN ACTIVITY FUNCTION — OPTIMISED BATCH LOOP
 # ============================================================================
 
-@app.activity_trigger(input_name="params")
-def process_adls_to_cassandra_activity(params: dict):
+def _run_cassandra_to_adls(params: dict):
+    """
+    Optimised pipeline:
+      • process_cassandra_batch_streaming: accumulates raw dicts, builds ONE
+        DataFrame per batch (not per row)
+      • ADLS upload happens immediately after each batch is built → memory freed
+        before next batch begins
+      • No second-pass consolidation step — child table dicts flushed inline
+    """
     start_time = datetime.utcnow()
-    cluster = None
-    session = None
+    cluster    = None
+    session    = None
 
     try:
+        if isinstance(params, str):
+            try:
+                params = json.loads(params)
+                logging.info("[activity] params was a JSON string — deserialised OK")
+            except Exception as e:
+                logging.warning(f"[activity] params is a string but not valid JSON: {e}")
+
         params = validate_and_extract_params(params)
 
         cassandra_password = get_secret(params["key_vault_name"], params["key_vault_secret_name"])
@@ -1407,265 +1085,167 @@ def process_adls_to_cassandra_activity(params: dict):
         del cassandra_password
         force_gc()
 
-        keyspace = params["cassandra_keyspace"]
-        table = params["cassandra_table"]
-
-        cassandra_columns = get_cassandra_columns(session, keyspace, table)
-        cassandra_col_types = get_cassandra_column_types(session, keyspace, table)
-        partition_keys, clustering_keys = get_cassandra_key_columns(session, keyspace, table)
-        logging.info(f"Cassandra columns ({len(cassandra_columns)}): {cassandra_columns}")
-        logging.info(f"Auto-discovered partition keys: {partition_keys}  clustering keys: {clustering_keys}")
-
-        if params["truncate_sink_before_write"]:
-            logging.info(f"Truncating {keyspace}.{table} …")
-            session.execute(f'TRUNCATE "{keyspace}"."{table}"')
-            logging.info("TRUNCATE complete.")
-
         service_client = validate_adls_connection(params["adls_account_name"], params["adls_file_system"])
-        file_system = params["adls_file_system"]
+
+        keyspace = params["cassandra_keyspace"]
+        table    = params["cassandra_table"]
+
+        column_metadata  = CassandraMetadata.get_column_metadata(session, keyspace, table)
+        relational_cols, json_candidates = CassandraMetadata.classify_columns(column_metadata)
+        column_names     = [c["column_name"] for c in column_metadata]
+        del column_metadata
+        force_gc()
+
+        # ── Auto-detect clustering keys from Cassandra system schema ──────────
+        clustering_key       = params.get("cassandra_clustering_key")
+        clustering_key_value = params.get("cassandra_clustering_key_value")
+
+        detected_ck = CassandraMetadata.get_clustering_keys(session, keyspace, table)
+        if detected_ck:
+            logging.info(f"[activity] Detected clustering keys for table '{table}': {detected_ck}")
+            if not clustering_key:
+                logging.info(
+                    f"[activity] No cassandra_clustering_key supplied in params. "
+                    f"Available clustering keys: {detected_ck}. "
+                    "Pass cassandra_clustering_key + cassandra_clustering_key_value to filter."
+                )
+        else:
+            logging.info(f"[activity] No clustering keys detected for table '{table}'.")
+
+        json_cols = CassandraMetadata.detect_json_columns(
+            session=session, keyspace=keyspace, table=table,
+            candidate_columns=json_candidates,
+            partition_key=params["cassandra_partition_key"],
+            partition_key_value=params["cassandra_partition_key_value"],
+            clustering_key=clustering_key,
+            clustering_key_value=clustering_key_value,
+        )
+
+        non_json_text   = [c for c in json_candidates if c not in json_cols]
+        relational_cols = relational_cols + non_json_text
+        del json_candidates, non_json_text
+        force_gc()
+
+        logging.info(f"Schema — relational: {relational_cols} | json: {json_cols}")
+
+        retry_strategy = CassandraRetryStrategy()
+        reader = StreamingCassandraReader(
+            session=session, keyspace=keyspace, table=table,
+            batch_size=params["batch_size"],
+            partition_key=params["cassandra_partition_key"],
+            partition_key_value=params["cassandra_partition_key_value"],
+            clustering_key=clustering_key,
+            clustering_key_value=clustering_key_value,
+            retry_strategy=retry_strategy,
+        )
+
         export_dir = (
             f"{params['adls_directory']}/{table}" if params["adls_directory"] else table
         )
-        parent_full_path = f"{export_dir}/{table}.csv"
 
-        total_parent_rows = get_csv_row_count(
-            service_client, file_system, parent_full_path,
-            chunk_size=params["cassandra_batch_size"],
-        )
-        logging.info(f"Total parent rows: {total_parent_rows}")
+        # ── Always delete the output directory before starting ───────────────
+        fs_c = service_client.get_file_system_client(params["adls_file_system"])
+        try:
+            fs_c.get_directory_client(export_dir).delete_directory()
+            logging.info(f"[init] Cleared existing output directory: {export_dir}")
+        except Exception:
+            logging.info(f"[init] Output directory did not exist yet: {export_dir}")
 
-        if total_parent_rows == 0:
-            return {"status": "success", "message": f"No rows at '{parent_full_path}'.", "rows_inserted": 0}
+        # ── State that persists across batches (schema tracking only) ─────────
+        rows_processed    = 0
+        total_parent_rows = 0
+        batch_num         = 0
+        parent_schema: Optional[set]         = None
+        json_col_parent_schemas: Dict[str, Optional[set]] = {jc: None for jc in json_cols}
+        json_col_child_schemas:  Dict[str, Dict]          = {jc: {}   for jc in json_cols}
 
-        all_csv_paths = discover_all_csv_paths(service_client, file_system, export_dir)
-        logging.info(f"CSV paths discovered: {len(all_csv_paths)}")
-        for p in all_csv_paths:
-            logging.info(f"  {p}")
+        # ── Main batch loop ───────────────────────────────────────────────────
+        for batch_rows in reader.stream_rows():
+            batch_num  += 1
+            mode        = "append" if batch_num > 1 else "write"
+            batch_label = f"batch_{batch_num:04d}"
 
-        json_col_scalar_paths = get_json_col_scalar_paths(all_csv_paths, export_dir, table)
-        csv_info_by_depth = organize_csv_paths_by_depth(
-            all_csv_paths,
-            export_dir,
-            table,
-            cassandra_col_types=cassandra_col_types,
-        )
-
-        json_col_names: Set[str] = set(json_col_scalar_paths.keys())
-        for csv_info in csv_info_by_depth.get(0, []):
-            if csv_info["jcol"] is not None:
-                json_col_names.add(csv_info["jcol"])
-
-        jcol_root_arrays: Dict[str, Set[str]] = {}
-        for csv_info in csv_info_by_depth.get(0, []):
-            if csv_info["jcol"] is not None:
-                jcol_root_arrays.setdefault(csv_info["jcol"], set()).add(csv_info["arr_name"])
-
-        top_level_array_cols: Set[str] = set()
-        for csv_info in csv_info_by_depth.get(0, []):
-            if csv_info["jcol"] is None:
-                top_level_array_cols.add(csv_info["arr_name"])
-
-        logging.info(f"JSON column scalar CSVs:         {list(json_col_scalar_paths.keys())}")
-        logging.info(f"json_col_names (all JSON cols):  {json_col_names}")
-        logging.info(f"jcol_root_arrays:                { {k: list(v) for k, v in jcol_root_arrays.items()} }")
-        logging.info(f"top_level_array_cols:            {top_level_array_cols}")
-        logging.info(f"csv_info_by_depth:               { {d: [{'arr_name': x['arr_name'], 'jcol': x.get('jcol')} for x in v] for d, v in csv_info_by_depth.items()} }")
-
-        retry_strategy = CassandraRetryStrategy()
-        batch_size = params["cassandra_batch_size"]
-        concurrent_inserts = params["concurrent_inserts"]
-        num_batches = (total_parent_rows + batch_size - 1) // batch_size
-        total_inserted = 0
-        total_failed = 0
-        total_child_rows = 0
-
-        logging.info(f"Processing {num_batches} batches (concurrent_inserts={concurrent_inserts})")
-
-        for batch_num in range(num_batches):
-            skip_rows = batch_num * batch_size
-            current_batch_size = min(batch_size, total_parent_rows - skip_rows)
-            batch_label = f"batch_{batch_num + 1:04d}_of_{num_batches:04d}"
-            batch_start_time = datetime.utcnow()
-            logging.info(
-                f"[{batch_label}] START {batch_start_time.strftime('%Y-%m-%d %H:%M:%S')} UTC | "
-                f"rows {skip_rows}–{skip_rows + current_batch_size - 1}"
-            )
+            logging.info(f"[{batch_label}] Processing {len(batch_rows)} rows …")
 
             with memory_managed_batch(batch_label):
 
-                parent_df = read_csv_from_adls_batched(
-                    service_client, file_system, parent_full_path,
-                    skip_rows=skip_rows, nrows=current_batch_size,
+                # ── STEP 1: Transform batch → DataFrames ──────────────────────
+                parent_df, json_col_results = process_cassandra_batch_streaming(
+                    rows=batch_rows,
+                    column_names=column_names,
+                    relational_cols=relational_cols,
+                    json_cols=json_cols,
                 )
-
-                batch_parents = prepare_batch_parents(parent_df)
-                release_dataframe(parent_df)
-
-                if not batch_parents:
-                    logging.warning(f"[{batch_label}] No parents prepared — skipping.")
-                    continue
-
-                logging.info(f"[{batch_label}] {len(batch_parents)} parents prepared")
-
-                documents, child_rows = process_batch(
-                    batch_parents=batch_parents,
-                    service_client=service_client,
-                    file_system=file_system,
-                    export_dir=export_dir,
-                    table=table,
-                    json_col_scalar_paths=json_col_scalar_paths,
-                    csv_info_by_depth=csv_info_by_depth,
-                )
-                total_child_rows += child_rows
-                del batch_parents
+                del batch_rows
                 force_gc()
 
-                logging.info(f"[{batch_label}] {len(documents)} docs reconstructed, {child_rows} child rows")
-
-                inserted = failed = 0
-                insert_chunk_size = params["insert_chunk_size"]
-                num_docs = len(documents)
-
-                for chunk_start in range(0, num_docs, insert_chunk_size):
-                    chunk_docs = documents[chunk_start: chunk_start + insert_chunk_size]
-                    insert_rows: List[Dict] = []
-
-                    for doc in chunk_docs:
-                        for jcol, root_arr_names in jcol_root_arrays.items():
-                            jcol_dict = doc.get(jcol)
-                            if jcol_dict is None:
-                                jcol_dict = {}
-                                doc[jcol] = jcol_dict
-                            if not isinstance(jcol_dict, dict):
-                                continue
-                            for arr_name in root_arr_names:
-                                arr_val = doc.pop(arr_name, None)
-                                if arr_val is not None:
-                                    jcol_dict[arr_name] = arr_val
-
-                        row: Dict[str, Any] = {}
-                        for col in cassandra_columns:
-                            val = doc.get(col)
-                            if val is None:
-                                continue
-                            if col in json_col_names or col in top_level_array_cols:
-                                if isinstance(val, (dict, list)):
-                                    row[col] = json.dumps(val, ensure_ascii=False, default=str)
-                                elif val is not None:
-                                    row[col] = str(val)
-                            else:
-                                row[col] = val
-                        if row:
-                            insert_rows.append(row)
-
-                    chunk_inserted, chunk_failed = insert_rows_into_cassandra(
-                        session=session, keyspace=keyspace, table=table,
-                        rows=insert_rows, cassandra_columns=cassandra_columns,
-                        retry_strategy=retry_strategy, batch_size=insert_chunk_size,
-                        col_types=cassandra_col_types,
-                        concurrency=concurrent_inserts,
-                        total_inserted_so_far=total_inserted + inserted,
+                # ── STEP 2: Upload parent table ───────────────────────────────
+                if not parent_df.empty:
+                    total_parent_rows += len(parent_df)
+                    parent_schema = upload_csv_to_adls(
+                        service_client, params["adls_file_system"],
+                        export_dir, f"{table}.csv",
+                        parent_df, mode, parent_schema,
                     )
-                    inserted += chunk_inserted
-                    failed += chunk_failed
+                release_dataframe(parent_df)
+                force_gc()
 
-                    logging.info(
-                        f"[{batch_label}] chunk {chunk_start // insert_chunk_size + 1}: "
-                        f"inserted={chunk_inserted} failed={chunk_failed} "
-                        f"({chunk_start + len(chunk_docs)}/{num_docs} docs)"
-                    )
+                # ── STEP 3: Upload each JSON column's parent + children ────────
+                for jcol, data in json_col_results.items():
+                    jcol_dir       = f"{export_dir}/{jcol}"
+                    jcol_parent_df = data["parent"]
 
-                    del insert_rows, chunk_docs
+                    if not jcol_parent_df.empty:
+                        json_col_parent_schemas[jcol] = upload_csv_to_adls(
+                            service_client, params["adls_file_system"],
+                            jcol_dir, f"{jcol}.csv",
+                            jcol_parent_df, mode, json_col_parent_schemas[jcol],
+                        )
+                    release_dataframe(jcol_parent_df)
                     force_gc()
 
-                del documents
+                    json_col_child_schemas[jcol] = upload_json_col_child_tables(
+                        service_client=service_client,
+                        adls_file_system=params["adls_file_system"],
+                        export_dir=export_dir,
+                        json_col_name=jcol,
+                        children=data["children"],
+                        child_schemas=json_col_child_schemas[jcol],
+                        mode=mode,
+                    )
+                    data["children"].clear()
 
-            total_inserted += inserted
-            total_failed += failed
-            batch_end_time = datetime.utcnow()
-            batch_duration = (batch_end_time - batch_start_time).total_seconds()
-            logging.info(
-                f"[{batch_label}] COMPLETE | "
-                f"start={batch_start_time.strftime('%Y-%m-%d %H:%M:%S')} UTC  "
-                f"end={batch_end_time.strftime('%Y-%m-%d %H:%M:%S')} UTC  "
-                f"duration={batch_duration:.2f}s | "
-                f"inserted={inserted} failed={failed} child_rows={child_rows} | "
-                f"TOTAL ROWS TRANSFERRED SO FAR: {total_inserted:,} / ~{total_parent_rows:,}"
-            )
+                del json_col_results
+                force_gc()
 
+            rows_processed = reader.get_stats().get("rows_read", 0)
+            logging.info(f"[{batch_label}] ✓ uploaded — cumulative rows: {rows_processed}")
+
+        # ── Shutdown ──────────────────────────────────────────────────────────
         shutdown_cassandra(cluster, session)
         cluster = session = None
 
+        if rows_processed == 0:
+            return {"status": "success", "message": "No rows found.", "rows_processed": 0}
+
         retry_stats = retry_strategy.get_stats()
-        duration = (datetime.utcnow() - start_time).total_seconds()
-
-        adls_delete_results: Dict[str, str] = {}
-        if params["delete_adls_after_load"] and total_failed == 0:
-            logging.info(
-                f"[ADLS DELETE] rows_failed=0 and delete_adls_after_load=true — "
-                f"deleting table folder '{params['P_CASSANDRA_TABLE']}' from source and target directories."
-            )
-            adls_delete_results = delete_adls_table_folder(
-                adls_account_name=params["adls_account_name"],
-                table=params["P_CASSANDRA_TABLE"],
-                source_keyspace=params["P_CASSANDRA_SOURCE_KEYSPACE"],
-                target_keyspace=params["P_CASSANDRA_TARGET_KEYSPACE"],
-            )
-        elif params["delete_adls_after_load"] and total_failed > 0:
-            logging.warning(
-                f"[ADLS DELETE] Skipped — delete_adls_after_load=true but rows_failed={total_failed}. "
-                f"ADLS folders will NOT be deleted until all rows are successfully inserted."
-            )
-            adls_delete_results = {
-                "source": "skipped (rows_failed > 0)",
-                "target": "skipped (rows_failed > 0)",
-            }
-
-        adls_truncate_results: Dict[str, Any] = {}
-        if params["P_Delete_ADLS_Records"]:
-            if total_failed == 0:
-                logging.info(
-                    f"[ADLS TRUNCATE] rows_failed=0 and P_Delete_ADLS_Records=true — "
-                    f"truncating {len(all_csv_paths)} CSV file(s) under '{export_dir}' to headers-only."
-                )
-                adls_truncate_results = truncate_adls_csv_records(
-                    service_client=service_client,
-                    file_system=file_system,
-                    all_csv_paths=all_csv_paths,
-                )
-            else:
-                logging.warning(
-                    f"[ADLS TRUNCATE] Skipped — P_Delete_ADLS_Records=true but "
-                    f"rows_failed={total_failed}.  CSVs will NOT be truncated."
-                )
-                adls_truncate_results = {
-                    "truncated": [],
-                    "skipped": [],
-                    "failed": [],
-                    "reason": f"skipped (rows_failed={total_failed} > 0)",
-                }
+        duration    = (datetime.utcnow() - start_time).total_seconds()
 
         return {
-            "status": "success" if total_failed == 0 else "completed_with_errors",
-            "rows_inserted": total_inserted,
-            "rows_failed": total_failed,
-            "message": total_failed,
-            "total_child_rows": total_child_rows,
-            "json_columns_processed": list(json_col_names),
-            "batches_processed": num_batches,
-            "batch_size": batch_size,
-            "truncated_before_write": params["truncate_sink_before_write"],
-            "duration_seconds": round(duration, 2),
-            "total_retries": retry_stats.get("total_retries", 0),
+            "status":                "success",
+            "rows_processed":        rows_processed,
+            "parent_rows_written":   total_parent_rows,
+            "json_columns_detected": json_cols,
+            "relational_columns":    relational_cols,
+            "batches_processed":     batch_num,
+            "batch_size":            params["batch_size"],
+            "duration_seconds":      round(duration, 2),
+            "total_retries":         retry_stats.get("total_retries", 0),
             "retries_by_error_type": retry_stats.get("retries_by_error_type", {}),
-            "delete_adls_after_load": params["delete_adls_after_load"],
-            "adls_delete_results": adls_delete_results,
-            "P_Delete_ADLS_Records": params["P_Delete_ADLS_Records"],
-            "adls_truncate_results": adls_truncate_results,
         }
 
     except Exception as e:
-        logging.error(f"Activity failed: {str(e)}", exc_info=True)
+        logging.error(f"Activity failed: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
     finally:
@@ -1675,27 +1255,498 @@ def process_adls_to_cassandra_activity(params: dict):
 
 
 # ============================================================================
-# ORCHESTRATOR AND HTTP TRIGGER (unchanged)
+# ADLS -> CASSANDRA: HELPERS
 # ============================================================================
 
-@app.orchestration_trigger(context_name="context")
-def adls_to_cassandra_orchestrator(context: df.DurableOrchestrationContext):
-    params = context.get_input()
-    result = yield context.call_activity("process_adls_to_cassandra_activity", params)
+def read_csv_from_adls(service_client, file_system: str, full_path: str) -> pd.DataFrame:
+    try:
+        fs_client   = service_client.get_file_system_client(file_system)
+        file_client = fs_client.get_file_client(full_path)
+        content     = file_client.download_file().readall().decode("utf-8")
+        df          = pd.read_csv(StringIO(content), sep=PIPE_DELIMITER, keep_default_na=False, dtype=str)
+        del content
+        force_gc()
+        return df
+    except Exception as e:
+        logging.warning(f"[read_csv_from_adls] Cannot read '{full_path}': {e}")
+        return pd.DataFrame()
+
+
+def discover_json_cols_from_adls(service_client, file_system, export_dir, schema_text_cols) -> List[str]:
+    """
+    Identify JSON columns by checking {export_dir}/{col}/{col}.csv exists in ADLS.
+    Uses ADLS structure as ground truth -- works even when the Cassandra table is
+    empty (e.g. after truncate_sink_before_write from a previous run).
+    """
+    fs_client = service_client.get_file_system_client(file_system)
+    json_cols = []
+    for col in schema_text_cols:
+        try:
+            fs_client.get_file_client(f"{export_dir}/{col}/{col}.csv").get_file_properties()
+            json_cols.append(col)
+            logging.info(f"[discover_json_cols_from_adls] '{col}' -> JSON column.")
+        except Exception:
+            logging.debug(f"[discover_json_cols_from_adls] '{col}' -> plain text.")
+    return json_cols
+
+
+def discover_json_col_csvs(service_client, file_system, export_dir, json_col_name) -> Dict[str, str]:
+    """
+    List every CSV under {export_dir}/{json_col_name}/ -> { arr_name: full_path }.
+    Mirrors upload_json_col_child_tables path formula:
+        arr_name -> dir  : arr_name.replace('.', '/')
+        dir -> arr_name  : dir_part.replace('/', '.')
+    """
+    fs_client = service_client.get_file_system_client(file_system)
+    prefix    = f"{export_dir}/{json_col_name}"
+    try:
+        all_paths = list(fs_client.get_paths(path=prefix, recursive=True))
+    except Exception as e:
+        logging.warning(f"[discover_json_col_csvs] Cannot list '{prefix}': {e}")
+        return {}
+    result   = {}
+    root_csv = f"{prefix}/{json_col_name}.csv"
+    for path_item in all_paths:
+        if getattr(path_item, "is_directory", False):
+            continue
+        full_path = path_item.name
+        if not full_path.endswith(".csv"):
+            continue
+        if full_path == root_csv:
+            result[json_col_name] = full_path
+            continue
+        rel      = full_path[len(f"{prefix}/"):]
+        dir_part = rel.rsplit("/", 1)[0] if "/" in rel else ""
+        if dir_part:
+            result[dir_part.replace("/", ".")] = full_path
+    logging.info(f"[discover_json_col_csvs] '{json_col_name}' -> {len(result)} CSV(s): {list(result.keys())}")
     return result
 
 
-@app.route(route="ADLS_to_Cassandra_V1", methods=["POST"])
+def _set_nested(d: Dict, dotted_key: str, value) -> None:
+    parts = dotted_key.split(".")
+    for part in parts[:-1]:
+        node = d.get(part)
+        if not isinstance(node, dict):
+            d[part] = {}
+        d = d[part]
+    d[parts[-1]] = value
+
+
+def _infer_csv_value(val):
+    import math as _math
+    if val is None: return None
+    if isinstance(val, float) and _math.isnan(val): return None
+    if not isinstance(val, str): return val
+    s = val.strip()
+    if s == "": return None
+    lo = s.lower()
+    if lo == "true":  return True
+    if lo == "false": return False
+    try:
+        if "." not in s and "e" not in lo: return int(s)
+    except ValueError: pass
+    try:    return float(s)
+    except ValueError: pass
+    return s
+
+
+def reconstruct_json_for_row(row: Dict, arr_name: str, children_index: Dict[str, Dict[str, List[Dict]]]) -> Dict:
+    """
+    Unflatten one CSV row back to a nested dict.
+
+    RID resolution:
+      Root JSON-column CSV (e.g. address.csv): _rid is stripped during forward
+      export; _row_rid is present and matches _parent_rid in child CSVs.
+      Child CSV rows: _rid present, used as _parent_rid by their children.
+      Fix: rid = row.get('_rid') or row.get('_row_rid', '')
+
+    _has_array_<X>: X may be dotted (e.g. 'nestedArrays.departments') for
+    plain-dict-wrapped arrays; child_arr_name = arr_name + '.' + X.
+    """
+    result: Dict = {}
+    rid = row.get("_rid") or row.get("_row_rid", "")
+    for key, value in row.items():
+        if key in ("_rid", "_parent_rid", "_row_rid"):
+            continue
+        if key.startswith("_has_array_"):
+            if not value or str(value).strip().lower() in ("", "false", "0", "nan", "none"):
+                continue
+            array_key      = key[len("_has_array_"):]
+            child_arr_name = f"{arr_name}.{array_key}"
+            child_rows     = children_index.get(child_arr_name, {}).get(rid, [])
+            _set_nested(result, array_key, [
+                reconstruct_json_for_row(cr, child_arr_name, children_index)
+                for cr in child_rows
+            ])
+            continue
+        _set_nested(result, key, _infer_csv_value(value))
+    return result
+
+
+def build_children_index(table_dfs: Dict[str, pd.DataFrame], json_col_name: str) -> Dict[str, Dict[str, List[Dict]]]:
+    children_index: Dict[str, Dict[str, List[Dict]]] = {}
+    for arr_name, df in table_dfs.items():
+        if arr_name == json_col_name or df.empty:
+            continue
+        if "_parent_rid" not in df.columns:
+            logging.warning(f"[build_children_index] '{arr_name}' has no _parent_rid -- skipped.")
+            continue
+        index: Dict[str, List[Dict]] = {}
+        for row_dict in df.to_dict(orient="records"):
+            p_rid = row_dict.get("_parent_rid", "")
+            if p_rid:
+                index.setdefault(p_rid, []).append(row_dict)
+        children_index[arr_name] = index
+    return children_index
+
+
+def reconstruct_json_column(jcol_df: pd.DataFrame, children_index: Dict[str, Dict[str, List[Dict]]], json_col_name: str) -> Dict[str, str]:
+    result: Dict[str, str] = {}
+    for row_dict in jcol_df.to_dict(orient="records"):
+        row_rid = row_dict.get("_row_rid", "")
+        if not row_rid:
+            logging.warning("[reconstruct_json_column] Row missing _row_rid -- skipped.")
+            continue
+        result[row_rid] = json.dumps(
+            reconstruct_json_for_row(row_dict, json_col_name, children_index),
+            ensure_ascii=False,
+        )
+    return result
+
+
+# ============================================================================
+# ADLS -> CASSANDRA: WRITER
+# ============================================================================
+
+def _group_rows_by_columns(rows: List[Dict]) -> Dict[frozenset, List[Dict]]:
+    groups: Dict[frozenset, List[Dict]] = {}
+    for row in rows:
+        groups.setdefault(frozenset(row.keys()), []).append(row)
+    return groups
+
+
+def insert_rows_to_cassandra(session, keyspace, table, rows, column_types, retry_strategy) -> int:
+    if not rows:
+        return 0
+    schema_cols = set(column_types.keys())
+    cleaned     = [r for r in ({col: val for col, val in row.items() if col in schema_cols} for row in rows) if r]
+    if not cleaned:
+        return 0
+    written = 0
+    for col_set, group in _group_rows_by_columns(cleaned).items():
+        col_names    = sorted(col_set)
+        cols_cql     = ", ".join(f'"{c}"' for c in col_names)
+        placeholders = ", ".join(["?"] * len(col_names))
+        cql          = f'INSERT INTO "{keyspace}"."{table}" ({cols_cql}) VALUES ({placeholders})'
+        try:
+            stmt = session.prepare(cql)
+        except Exception as e:
+            logging.error(f"[insert_rows] Prepare failed: {e}  CQL: {cql}")
+            raise
+        for row in group:
+            values = [
+                None if (row.get(col) is None or row.get(col) == "")
+                else coerce_to_cql_type(str(row[col]), column_types.get(col, "text"))
+                for col in col_names
+            ]
+            def _do_insert(v=tuple(values)):
+                session.execute(stmt, v)
+            retry_strategy.execute_with_retry(_do_insert, f"insert_{table}")
+            written += 1
+    return written
+
+
+# ============================================================================
+# ADLS CLEANUP
+# ============================================================================
+
+def delete_adls_export_directory(service_client, file_system: str, export_dir: str) -> None:
+    """
+    Recursively delete the entire export directory from ADLS.
+    Called when P_Delete_ADLS_Records=true after a successful ADLS->Cassandra load.
+    Removes the parent CSV, all JSON-column sub-folders, and all child array CSVs.
+    """
+    try:
+        fs_client  = service_client.get_file_system_client(file_system)
+        dir_client = fs_client.get_directory_client(export_dir)
+        dir_client.delete_directory()
+        logging.info(f"[delete_adls_export_directory] Deleted '{export_dir}' and all contents.")
+    except Exception as e:
+        logging.warning(f"[delete_adls_export_directory] Could not delete '{export_dir}': {e}")
+
+
+# ============================================================================
+# ADLS -> CASSANDRA: PARAMETER VALIDATION
+# ============================================================================
+
+def validate_adls_to_cassandra_params(params: dict) -> dict:
+    required = {
+        "adls_account_name":               params.get("adls_account_name"),
+        "adls_file_system":                params.get("adls_file_system"),
+        "cassandra_contact_points":        params.get("cassandra_contact_points"),
+        "cassandra_username":              params.get("cassandra_username"),
+        "cassandra_keyspace":              params.get("cassandra_keyspace"),
+        "cassandra_table":                 params.get("cassandra_table"),
+        "Cassandra_key_vault_name":        params.get("Cassandra_key_vault_name"),
+        "Cassandra_key_vault_secret_name": params.get("Cassandra_key_vault_secret_name"),
+    }
+    missing = [k for k, v in required.items() if not v]
+    if missing:
+        raise ValueError(f"Missing required parameters: {missing}")
+    raw_cp = params["cassandra_contact_points"]
+    contact_points = ([cp.strip() for cp in raw_cp.split(",") if cp.strip()] if isinstance(raw_cp, str) else list(raw_cp))
+    try:    port = int(params.get("cassandra_port", 9042))
+    except: port = 9042
+    raw_batch = params.get("adls_batch_size") or params.get("cassandra_batch_size") or DEFAULT_BATCH_SIZE
+    try:    batch_size = max(1, int(raw_batch))
+    except: batch_size = DEFAULT_BATCH_SIZE
+    raw_trunc = params.get("truncate_sink_before_write", False)
+    truncate  = (raw_trunc.strip().lower() in ("true", "1", "yes") if isinstance(raw_trunc, str) else bool(raw_trunc))
+    raw_del   = params.get("P_Delete_ADLS_Records", False)
+    delete_adls = (raw_del.strip().lower() in ("true", "1", "yes") if isinstance(raw_del, str) else bool(raw_del))
+    extracted = {
+        "adls_account_name":               params["adls_account_name"],
+        "adls_file_system":                params["adls_file_system"],
+        "adls_directory":                  (params.get("adls_directory") or "").strip(),
+        "cassandra_contact_points":        contact_points,
+        "cassandra_port":                  port,
+        "cassandra_preferred_node":        (params.get("cassandra_preferred_node") or "").strip() or None,
+        "cassandra_username":              params["cassandra_username"],
+        "cassandra_keyspace":              params["cassandra_keyspace"],
+        "cassandra_table":                 params["cassandra_table"],
+        "key_vault_name":                  params["Cassandra_key_vault_name"],
+        "key_vault_secret_name":           params["Cassandra_key_vault_secret_name"],
+        "batch_size":                      batch_size,
+        "truncate_sink_before_write":      truncate,
+        "delete_adls_records":             delete_adls,
+    }
+    logging.info(
+        f"[adls_to_cassandra_params] "
+        f"table={extracted['cassandra_keyspace']}.{extracted['cassandra_table']} | "
+        f"adls_dir={extracted['adls_directory']!r} | "
+        f"truncate={extracted['truncate_sink_before_write']} | "
+        f"delete_adls={extracted['delete_adls_records']}"
+    )
+    return extracted
+
+
+# ============================================================================
+# ADLS -> CASSANDRA: INTERNAL PIPELINE
+# ============================================================================
+
+def _run_adls_to_cassandra(params: dict):
+    """
+    Internal ADLS->Cassandra pipeline called by pipeline_activity.
+    On success with P_Delete_ADLS_Records=true, deletes the entire ADLS
+    export directory (parent CSV + all JSON-column sub-folders + child CSVs).
+    """
+    start_time = datetime.utcnow()
+    cluster    = None
+    session    = None
+    try:
+        params = validate_adls_to_cassandra_params(params)
+
+        cassandra_password = get_secret(params["key_vault_name"], params["key_vault_secret_name"])
+        cluster, session   = validate_cassandra_connection(
+            contact_points=params["cassandra_contact_points"],
+            port=params["cassandra_port"],
+            username=params["cassandra_username"],
+            password=cassandra_password,
+            keyspace=params["cassandra_keyspace"],
+            table=params["cassandra_table"],
+            preferred_node=params["cassandra_preferred_node"],
+        )
+        del cassandra_password
+        force_gc()
+
+        service_client = validate_adls_connection(params["adls_account_name"], params["adls_file_system"])
+        keyspace       = params["cassandra_keyspace"]
+        table          = params["cassandra_table"]
+
+        col_meta        = CassandraMetadata.get_column_metadata(session, keyspace, table)
+        column_types    = {c["column_name"]: c["type"] for c in col_meta}
+        relational_cols, text_cols = CassandraMetadata.classify_columns(col_meta)
+        del col_meta
+        force_gc()
+
+        export_dir = f"{params['adls_directory']}/{table}" if params["adls_directory"] else table
+
+        json_cols       = discover_json_cols_from_adls(service_client, params["adls_file_system"], export_dir, text_cols)
+        non_json_text   = [c for c in text_cols if c not in json_cols]
+        relational_cols = relational_cols + non_json_text
+        del non_json_text
+        force_gc()
+
+        logging.info(f"[adls_to_cassandra] relational: {relational_cols} | json: {json_cols}")
+
+        main_csv_path = f"{export_dir}/{table}.csv"
+        main_df = read_csv_from_adls(service_client, params["adls_file_system"], main_csv_path)
+        if main_df.empty:
+            return {"status": "success", "message": "No data found in ADLS.", "rows_processed": 0}
+
+        json_col_data: Dict[str, Dict[str, str]] = {}
+        for jcol in json_cols:
+            logging.info(f"[adls_to_cassandra] Reconstructing '{jcol}' ...")
+            csv_paths = discover_json_col_csvs(service_client, params["adls_file_system"], export_dir, jcol)
+            if jcol not in csv_paths:
+                logging.warning(f"[adls_to_cassandra] Root CSV for '{jcol}' not found -- skipped.")
+                continue
+            table_dfs: Dict[str, pd.DataFrame] = {}
+            for arr_name, adls_path in csv_paths.items():
+                df = read_csv_from_adls(service_client, params["adls_file_system"], adls_path)
+                if not df.empty:
+                    table_dfs[arr_name] = df
+                    logging.info(f"[adls_to_cassandra]   '{arr_name}' -> {len(df)} rows")
+                del df
+            if jcol not in table_dfs:
+                logging.warning(f"[adls_to_cassandra] Root CSV for '{jcol}' was empty -- skipped.")
+                continue
+            children_index = build_children_index(table_dfs, jcol)
+            json_col_data[jcol] = reconstruct_json_column(table_dfs[jcol], children_index, jcol)
+            logging.info(f"[adls_to_cassandra] '{jcol}' -> {len(json_col_data[jcol])} JSON objects.")
+            del table_dfs, children_index
+            force_gc()
+
+        if params["truncate_sink_before_write"]:
+            session.execute(f'TRUNCATE "{keyspace}"."{table}"')
+            logging.info(f"[adls_to_cassandra] Truncated {keyspace}.{table}")
+
+        retry_strategy = CassandraRetryStrategy()
+        batch_size     = params["batch_size"]
+        rows_written   = 0
+        batch_num      = 0
+        all_main_rows  = main_df.to_dict(orient="records")
+        release_dataframe(main_df)
+
+        for batch_start in range(0, len(all_main_rows), batch_size):
+            batch_num += 1
+            batch      = all_main_rows[batch_start: batch_start + batch_size]
+            cassandra_rows: List[Dict] = []
+            for row in batch:
+                row_rid  = row.get("_row_rid", "")
+                cass_row: Dict = {}
+                for col in relational_cols:
+                    if col in row and col != "_row_rid":
+                        cass_row[col] = row[col]
+                for jcol in json_cols:
+                    json_str = json_col_data.get(jcol, {}).get(row_rid, "")
+                    if json_str:
+                        cass_row[jcol] = json_str
+                if cass_row:
+                    cassandra_rows.append(cass_row)
+            written = insert_rows_to_cassandra(session, keyspace, table, cassandra_rows, column_types, retry_strategy)
+            rows_written += written
+            with memory_managed_batch(f"write_batch_{batch_num:04d}"):
+                pass
+            logging.info(f"[adls_to_cassandra] batch {batch_num:04d} -> {written} rows (cumulative: {rows_written})")
+
+        shutdown_cassandra(cluster, session)
+        cluster = session = None
+
+        # Delete ADLS directory only after a fully successful Cassandra write
+        if params.get("delete_adls_records"):
+            logging.info(f"[adls_to_cassandra] P_Delete_ADLS_Records=true -> deleting '{export_dir}'")
+            delete_adls_export_directory(service_client, params["adls_file_system"], export_dir)
+
+        retry_stats = retry_strategy.get_stats()
+        duration    = (datetime.utcnow() - start_time).total_seconds()
+        return {
+            "status":                       "success",
+            "rows_written":                 rows_written,
+            "json_columns_reconstructed":   json_cols,
+            "relational_columns":           relational_cols,
+            "batches_processed":            batch_num,
+            "batch_size":                   batch_size,
+            "duration_seconds":             round(duration, 2),
+            "adls_records_deleted":         params.get("delete_adls_records", False),
+            "total_retries":                retry_stats.get("total_retries", 0),
+            "retries_by_error_type":        retry_stats.get("retries_by_error_type", {}),
+        }
+
+    except Exception as e:
+        logging.error(f"[adls_to_cassandra] Failed: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+    finally:
+        if cluster is not None or session is not None:
+            shutdown_cassandra(cluster, session)
+        force_gc()
+
+
+# ============================================================================
+# UNIFIED PIPELINE  --  3 functions total
+#
+#   pipeline_http_start   (HTTP trigger)
+#   pipeline_orchestrator (Orchestrator)
+#   pipeline_activity     (Activity)
+#
+# Pass "direction": "cassandra_to_adls"  or  "direction": "adls_to_cassandra"
+# ============================================================================
+
+@app.activity_trigger(input_name="params")
+def pipeline_activity(params: dict):
+    """
+    Single activity that dispatches to the correct internal pipeline:
+        'cassandra_to_adls'  ->  export Cassandra rows to ADLS CSVs
+        'adls_to_cassandra'  ->  import ADLS CSVs back into Cassandra
+                                 P_Delete_ADLS_Records=true deletes the
+                                 export directory after a successful load.
+    """
+    if isinstance(params, str):
+        try:   params = json.loads(params)
+        except Exception as e:
+            logging.warning(f"[pipeline_activity] params not valid JSON: {e}")
+
+    direction = "adls_to_cassandra"
+    logging.info(f"[pipeline_activity] direction='{direction}'")
+
+    if direction == "adls_to_cassandra":
+        return _run_adls_to_cassandra(params)
+    elif direction == "cassandra_to_adls":
+        return _run_cassandra_to_adls(params)
+    else:
+        msg = (
+            f"Unknown or missing 'direction': '{direction}'. "
+            "Must be 'cassandra_to_adls' or 'adls_to_cassandra'."
+        )
+        logging.error(f"[pipeline_activity] {msg}")
+        return {"status": "error", "message": msg}
+
+
+@app.orchestration_trigger(context_name="context")
+def pipeline_orchestrator(context: df.DurableOrchestrationContext):
+    params = context.get_input()
+    if isinstance(params, str):
+        try:   params = json.loads(params)
+        except Exception: pass
+    result = yield context.call_activity("pipeline_activity", params)
+    return result
+
+
+@app.route(route="Pipeline_V1", methods=["POST"])
 @app.durable_client_input(client_name="client")
-async def adls_to_cassandra_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
+async def pipeline_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
+    """
+    Single HTTP trigger for both pipeline directions.
+
+    Body must include:
+        direction  : 'cassandra_to_adls'  or  'adls_to_cassandra'
+        ... all other existing parameters unchanged ...
+
+    adls_to_cassandra only:
+        P_Delete_ADLS_Records : true  ->  delete ADLS export folder after load
+    """
     try:
         body = req.get_json()
     except Exception:
         return func.HttpResponse("Invalid JSON body", status_code=400)
 
+    direction = "adls_to_cassandra"
+    
     try:
-        instance_id = await client.start_new("adls_to_cassandra_orchestrator", None, body)
+        instance_id = await client.start_new("pipeline_orchestrator", None, body)
+        logging.info(f"[pipeline_http_start] instance={instance_id} direction={direction}")
         return client.create_check_status_response(req, instance_id)
     except Exception as e:
-        logging.error(f"HTTP start failed: {str(e)}", exc_info=True)
+        logging.error(f"[pipeline_http_start] Failed: {e}", exc_info=True)
         return func.HttpResponse(json.dumps({"error": str(e)}), mimetype="application/json", status_code=500)
