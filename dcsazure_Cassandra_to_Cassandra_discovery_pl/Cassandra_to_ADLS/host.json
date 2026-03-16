@@ -1,0 +1,19 @@
+{
+  "version": "2.0",
+  "functionTimeout": "24:00:00",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "maxTelemetryItemsPerSecond": 20
+      }
+    }
+  },
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.*, 5.0.0)"
+  },
+  "tracing": {
+    "consoleLevel": "verbose"
+  }
+}
