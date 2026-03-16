@@ -9,7 +9,7 @@
     "Metadata Datastore": {
       "type": "string"
     },
-    "CassandraToADLS_Source": {
+    "CassandraToADLSApp_Source": {
       "type": "string"
     },
     "AzureDataLakeStorage_Source": {
@@ -34,7 +34,7 @@
             "type": "Script",
             "dependsOn": [
               {
-                "activity": "Discover sensitive Data",
+                "activity": "Discover Sensitive Data",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -309,7 +309,7 @@
                     "method": "POST"
                   },
                   "linkedServiceName": {
-                    "referenceName": "[parameters('CassandraToADLS_Source')]",
+                    "referenceName": "[parameters('CassandraToADLSApp_Source')]",
                     "type": "LinkedServiceReference"
                   }
                 }
@@ -445,7 +445,7 @@
             }
           },
           {
-            "name": "Discover sensitive Data",
+            "name": "Discover Sensitive Data",
             "type": "ExecutePipeline",
             "dependsOn": [
               {
@@ -604,7 +604,7 @@
           },
           "STORAGE_ACCOUNT": {
             "type": "String",
-            "defaultValue": "DSC_PLACEHOLDER "
+            "defaultValue": "DCS_PLACEHOLDER"
           },
           "MAX_LEVELS_TO_RECURSE": {
             "type": "Integer",
@@ -629,7 +629,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-12T07:51:43Z"
+        "lastPublishTime": "2026-03-16T08:30:59Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_discovery_pl')]"
@@ -882,7 +882,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Cassandra_ADLS_delimited_metadata_discovery_ds",
+                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -937,7 +937,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_Cassandra_ADLS_delimited_data_discovery_df",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_data_discovery_df",
                       "type": "DataFlowReference",
                       "parameters": {
                         "runId": {
@@ -1026,7 +1026,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_Cassandra_ADLS_delimited_metadata_discovery_ds",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_discovery_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -1460,13 +1460,13 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-03T11:24:35Z"
+        "lastPublishTime": "2026-03-16T08:27:38Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_pl')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_ADLS_delimited_metadata_discovery_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_discovery_ds')]",
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_file_discovery_pl')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Cassandra_ADLS_delimited_data_discovery_df')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_data_discovery_df')]",
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_file_schema_discovery_pl')]"
       ]
     },
@@ -1822,7 +1822,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_Cassandra_ADLS_delimited_container_and_directory_discovery_ds",
+                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_STORAGE_CONTAINER": {
@@ -2004,14 +2004,14 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-03T11:24:35Z"
+        "lastPublishTime": "2026-03-16T08:27:36Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_ADLS_delimited_container_and_directory_discovery_ds')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_ds')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_ADLS_delimited_metadata_discovery_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2377,7 +2377,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_ADLS_delimited_container_and_directory_discovery_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2574,7 +2574,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_ADLS_delimited_data_discovery_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_data_discovery_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -2884,7 +2884,7 @@
             "userProperties": [],
             "typeProperties": {
               "dataset": {
-                "referenceName": "dcsazure_Cassandra_ADLS_delimited_header_file_schema_discovery_ds",
+                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_header_file_schema_discovery_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_STORAGE_CONTAINER": {
@@ -3088,14 +3088,14 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-03T11:24:35Z"
+        "lastPublishTime": "2026-03-16T08:27:36Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_ADLS_delimited_header_file_schema_discovery_ds')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_header_file_schema_discovery_ds')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_ADLS_delimited_header_file_schema_discovery_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_header_file_schema_discovery_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {

@@ -653,7 +653,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
@@ -711,7 +711,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataset": {
-                            "referenceName": "dcsazure_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -768,7 +768,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Cassandra_ADLS_delimited_metadata_mask_ds",
+                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -912,12 +912,12 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-15T17:28:06Z"
+        "lastPublishTime": "2026-03-16T08:30:59Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_mask_pl')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_ADLS_delimited_metadata_mask_ds')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_ADLS_delimited_container_and_directory_mask_ds')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds')]"
       ]
     },
     {
@@ -957,7 +957,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds",
+                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -1015,7 +1015,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -1090,7 +1090,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -1133,85 +1133,32 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataflow": {
-                      "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_unfiltered_mask_df",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df",
                       "type": "DataFlowReference",
                       "parameters": {
-                        "runId": {
-                          "value": "'@{pipeline().RunId}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_CONTAINER": {
-                          "value": "'@{item().source_database}'",
-                          "type": "Expression"
-                        },
-                        "DF_SINK_CONTAINER": {
-                          "value": "'@{item().sink_database}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_DIRECTORY": {
-                          "value": "'@{item().source_directory}'",
-                          "type": "Expression"
-                        },
-                        "DF_SINK_DIRECTORY": {
-                          "value": "'@{item().sink_directory}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_PREFIX": {
-                          "value": "'@{item().source_prefix}'",
-                          "type": "Expression"
-                        },
-                        "DF_SOURCE_TABLE": {
-                          "value": "'@{item().source_table}'",
-                          "type": "Expression"
-                        },
-                        "DF_SINK_TABLE": {
-                          "value": "'@{item().sink_table}'",
-                          "type": "Expression"
-                        },
-                        "DF_COLUMN_DELIMITER": {
-                          "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).column_delimiter}'",
-                          "type": "Expression"
-                        },
-                        "DF_QUOTE_CHARACTER": {
-                          "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).quote_character}'",
-                          "type": "Expression"
-                        },
-                        "DF_ESCAPE_CHARACTER": {
-                          "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).escape_character}'",
-                          "type": "Expression"
-                        },
-                        "DF_NULL_VALUE": {
-                          "value": "'@{json(activity('Get Source Metadata Mask').output.firstRow.source_metadata).null_value}'",
-                          "type": "Expression"
-                        },
-                        "DF_FIELD_ALGORITHM_ASSIGNMENT": {
-                          "value": "'@{activity('Lookup Masking Parameters').output.firstRow.FieldAlgorithmAssignments}'",
-                          "type": "Expression"
-                        },
-                        "DF_COLUMNS_TO_MASK": {
-                          "value": "@activity('Lookup Masking Parameters').output.firstRow.ColumnsToMask",
-                          "type": "Expression"
-                        },
-                        "DF_BODY_TYPE_MAPPING": {
-                          "value": "@activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping",
-                          "type": "Expression"
-                        },
-                        "DF_TRIM_LENGTHS": {
-                          "value": "@activity('Lookup Masking Parameters').output.firstRow.TrimLengths",
-                          "type": "Expression"
-                        },
-                        "DF_FAIL_ON_NONCONFORMANT_DATA": {
-                          "value": "@pipeline().parameters.P_FAIL_ON_NONCONFORMANT_DATA",
-                          "type": "Expression"
-                        },
-                        "DF_TARGET_BATCH_SIZE": {
-                          "value": "@pipeline().parameters.P_TARGET_BATCH_SIZE",
-                          "type": "Expression"
-                        },
-                        "DF_FIELD_DATE_FORMAT": {
-                          "value": "'@{activity('Lookup Masking Parameters').output.firstRow.DateFormatAssignments}'",
-                          "type": "Expression"
-                        }
+                        "runId": "''",
+                        "DF_SOURCE_CONTAINER": "''",
+                        "DF_SINK_CONTAINER": "''",
+                        "DF_SOURCE_DIRECTORY": "''",
+                        "DF_SINK_DIRECTORY": "''",
+                        "DF_SOURCE_PREFIX": "''",
+                        "DF_SOURCE_TABLE": "''",
+                        "DF_SINK_TABLE": "''",
+                        "DF_COLUMN_DELIMITER": "''",
+                        "DF_QUOTE_CHARACTER": "''",
+                        "DF_ESCAPE_CHARACTER": "''",
+                        "DF_NULL_VALUE": "''",
+                        "DF_FIELD_ALGORITHM_ASSIGNMENT": "'{}'",
+                        "DF_COLUMNS_TO_MASK": [
+                          ""
+                        ],
+                        "DF_BODY_TYPE_MAPPING": "'(timestamp as date, status as string, message as string, trace_id as string, items as (DELPHIX_COMPLIANCE_SERVICE_BATCH_ID as long)[])'",
+                        "DF_TRIM_LENGTHS": [
+                          -1
+                        ],
+                        "DF_FAIL_ON_NONCONFORMANT_DATA": "true()",
+                        "DF_TARGET_BATCH_SIZE": 50000,
+                        "DF_FIELD_DATE_FORMAT": "'{}'"
                       },
                       "datasetParameters": {
                         "Source": {},
@@ -1614,7 +1561,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds",
+                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -1746,7 +1693,7 @@
                         },
                         "inputs": [
                           {
-                            "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -1762,11 +1709,11 @@
                         ],
                         "outputs": [
                           {
-                            "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
-                                "value": "@item().sink_database",
+                                "value": "@item().sink_database\n",
                                 "type": "Expression"
                               },
                               "DS_DIRECTORY": {
@@ -2138,53 +2085,20 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataflow": {
-                            "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_copy_df",
+                            "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df",
                             "type": "DataFlowReference",
                             "parameters": {
-                              "runId": {
-                                "value": "'@{pipeline().RunId}'",
-                                "type": "Expression"
-                              },
-                              "DF_SOURCE_CONTAINER": {
-                                "value": "'@{item().source_database}'",
-                                "type": "Expression"
-                              },
-                              "DF_SINK_CONTAINER": {
-                                "value": "'@{item().sink_database}'",
-                                "type": "Expression"
-                              },
-                              "DF_SOURCE_DIRECTORY": {
-                                "value": "'@{item().source_directory}'",
-                                "type": "Expression"
-                              },
-                              "DF_SINK_DIRECTORY": {
-                                "value": "'@{item().sink_directory}'",
-                                "type": "Expression"
-                              },
-                              "DF_SOURCE_PREFIX": {
-                                "value": "'@{item().source_prefix}'",
-                                "type": "Expression"
-                              },
-                              "DF_COLUMN_DELIMITER": {
-                                "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.source_metadata).column_delimiter}'",
-                                "type": "Expression"
-                              },
-                              "DF_QUOTE_CHARACTER": {
-                                "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.source_metadata).quote_character}'",
-                                "type": "Expression"
-                              },
-                              "DF_ESCAPE_CHARACTER": {
-                                "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.source_metadata).escape_character}'",
-                                "type": "Expression"
-                              },
-                              "DF_NULL_VALUE": {
-                                "value": "'@{json(activity('Get Source Metadata No Masking').output.firstRow.source_metadata).null_value}'",
-                                "type": "Expression"
-                              },
-                              "DF_SOURCE_SUFFIX": {
-                                "value": "'@{item().source_table}'",
-                                "type": "Expression"
-                              }
+                              "runId": "''",
+                              "DF_SOURCE_CONTAINER": "''",
+                              "DF_SINK_CONTAINER": "''",
+                              "DF_SOURCE_DIRECTORY": "''",
+                              "DF_SINK_DIRECTORY": "''",
+                              "DF_SOURCE_PREFIX": "''",
+                              "DF_COLUMN_DELIMITER": "','",
+                              "DF_QUOTE_CHARACTER": "'\"'",
+                              "DF_ESCAPE_CHARACTER": "'\\\\'",
+                              "DF_NULL_VALUE": "''",
+                              "DF_SOURCE_SUFFIX": "''"
                             },
                             "datasetParameters": {
                               "Source": {},
@@ -2570,7 +2484,7 @@
                       "partitionOption": "None"
                     },
                     "dataset": {
-                      "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_METADATA_SCHEMA": {
@@ -2662,7 +2576,7 @@
                 "partitionOption": "None"
               },
               "dataset": {
-                "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds",
+                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
                 "type": "DatasetReference",
                 "parameters": {
                   "DS_METADATA_SCHEMA": {
@@ -2670,7 +2584,7 @@
                     "type": "Expression"
                   },
                   "DS_METADATA_TABLE": {
-                    "value": "@pipeline().parameters.P_METADATA_SOURCE_TO_SINK_MAPPING_TABLE",
+                    "value": "@pipeline().parameters.P_METADATA_RULESET_TABLE",
                     "type": "Expression"
                   }
                 }
@@ -2710,7 +2624,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "dataset": {
-                      "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_mask_ds",
+                      "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
@@ -2768,7 +2682,7 @@
                         "userProperties": [],
                         "typeProperties": {
                           "dataset": {
-                            "referenceName": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_mask_ds",
+                            "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
                             "type": "DatasetReference",
                             "parameters": {
                               "DS_CONTAINER": {
@@ -2820,7 +2734,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "message": {
-                      "value": "No columns are masked in the Cosmos container '@{pipeline().parameters.P_SOURCE_CONTAINER}'. Please assign a masking algorithm to at least one column and try again.",
+                      "value": "No columns are masked in the Cassandra table '@{pipeline().parameters.P_SOURCE_CONTAINER}'. Please assign a masking algorithm to at least one column and try again.",
                       "type": "Expression"
                     },
                     "errorCode": "500"
@@ -2904,14 +2818,14 @@
         "lastPublishTime": "2026-03-11T07:05:19Z"
       },
       "dependsOn": [
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_unfiltered_mask_df')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_mask_ds')]",
-        "[concat(variables('factoryId'), '/dataflows/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_copy_df')]"
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df')]",
+        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds')]",
+        "[concat(variables('factoryId'), '/dataflows/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df')]"
       ]
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_ADLS_delimited_metadata_mask_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -3020,116 +2934,7 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_metadata_mask_ds')]",
-      "type": "Microsoft.DataFactory/factories/datasets",
-      "apiVersion": "2018-06-01",
-      "properties": {
-        "linkedServiceName": {
-          "referenceName": "[parameters('Metadata Datastore')]",
-          "type": "LinkedServiceReference"
-        },
-        "parameters": {
-          "DS_METADATA_SCHEMA": {
-            "type": "string"
-          },
-          "DS_METADATA_TABLE": {
-            "type": "string"
-          }
-        },
-        "folder": {
-          "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
-        },
-        "annotations": [],
-        "type": "AzureSqlTable",
-        "schema": [
-          {
-            "name": "dataset",
-            "type": "varchar"
-          },
-          {
-            "name": "specified_database",
-            "type": "varchar"
-          },
-          {
-            "name": "specified_schema",
-            "type": "varchar"
-          },
-          {
-            "name": "identified_table",
-            "type": "varchar"
-          },
-          {
-            "name": "identified_column",
-            "type": "varchar"
-          },
-          {
-            "name": "identified_column_type",
-            "type": "varchar"
-          },
-          {
-            "name": "identified_column_max_length",
-            "type": "int",
-            "precision": 10
-          },
-          {
-            "name": "ordinal_position",
-            "type": "int",
-            "precision": 10
-          },
-          {
-            "name": "row_count",
-            "type": "bigint",
-            "precision": 19
-          },
-          {
-            "name": "metadata",
-            "type": "nvarchar"
-          },
-          {
-            "name": "profiled_domain",
-            "type": "varchar"
-          },
-          {
-            "name": "profiled_algorithm",
-            "type": "varchar"
-          },
-          {
-            "name": "confidence_score",
-            "type": "decimal",
-            "precision": 6,
-            "scale": 5
-          },
-          {
-            "name": "rows_profiled",
-            "type": "bigint",
-            "precision": 19
-          },
-          {
-            "name": "assigned_algorithm",
-            "type": "varchar"
-          },
-          {
-            "name": "last_profiled_updated_timestamp",
-            "type": "datetime",
-            "precision": 23,
-            "scale": 3
-          }
-        ],
-        "typeProperties": {
-          "schema": {
-            "value": "@dataset().DS_METADATA_SCHEMA",
-            "type": "Expression"
-          },
-          "table": {
-            "value": "@dataset().DS_METADATA_TABLE",
-            "type": "Expression"
-          }
-        }
-      },
-      "dependsOn": []
-    },
-    {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_ADLS_delimited_container_and_directory_mask_ds')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds')]",
       "type": "Microsoft.DataFactory/factories/datasets",
       "apiVersion": "2018-06-01",
       "properties": {
@@ -3176,12 +2981,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_unfiltered_mask_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
+          "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
@@ -3399,59 +3204,12 @@
       "dependsOn": []
     },
     {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_container_and_directory_mask_ds')]",
-      "type": "Microsoft.DataFactory/factories/datasets",
-      "apiVersion": "2018-06-01",
-      "properties": {
-        "linkedServiceName": {
-          "referenceName": "[parameters('AzureDataLakeStorage_Source')]",
-          "type": "LinkedServiceReference"
-        },
-        "parameters": {
-          "DS_CONTAINER": {
-            "type": "string"
-          },
-          "DS_DIRECTORY": {
-            "type": "string"
-          }
-        },
-        "folder": {
-          "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
-        },
-        "annotations": [],
-        "type": "DelimitedText",
-        "typeProperties": {
-          "location": {
-            "type": "AzureBlobFSLocation",
-            "folderPath": {
-              "value": "@dataset().DS_DIRECTORY",
-              "type": "Expression"
-            },
-            "fileSystem": {
-              "value": "@dataset().DS_CONTAINER",
-              "type": "Expression"
-            }
-          },
-          "columnDelimiter": ",",
-          "escapeChar": "\\",
-          "firstRowAsHeader": false,
-          "quoteChar": "\""
-        },
-        "schema": [
-          {
-            "type": "String"
-          }
-        ]
-      },
-      "dependsOn": []
-    },
-    {
-      "name": "[concat(parameters('factoryName'), '/dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_ADLS_delimited_copy_df')]",
+      "name": "[concat(parameters('factoryName'), '/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df')]",
       "type": "Microsoft.DataFactory/factories/dataflows",
       "apiVersion": "2018-06-01",
       "properties": {
         "folder": {
-          "name": "dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL"
+          "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "type": "MappingDataFlow",
         "typeProperties": {
