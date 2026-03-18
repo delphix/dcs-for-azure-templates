@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# 0.0.52
+* Added Cassandra to Cassandra Discovery Pipeline template `dcsazure_Cassandra_to_Cassandra_discovery_pl`.
+* Added Cassandra to Cassandra Masking Pipeline template `dcsazure_Cassandra_to_Cassandra_mask_pl`.
+
 # 0.0.51
 * Added the zip‑creation command to the documentation for generating the Azure Functions deployment package.
 * Included Azure Functions zip packages (Cosmos_to_ADLS.zip and ADLS_to_Cosmos.zip) in the release bundle.

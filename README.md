@@ -472,5 +472,7 @@ WHERE
   * [dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl](./dcsazure_Azure_Postgres_to_Azure_Postgres_mask_pl/README.md)
   * [dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl](./dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_discovery_pl/README.md)
   * [dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl](./dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/README.md)
+  * [dcsazure_Cassandra_to_Cassandra_discovery_pl](./dcsazure_Cassandra_to_Cassandra_discovery_pl/README.md)
+  * [dcsazure_Cassandra_to_Cassandra_mask_pl](./dcsazure_Cassandra_to_Cassandra_mask_pl/README.md)
 
 * [Test Plan and Contributor Testing Guidelines](./documentation/guides/test-plan.md)
