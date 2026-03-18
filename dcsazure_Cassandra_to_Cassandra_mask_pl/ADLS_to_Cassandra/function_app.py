@@ -285,7 +285,7 @@ class CassandraMetadata:
     @staticmethod
     def detect_json_columns(
         session, keyspace, table, candidate_columns,
-        partition_key=None, partition_key_value=None, sample_size=2,
+        partition_key=None, partition_key_value=None,
         clustering_key=None, clustering_key_value=None,
     ) -> List[str]:
         if not candidate_columns:
