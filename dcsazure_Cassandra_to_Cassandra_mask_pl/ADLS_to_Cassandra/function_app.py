@@ -285,7 +285,7 @@ class CassandraMetadata:
     @staticmethod
     def detect_json_columns(
         session, keyspace, table, candidate_columns,
-        partition_key=None, partition_key_value=None,
+        partition_key=None, partition_key_value=None, sample_size=2,
         clustering_key=None, clustering_key_value=None,
     ) -> List[str]:
         if not candidate_columns:
@@ -1537,7 +1537,7 @@ def validate_adls_to_cassandra_params(params: dict) -> dict:
 
 def _run_adls_to_cassandra(params: dict):
     """
-    Internal ADLS->Cassandra pipeline called by pipeline_activity.
+    Internal ADLS->Cassandra pipeline called by process_adls_to_cassandra_activity.
     On success with P_Delete_ADLS_Records=true, deletes the entire ADLS
     export directory (parent CSV + all JSON-column sub-folders + child CSVs).
     """
@@ -1676,15 +1676,15 @@ def _run_adls_to_cassandra(params: dict):
 # ============================================================================
 # UNIFIED PIPELINE  --  3 functions total
 #
-#   pipeline_http_start   (HTTP trigger)
-#   pipeline_orchestrator (Orchestrator)
-#   pipeline_activity     (Activity)
+#   adls_to_cassandra_http_start   (HTTP trigger)
+#   adls_to_cassandra_orchestrator (Orchestrator)
+#   process_adls_to_cassandra_activity     (Activity)
 #
 # Pass "direction": "cassandra_to_adls"  or  "direction": "adls_to_cassandra"
 # ============================================================================
 
 @app.activity_trigger(input_name="params")
-def pipeline_activity(params: dict):
+def process_adls_to_cassandra_activity(params: dict):
     """
     Single activity that dispatches to the correct internal pipeline:
         'cassandra_to_adls'  ->  export Cassandra rows to ADLS CSVs
@@ -1695,10 +1695,10 @@ def pipeline_activity(params: dict):
     if isinstance(params, str):
         try:   params = json.loads(params)
         except Exception as e:
-            logging.warning(f"[pipeline_activity] params not valid JSON: {e}")
+            logging.warning(f"[process_adls_to_cassandra_activity] params not valid JSON: {e}")
 
     direction = "adls_to_cassandra"
-    logging.info(f"[pipeline_activity] direction='{direction}'")
+    logging.info(f"[process_adls_to_cassandra_activity] direction='{direction}'")
 
     if direction == "adls_to_cassandra":
         return _run_adls_to_cassandra(params)
@@ -1709,23 +1709,23 @@ def pipeline_activity(params: dict):
             f"Unknown or missing 'direction': '{direction}'. "
             "Must be 'cassandra_to_adls' or 'adls_to_cassandra'."
         )
-        logging.error(f"[pipeline_activity] {msg}")
+        logging.error(f"[process_adls_to_cassandra_activity] {msg}")
         return {"status": "error", "message": msg}
 
 
 @app.orchestration_trigger(context_name="context")
-def pipeline_orchestrator(context: df.DurableOrchestrationContext):
+def adls_to_cassandra_orchestrator(context: df.DurableOrchestrationContext):
     params = context.get_input()
     if isinstance(params, str):
         try:   params = json.loads(params)
         except Exception: pass
-    result = yield context.call_activity("pipeline_activity", params)
+    result = yield context.call_activity("process_adls_to_cassandra_activity", params)
     return result
 
 
-@app.route(route="Pipeline_V1", methods=["POST"])
+@app.route(route="ADLS_to_Cassandra_V1", methods=["POST"])
 @app.durable_client_input(client_name="client")
-async def pipeline_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
+async def adls_to_cassandra_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
     """
     Single HTTP trigger for both pipeline directions.
 
@@ -1744,9 +1744,9 @@ async def pipeline_http_start(req: func.HttpRequest, client) -> func.HttpRespons
     direction = "adls_to_cassandra"
     
     try:
-        instance_id = await client.start_new("pipeline_orchestrator", None, body)
-        logging.info(f"[pipeline_http_start] instance={instance_id} direction={direction}")
+        instance_id = await client.start_new("adls_to_cassandra_orchestrator", None, body)
+        logging.info(f"[adls_to_cassandra_http_start] instance={instance_id} direction={direction}")
         return client.create_check_status_response(req, instance_id)
     except Exception as e:
-        logging.error(f"[pipeline_http_start] Failed: {e}", exc_info=True)
+        logging.error(f"[adls_to_cassandra_http_start] Failed: {e}", exc_info=True)
         return func.HttpResponse(json.dumps({"error": str(e)}), mimetype="application/json", status_code=500)

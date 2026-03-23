@@ -329,7 +329,7 @@
                   },
                   "userProperties": [],
                   "typeProperties": {
-                    "functionName": "Pipeline_V1",
+                    "functionName": "ADLS_to_Cassandra_V1",
                     "body": {
                       "value": "{\n\"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n\"cassandra_preferred_node\":\"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n\"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n\"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n\"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"Cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"Cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n\"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n\"adls_account_name\":  \"@{variables('STORAGE_ACCOUNT')}\",\n\"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}\",\n\"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"truncate_sink_before_write\": \"@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}\",\n  \"adls_batch_size\": \"@{variables('ADLS_TO_CASSANDRA_BATCH_SIZE')}\",\n\"P_DELETE_ADLS_RECORDS\": \"@{pipeline().parameters.P_DELETE_ADLS_RECORDS}\"\n  }",
                       "type": "Expression"
@@ -912,7 +912,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-16T10:28:20Z"
+        "lastPublishTime": "2026-03-20T11:27:44Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_mask_pl')]",
@@ -1153,7 +1153,7 @@
                           "type": "Expression"
                         },
                         "DF_SINK_DIRECTORY": {
-                          "value": "'@{item().source_prefix}'",
+                          "value": "'@{item().sink_directory}'",
                           "type": "Expression"
                         },
                         "DF_SOURCE_PREFIX": {
@@ -1193,7 +1193,7 @@
                           "type": "Expression"
                         },
                         "DF_BODY_TYPE_MAPPING": {
-                          "value": "'@{activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping}'",
+                          "value": "@activity('Lookup Masking Parameters').output.firstRow.DataFactoryTypeMapping",
                           "type": "Expression"
                         },
                         "DF_TRIM_LENGTHS": {
@@ -1216,8 +1216,7 @@
                       "datasetParameters": {
                         "Source": {},
                         "Sink": {}
-                      },
-                      "linkedServiceParameters": {}
+                      }
                     },
                     "staging": {},
                     "compute": {
@@ -2869,7 +2868,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-16T10:28:01Z"
+        "lastPublishTime": "2026-03-20T11:27:44Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds')]",
