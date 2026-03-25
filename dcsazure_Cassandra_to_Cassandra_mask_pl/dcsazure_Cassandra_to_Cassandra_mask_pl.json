@@ -616,7 +616,7 @@
             "userProperties": [],
             "typeProperties": {
               "expression": {
-                "value": "@and(\n        equals(pipeline().parameters.P_DELETE_ADLS_AFTER_LOAD, true),\n        equals(activity('ADLS to Cassandra Status').output.output.rows_failed,0)\n)",
+                "value": "@equals(pipeline().parameters.P_DELETE_ADLS_AFTER_LOAD, true)",
                 "type": "Expression"
               }
             }
@@ -635,7 +635,7 @@
             "userProperties": [],
             "typeProperties": {
               "items": {
-                "value": "@if(\n    and(\n        equals(pipeline().parameters.P_DELETE_ADLS_AFTER_LOAD, true),\n        equals(activity('ADLS to Cassandra Status').output.output.rows_failed,0)\n    ),\n    activity('Select Directories We Should Purge').output.value,\n    json('[]')\n)",
+                "value": "@if(equals(pipeline().parameters.P_DELETE_ADLS_AFTER_LOAD, true),\n    activity('Select Directories We Should Purge').output.value,\n    json('[]')\n)",
                 "type": "Expression"
               },
               "activities": [
@@ -895,7 +895,7 @@
           },
           "STORAGE_ACCOUNT": {
             "type": "String",
-            "defaultValue": "DCS_PLACEHOLDER"
+            "defaultValue": "DCS_PLACHOLDER"
           },
           "CASSANDRA_KEY_VAULT_NAME": {
             "type": "String"
@@ -912,7 +912,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-20T11:27:44Z"
+        "lastPublishTime": "2026-03-24T08:14:52Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_mask_pl')]",
@@ -2868,7 +2868,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-20T11:27:44Z"
+        "lastPublishTime": "2026-03-23T05:55:08Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds')]",

@@ -7,7 +7,7 @@ import uuid
 from collections import deque
 from contextlib import contextmanager
 from datetime import datetime
-from io import StringIO
+from io import BytesIO, StringIO
 from typing import Dict, Iterator, List, Optional, Tuple
 
 import azure.durable_functions as df
@@ -32,6 +32,8 @@ DEFAULT_BASE_DELAY           = 0.5
 DEFAULT_MAX_DELAY            = 60.0
 PIPE_DELIMITER               = "|"
 ESCAPE_CHARACTER             = "\\"
+ADLS_DOWNLOAD_CHUNK_BYTES    = 4 * 1024 * 1024   # 4 MB per streaming download chunk
+CSV_PARSE_CHUNK_ROWS         = 50_000             # rows per pandas CSV parse chunk
 
 # ============================================================================
 # AZURE FUNCTIONS APP
@@ -45,15 +47,27 @@ app = df.DFApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 # ============================================================================
 
 def force_gc() -> None:
+    """
+    Frees up memory immediately by running Python's garbage collector twice,
+    then asking the OS to reclaim any unused heap pages (Linux only).
+    Input  : none
+    Output : none — side effect is reduced memory usage
+    """
     gc.collect(2)
     gc.collect(2)
     try:
         ctypes.CDLL("libc.so.6").malloc_trim(0)
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug(f"[force_gc] malloc_trim not available on this platform: {exc}")
 
 
 def release_dataframe(df_obj: Optional[pd.DataFrame]) -> None:
+    """
+    Safely destroys a DataFrame and frees its memory right away.
+    Passing None is safe — the function simply does nothing.
+    Input  : df_obj — the DataFrame to destroy (or None)
+    Output : none
+    """
     if df_obj is None:
         return
     try:
@@ -69,6 +83,12 @@ def release_dataframe(df_obj: Optional[pd.DataFrame]) -> None:
 
 @contextmanager
 def memory_managed_batch(batch_label: str = "batch"):
+    """
+    A helper that automatically cleans up memory after each batch finishes,
+    even if the batch fails. Use it as a "with" block around batch work.
+    Input  : batch_label — a name shown in debug logs (e.g. "batch_0001")
+    Output : none — side effect is memory cleanup after the block exits
+    """
     try:
         yield
     finally:
@@ -81,6 +101,12 @@ def memory_managed_batch(batch_label: str = "batch"):
 # ============================================================================
 
 def get_secret(key_vault_name: str, secret_name: str) -> str:
+    """
+    Fetches a password or secret from Azure Key Vault.
+    Input  : key_vault_name — name of the Key Vault; secret_name — name of the secret
+    Output : the secret value as a plain string
+    Raises : exception if authentication fails or the secret does not exist
+    """
     kv_uri     = f"https://{key_vault_name}.vault.azure.net"
     credential = DefaultAzureCredential()
     client     = SecretClient(vault_url=kv_uri, credential=credential)
@@ -97,7 +123,17 @@ def build_cassandra_cluster(
     username: str,
     password: str,
     preferred_node: Optional[str] = None,
+    preferred_port: Optional[int] = None,
 ) -> Cluster:
+    """
+    Builds a Cassandra connection configuration (does not connect yet).
+    If preferred_node is given, traffic is routed to that data centre first.
+    If preferred_port is given, it overrides the base port for the connection.
+    Input  : contact_points — list of Cassandra host IPs; port — default port;
+             username/password — credentials; preferred_node — optional DC name;
+             preferred_port — optional port override
+    Output : a configured Cassandra Cluster object ready to connect
+    """
     auth_provider = PlainTextAuthProvider(username=username, password=password)
     lb_policy = (
         DCAwareRoundRobinPolicy(local_dc=preferred_node)
@@ -107,7 +143,7 @@ def build_cassandra_cluster(
     profile = ExecutionProfile(load_balancing_policy=lb_policy)
     return Cluster(
         contact_points=contact_points,
-        port=port,
+        port=preferred_port if preferred_port is not None else port,
         auth_provider=auth_provider,
         execution_profiles={EXEC_PROFILE_DEFAULT: profile},
         connect_timeout=30,
@@ -119,10 +155,17 @@ def build_cassandra_cluster(
 
 
 def validate_cassandra_connection(
-    contact_points, port, username, password, keyspace, table, preferred_node=None
+    contact_points, port, username, password, keyspace, table, preferred_node=None, preferred_port=None
 ) -> Tuple:
+    """
+    Connects to Cassandra and checks that the target table actually exists.
+    Input  : contact_points, port, username, password — connection details;
+             keyspace/table — where to look; preferred_node/preferred_port — optional overrides
+    Output : (cluster, session) tuple ready for querying
+    Raises : ValueError if the table is missing or connection fails
+    """
     try:
-        cluster = build_cassandra_cluster(contact_points, port, username, password, preferred_node)
+        cluster = build_cassandra_cluster(contact_points, port, username, password, preferred_node, preferred_port)
         session = cluster.connect(keyspace)
         rows = session.execute(
             "SELECT table_name FROM system_schema.tables "
@@ -139,6 +182,12 @@ def validate_cassandra_connection(
 
 
 def shutdown_cassandra(cluster, session) -> None:
+    """
+    Closes the Cassandra session and cluster connection safely.
+    Any errors during shutdown are ignored so they don't hide the real error.
+    Input  : cluster, session — the active Cassandra connection objects
+    Output : none — frees connection resources and memory
+    """
     try:
         if session:
             session.shutdown()
@@ -157,6 +206,12 @@ def shutdown_cassandra(cluster, session) -> None:
 # ============================================================================
 
 def validate_adls_connection(adls_account_name: str, adls_file_system: str):
+    """
+    Connects to Azure Data Lake Storage and verifies the filesystem is reachable.
+    Input  : adls_account_name — storage account name; adls_file_system — container name
+    Output : DataLakeServiceClient — an active ADLS client ready for file operations
+    Raises : ValueError with a clear message if auth fails or container not found
+    """
     try:
         credential     = DefaultAzureCredential()
         service_client = DataLakeServiceClient(
@@ -179,6 +234,11 @@ def validate_adls_connection(adls_account_name: str, adls_file_system: str):
 # ============================================================================
 
 def get_column_type(session, keyspace: str, table: str, column: str) -> str:
+    """
+    Looks up what data type a Cassandra column holds (e.g. int, uuid, text).
+    Input  : session — active Cassandra session; keyspace/table/column — location of the column
+    Output : data type string (e.g. "int", "uuid"); defaults to "text" if not found
+    """
     try:
         row = session.execute(
             "SELECT type FROM system_schema.columns "
@@ -245,9 +305,19 @@ def coerce_to_cql_type(value: str, cql_type: str):
 
 
 class CassandraMetadata:
+    """
+    A toolkit for reading a Cassandra table's structure (schema).
+    Tells us what columns exist, what types they are, which are JSON columns,
+    and what the clustering keys are — without touching the actual data rows.
+    """
 
     @staticmethod
     def get_column_metadata(session, keyspace: str, table: str) -> List[Dict]:
+        """
+        Fetches a list of all columns and their data types for a given table.
+        Input  : session — active connection; keyspace/table — target table location
+        Output : list of dicts, each with "column_name" and "type"
+        """
         rows   = session.execute(
             "SELECT column_name, type FROM system_schema.columns "
             "WHERE keyspace_name=%s AND table_name=%s ALLOW FILTERING",
@@ -260,6 +330,12 @@ class CassandraMetadata:
 
     @staticmethod
     def classify_columns(column_metadata: List[Dict]) -> Tuple[List[str], List[str]]:
+        """
+        Splits columns into two groups: plain data columns vs text columns
+        that might store JSON (these need special handling during export).
+        Input  : column_metadata — list of column dicts from get_column_metadata
+        Output : (relational_cols, json_candidate_cols) — two lists of column names
+        """
         relational, json_candidates = [], []
         for col in column_metadata:
             cname, ctype = col["column_name"], col["type"].lower()
@@ -271,7 +347,12 @@ class CassandraMetadata:
 
     @staticmethod
     def get_clustering_keys(session, keyspace: str, table: str) -> List[str]:
-        """Fetch clustering key column names from Cassandra system schema."""
+        """
+        Returns the clustering key column names for a table.
+        These are the columns used to sort rows within a partition in Cassandra.
+        Input  : session — active connection; keyspace/table — target table
+        Output : list of clustering key column name strings
+        """
         rows = session.execute(
             "SELECT column_name FROM system_schema.columns "
             "WHERE keyspace_name=%s AND table_name=%s AND kind='clustering' ALLOW FILTERING",
@@ -285,13 +366,24 @@ class CassandraMetadata:
     @staticmethod
     def detect_json_columns(
         session, keyspace, table, candidate_columns,
-        partition_key=None, partition_key_value=None, sample_size=2,
+        partition_key=None, partition_key_value=None,
         clustering_key=None, clustering_key_value=None,
     ) -> List[str]:
+        """
+        Checks which text columns actually contain JSON by reading sample rows.
+        Optionally filters by partition/clustering key to limit how much data is scanned.
+        Input  : session — active connection; keyspace/table — target table;
+                 candidate_columns — text columns to check;
+                 partition_key/value and clustering_key/value — optional row filters
+        Output : list of column names confirmed to contain JSON data
+        """
         if not candidate_columns:
             return []
         cols_expr = ", ".join(f'"{c}"' for c in candidate_columns)
-        logging.info(f"{partition_key}partition_key_value {partition_key_value}")
+        logging.info(
+            f"[detect_json_columns] Detecting JSON columns — "
+            f"partition_key={partition_key!r} partition_key_value={partition_key_value!r}"
+        )
         if partition_key and partition_key_value:
 
             pk_type = get_column_type(session, keyspace, table, partition_key)
@@ -311,7 +403,10 @@ class CassandraMetadata:
             where_clause = f'WHERE "{partition_key}" IN ({placeholders})'
             bind_values = coerced_values
 
-            logging.info(f"{clustering_key}clustering_key_value {clustering_key_value}")
+            logging.info(
+                f"[detect_json_columns] Applying clustering filter — "
+                f"clustering_key={clustering_key!r} clustering_key_value={clustering_key_value!r}"
+            )
 
             if clustering_key and clustering_key_value:
 
@@ -336,7 +431,7 @@ class CassandraMetadata:
                 f'SELECT {cols_expr} FROM "{keyspace}"."{table}" '
                 f'{where_clause} ALLOW FILTERING'
             )
-            logging.info(f"Fitering Check this : {cql}")
+            logging.info(f"[detect_json_columns] Executing filtered query: {cql}")
             rows = list(session.execute(cql, tuple(bind_values)))
         else:
             cql  = f'SELECT {cols_expr} FROM "{keyspace}"."{table}" ALLOW FILTERING'
@@ -364,14 +459,31 @@ class CassandraMetadata:
 # ============================================================================
 
 class CassandraRetryStrategy:
+    """
+    Automatically retries a Cassandra operation when it fails, waiting longer
+    between each attempt (exponential backoff). Tracks how many retries happened
+    and what kinds of errors caused them, for reporting at the end of the job.
+    """
 
     def __init__(self, max_retries=DEFAULT_MAX_RETRIES, base_delay=DEFAULT_BASE_DELAY, max_delay=DEFAULT_MAX_DELAY):
+        """
+        Sets up the retry policy.
+        Input  : max_retries — max attempts before giving up (default 5);
+                 base_delay — initial wait in seconds (default 0.5);
+                 max_delay — maximum wait cap in seconds (default 60)
+        """
         self.max_retries = max_retries
         self.base_delay  = base_delay
         self.max_delay   = max_delay
         self.retry_count_by_error: Dict[str, int] = {}
 
     def execute_with_retry(self, operation, operation_name: str = "operation"):
+        """
+        Runs the given operation and retries if it fails, with increasing wait times.
+        Input  : operation — a callable (function) to run; operation_name — label for logs
+        Output : the return value of the operation if it succeeds
+        Raises : the last exception if all retries are exhausted
+        """
         import random
         for attempt in range(self.max_retries + 1):
             try:
@@ -389,6 +501,11 @@ class CassandraRetryStrategy:
                     raise
 
     def _classify_error(self, msg: str) -> str:
+        """
+        Converts an error message into a short category label for tracking.
+        Input  : msg — the exception message string
+        Output : one of "UnavailableException", "Timeout", "Overloaded", "ConnectionError", "Other"
+        """
         m = msg.lower()
         if "unavailable" in m:                 return "UnavailableException"
         if "timeout" in m or "timed out" in m: return "Timeout"
@@ -397,6 +514,10 @@ class CassandraRetryStrategy:
         return "Other"
 
     def get_stats(self) -> Dict:
+        """
+        Returns a summary of how many retries happened and why.
+        Output : dict with "total_retries" count and "retries_by_error_type" breakdown
+        """
         return {"total_retries": sum(self.retry_count_by_error.values()), "retries_by_error_type": self.retry_count_by_error.copy()}
 
 
@@ -405,10 +526,23 @@ class CassandraRetryStrategy:
 # ============================================================================
 
 class StreamingCassandraReader:
+    """
+    Reads rows from a Cassandra table in manageable batches so the entire
+    table is never loaded into memory at once. Supports optional filters to
+    read only a specific partition or clustering key range.
+    """
 
     def __init__(self, session, keyspace, table, batch_size,
                  partition_key=None, partition_key_value=None, retry_strategy=None,
                  clustering_key=None, clustering_key_value=None):
+        """
+        Sets up the reader for a specific table.
+        Input  : session — active Cassandra connection; keyspace/table — what to read;
+                 batch_size — how many rows per batch;
+                 partition_key/value — optional filter to read specific partitions only;
+                 clustering_key/value — optional secondary filter (requires partition filter);
+                 retry_strategy — retry policy (a default one is used if not provided)
+        """
         self.session               = session
         self.keyspace              = keyspace
         self.table                 = table
@@ -421,6 +555,11 @@ class StreamingCassandraReader:
         self._rows_read            = 0
 
     def stream_rows(self) -> Iterator[List]:
+        """
+        Yields one batch of rows at a time from Cassandra.
+        Uses partition-key mode if filters are set, otherwise reads the full table.
+        Output : yields List of Cassandra row objects, batch_size rows at a time
+        """
         if self.partition_key and self.partition_key_value:
             logging.info(f"[stream_rows] PARTITION mode — key={self.partition_key!r} value={self.partition_key_value!r}")
             yield from self._stream_partition()
@@ -432,6 +571,11 @@ class StreamingCassandraReader:
             yield from self._stream_all()
 
     def _stream_partition(self) -> Iterator[List]:
+        """
+        Reads rows matching the given partition key (and optional clustering key).
+        Values are automatically cast to the correct Cassandra type before querying.
+        Output : yields batches of matching Cassandra rows
+        """
         pk_type       = get_column_type(self.session, self.keyspace, self.table, self.partition_key)
         
         # Ensure values are lists for IN operator
@@ -467,7 +611,7 @@ class StreamingCassandraReader:
             f'SELECT * FROM "{self.keyspace}"."{self.table}" '
             f'{where_clause} ALLOW FILTERING'
         )
-        logging.info(f"filter query: {cql}")
+        logging.info(f"[_stream_partition] Executing partition-filtered query: {cql}")
                      
         def _execute():
             stmt = self.session.prepare(cql)
@@ -481,6 +625,10 @@ class StreamingCassandraReader:
         yield from self._paginate(result_set)
 
     def _stream_all(self) -> Iterator[List]:
+        """
+        Reads every row in the table with no filters (full table scan).
+        Output : yields all rows in batches
+        """
         cql = f'SELECT * FROM "{self.keyspace}"."{self.table}" ALLOW FILTERING'
         def _execute():
             stmt = self.session.prepare(cql)
@@ -494,6 +642,12 @@ class StreamingCassandraReader:
         yield from self._paginate(result_set)
 
     def _paginate(self, result_set) -> Iterator[List]:
+        """
+        Groups rows from a Cassandra result set into fixed-size batches and yields each one.
+        Cleans up memory every 5 batches to keep usage bounded.
+        Input  : result_set — a Cassandra query result
+        Output : yields List of rows, each list up to batch_size long
+        """
         batch: List = []
         batch_count = 0
         for row in result_set:
@@ -518,7 +672,12 @@ class StreamingCassandraReader:
 # ============================================================================
 
 def flatten_no_arrays(d: Dict, parent: str = "") -> Dict:
-    """Iterative flatten (avoids recursion overhead on deep docs)."""
+    """
+    Flattens a nested dictionary into a single level using dotted key names.
+    Example: {"a": {"b": 1}} becomes {"a.b": 1}. Lists are kept as-is.
+    Input  : d — the nested dict to flatten; parent — key prefix (used internally)
+    Output : flat dict with dotted keys
+    """
     flat: Dict = {}
     stack = [(d, parent)]
     while stack:
@@ -542,9 +701,12 @@ def _process_flat_fields(
     child_queue: deque,
 ):
     """
-    Split a flat dict into scalar parent fields and array children.
-    Mutates parent_fields in-place. Pushes children onto child_queue.
-    Avoids creating intermediate dicts.
+    Separates a flat dict into plain fields (kept on the parent row)
+    and array fields (pushed onto a queue for child-table processing).
+    Input  : flat — flattened dict; row_rid — unique ID of this row;
+             base_table — name context for child tables; parent_fields — dict to populate;
+             child_queue — queue to push child items onto
+    Output : none — mutates parent_fields and child_queue in place
     """
     for key, value in flat.items():
         if not isinstance(value, list):
@@ -567,14 +729,11 @@ def extract_arrays_streaming(
     base_table: str = "",
 ) -> Tuple[Dict, Dict[str, List[Dict]]]:
     """
-    OPTIMISED replacement for extract_arrays_from_json_doc.
-
-    Key changes vs original:
-    - Single iterative pass with a deque (no nested pd.DataFrame creation mid-row)
-    - Returns raw row-dicts per child table, NOT DataFrames
-      → caller accumulates across many source rows before calling pd.DataFrame once
-    - base_table is the JSON column name (e.g. "orders"), so child array folders
-      are named after the column — never the "_root_" sentinel.
+    Breaks a JSON document apart into a parent row (scalar fields) and
+    child rows (one per item in each nested array), ready for CSV export.
+    Input  : doc — the JSON object to process; root_rid — unique ID linking parent to children;
+             base_table — the JSON column name (e.g. "address")
+    Output : (parent_fields dict, {child_table_name: [row dicts]})
     """
     doc["_rid"] = root_rid
     parent_fields: Dict = {}
@@ -607,15 +766,15 @@ def extract_arrays_streaming(
 
 def _process_single_row(
     row,
-    column_names: List[str],
     relational_cols: List[str],
     json_cols: List[str],
 ) -> Tuple[Dict, Dict[str, Dict]]:
     """
-    Process ONE Cassandra row → (parent_record_dict, per_json_col child rows).
-
-    Returns raw dicts, NOT DataFrames — DataFrame construction is deferred to
-    batch-flush time so we only call pd.DataFrame(records) ONCE per batch.
+    Converts one Cassandra row into exportable dicts — plain fields go into a
+    parent dict, and any JSON column values are parsed and split into parent/child dicts.
+    Input  : row — a single Cassandra row object;
+             relational_cols — plain column names; json_cols — JSON column names
+    Output : (parent_record dict, {json_col: {parent: [...], children: {...}}})
     """
     row_rid       = str(uuid.uuid4())
     parent_record = {"_row_rid": row_rid}
@@ -663,28 +822,22 @@ def _process_single_row(
 
 def process_cassandra_batch_streaming(
     rows: List,
-    column_names: List[str],
     relational_cols: List[str],
     json_cols: List[str],
 ) -> Tuple[pd.DataFrame, Dict[str, Dict[str, pd.DataFrame]]]:
     """
-    OPTIMISED batch processor.
-
-    Strategy:
-    1. Accumulate raw dicts for ALL rows in the batch (no per-row DataFrame).
-    2. Build DataFrames ONCE at the end of the batch with pd.DataFrame(records).
-    3. This cuts DataFrame construction overhead from O(N) to O(1) per batch.
-    4. JSON child tables are also built from accumulated dicts → one concat call.
-
-    Returns:
-        parent_df          — relational columns, one row per Cassandra row
-        json_col_results   — { jcol: { "parent": DataFrame, "children": { arr: DataFrame } } }
+    Transforms a batch of Cassandra rows into DataFrames ready for CSV upload.
+    Collects all rows first, then builds DataFrames in one go (much faster than
+    building one DataFrame per row).
+    Input  : rows — list of Cassandra row objects;
+             relational_cols — plain columns; json_cols — JSON columns
+    Output : (parent DataFrame, {json_col: {parent: DataFrame, children: {name: DataFrame}}})
     """
     parent_records: List[Dict] = []
     accumulator: Dict[str, Dict] = {jcol: {"parent": [], "children": {}} for jcol in json_cols}
 
     for row in rows:
-        parent_record, json_col_output = _process_single_row(row, column_names, relational_cols, json_cols)
+        parent_record, json_col_output = _process_single_row(row, relational_cols, json_cols)
         parent_records.append(parent_record)
 
         for jcol, data in json_col_output.items():
@@ -723,8 +876,13 @@ def process_cassandra_batch_streaming(
 # ============================================================================
 
 def clean_dataframe(df_obj: Optional[pd.DataFrame]) -> pd.DataFrame:
-    if df_obj is None or df_obj.empty:
-        return pd.DataFrame()
+    """
+    Cleans up a DataFrame so it can be safely written to a CSV file.
+    Removes unsupported types (dicts inside cells), drops fully-empty rows,
+    and leaves metadata columns (_rid, _row_rid) untouched.
+    Input  : df_obj — the DataFrame to clean (None is safe)
+    Output : cleaned DataFrame, or an empty DataFrame if input is None/empty
+    """
 
     def fix_value(val):
         if val is None:                                                  return None
@@ -746,8 +904,6 @@ def clean_dataframe(df_obj: Optional[pd.DataFrame]) -> pd.DataFrame:
     return df_obj.reset_index(drop=True)
 
 
-def cassandra_row_to_dict(row, column_names: List[str]) -> Dict:
-    return {col: getattr(row, col, None) for col in column_names}
 
 
 # ============================================================================
@@ -755,6 +911,12 @@ def cassandra_row_to_dict(row, column_names: List[str]) -> Dict:
 # ============================================================================
 
 def _serialize_df(df_obj: pd.DataFrame, include_header: bool = True) -> bytes:
+    """
+    Converts a DataFrame into pipe-delimited CSV bytes ready to write to ADLS.
+    Empty cells become empty strings. Header row is included only when requested.
+    Input  : df_obj — DataFrame to serialise; include_header — whether to write the header line
+    Output : UTF-8 encoded CSV bytes
+    """
     buf = StringIO()
     df_obj.fillna("").to_csv(
         buf, index=False, sep=PIPE_DELIMITER,
@@ -764,7 +926,12 @@ def _serialize_df(df_obj: pd.DataFrame, include_header: bool = True) -> bytes:
 
 
 def _ensure_adls_directory(fs_client, directory: str) -> None:
-    """Create directory hierarchy in ADLS, swallow errors if already exists."""
+    """
+    Creates every folder in the given path if it doesn't already exist.
+    Safe to call even if the folders are already there — no error is raised.
+    Input  : fs_client — ADLS filesystem client; directory — full folder path to ensure
+    Output : none
+    """
     dir_segments = directory.strip("/").split("/") if directory else []
     curr = ""
     for seg in dir_segments:
@@ -776,7 +943,12 @@ def _ensure_adls_directory(fs_client, directory: str) -> None:
 
 
 def _delete_adls_file_if_exists(file_client) -> None:
-    """Silently delete an ADLS file — no-op if it does not exist."""
+    """
+    Deletes an ADLS file if it exists; does nothing if it doesn't.
+    Used to clear the way before writing a fresh copy of a file.
+    Input  : file_client — ADLS file client pointing to the file
+    Output : none
+    """
     try:
         file_client.delete_file()
     except Exception:
@@ -785,13 +957,10 @@ def _delete_adls_file_if_exists(file_client) -> None:
 
 def _get_committed_file_size(file_client) -> int:
     """
-    Re-fetch the ACTUAL committed byte length from ADLS every time.
-
-    Never track size locally across calls — the local estimate goes stale if
-    a previous upload partially failed, the SDK cached an old value, or a
-    schema-evolution rewrite replaced the file mid-stream.
-    Fetching fresh properties is one cheap API call but eliminates
-    InvalidFlushPosition entirely.
+    Returns the current size of an ADLS file in bytes by asking ADLS directly.
+    Always fetches live — never uses a cached value — to avoid append offset errors.
+    Input  : file_client — ADLS file client
+    Output : file size in bytes, or 0 if the file doesn't exist or an error occurs
     """
     try:
         return file_client.get_file_properties().size
@@ -800,7 +969,13 @@ def _get_committed_file_size(file_client) -> int:
 
 
 def _write_fresh_file(dir_client, file_name: str, content_bytes: bytes) -> None:
-    """Create a brand-new ADLS file and write content_bytes starting at offset 0."""
+    """
+    Creates a new ADLS file and writes all content to it in one operation.
+    The old file must be deleted first (use _delete_adls_file_if_exists).
+    Input  : dir_client — ADLS directory client; file_name — name of the new file;
+             content_bytes — the data to write
+    Output : none
+    """
     fc = dir_client.create_file(file_name)
     fc.append_data(content_bytes, offset=0, length=len(content_bytes))
     fc.flush_data(len(content_bytes))
@@ -816,17 +991,14 @@ def upload_csv_to_adls(
     known_columns: Optional[set] = None,
 ) -> set:
     """
-    Upload a DataFrame as a pipe-delimited CSV to ADLS Gen2.
-
-    mode="write"  → delete any existing file, write fresh (batch 1 of a job run)
-    mode="append" → append to existing file; include header only if file is new.
-
-    Correctness rules:
-    - NEVER track offset locally across calls. Always call _get_committed_file_size()
-      immediately before each append so the offset is always fresh.
-    - Schema evolution (new columns mid-stream): download existing, merge, rewrite
-      the entire file from offset 0 on a brand-new file handle.
-    - flush_data(offset + len) where offset = freshly-fetched committed size.
+    Uploads a DataFrame as a pipe-delimited CSV file to ADLS Gen2.
+    mode="write"  → overwrites the file from scratch (used for the first batch).
+    mode="append" → adds to the existing file (used for subsequent batches).
+    If new columns appear mid-stream, the existing file is downloaded, merged, and rewritten.
+    Input  : service_client — ADLS client; file_system — container; directory/file_name — path;
+             df_input — data to upload; mode — "write" or "append";
+             known_columns — column set from previous batches (for schema tracking)
+    Output : updated set of all known column names
     """
     df_input = clean_dataframe(df_input)
     if df_input is None or df_input.empty:
@@ -927,6 +1099,15 @@ def upload_json_col_child_tables(
     child_schemas: Dict,
     mode: str,
 ) -> Dict:
+    """
+    Uploads each nested array table (child CSV) for a JSON column to ADLS.
+    Each array in the JSON becomes its own CSV file in a matching sub-folder.
+    Input  : service_client — ADLS client; adls_file_system — container;
+             export_dir — base export path; json_col_name — parent JSON column;
+             children — {array_name: DataFrame}; child_schemas — schema tracker;
+             mode — "write" or "append"
+    Output : updated child_schemas dict
+    """
     for arr_name, child_df in children.items():
         cleaned_df = clean_dataframe(child_df)
         release_dataframe(child_df)
@@ -955,6 +1136,14 @@ def upload_json_col_child_tables(
 # ============================================================================
 
 def validate_and_extract_params(params: dict) -> dict:
+    """
+    Validates and cleans up the input parameters for the Cassandra→ADLS export job.
+    Checks that all required fields are present, fills in defaults for optional ones,
+    and logs a summary of what will be used.
+    Input  : params — raw input dict from the HTTP request
+    Output : cleaned params dict ready for use by the pipeline
+    Raises : ValueError listing any missing required fields
+    """
     required = {
         "adls_account_name":               params.get("adls_account_name"),
         "adls_file_system":                params.get("adls_file_system"),
@@ -1050,12 +1239,14 @@ def validate_and_extract_params(params: dict) -> dict:
 
 def _run_cassandra_to_adls(params: dict):
     """
-    Optimised pipeline:
-      • process_cassandra_batch_streaming: accumulates raw dicts, builds ONE
-        DataFrame per batch (not per row)
-      • ADLS upload happens immediately after each batch is built → memory freed
-        before next batch begins
-      • No second-pass consolidation step — child table dicts flushed inline
+    Exports a Cassandra table to pipe-delimited CSV files in ADLS Gen2.
+    JSON columns are flattened — scalar fields go to the main CSV,
+    nested arrays become separate child CSVs in sub-folders.
+    Processes data in batches so memory stays bounded throughout.
+
+    Input  : params — validated pipeline config dict
+    Output : result dict with status, rows_processed, batch count, duration, retry stats
+             or {"status": "error", "message": ...} on failure
     """
     start_time = datetime.utcnow()
     cluster    = None
@@ -1081,6 +1272,7 @@ def _run_cassandra_to_adls(params: dict):
             keyspace=params["cassandra_keyspace"],
             table=params["cassandra_table"],
             preferred_node=params["cassandra_preferred_node"],
+            preferred_port=params.get("cassandra_preferred_port"),
         )
         del cassandra_password
         force_gc()
@@ -1172,7 +1364,6 @@ def _run_cassandra_to_adls(params: dict):
                 # ── STEP 1: Transform batch → DataFrames ──────────────────────
                 parent_df, json_col_results = process_cassandra_batch_streaming(
                     rows=batch_rows,
-                    column_names=column_names,
                     relational_cols=relational_cols,
                     json_cols=json_cols,
                 )
@@ -1259,24 +1450,60 @@ def _run_cassandra_to_adls(params: dict):
 # ============================================================================
 
 def read_csv_from_adls(service_client, file_system: str, full_path: str) -> pd.DataFrame:
+    """
+    Downloads a pipe-delimited CSV file from ADLS and returns it as a DataFrame.
+    Reads the file in chunks to avoid loading everything into memory at once.
+    Input  : service_client — ADLS client; file_system — container name;
+             full_path — full path to the CSV file inside the container
+    Output : DataFrame containing all rows from the file,
+             or an empty DataFrame if the file is missing or unreadable
+    """
     try:
         fs_client   = service_client.get_file_system_client(file_system)
         file_client = fs_client.get_file_client(full_path)
-        content     = file_client.download_file().readall().decode("utf-8")
-        df          = pd.read_csv(StringIO(content), sep=PIPE_DELIMITER, keep_default_na=False, dtype=str)
-        del content
+
+        # Stream the raw bytes in chunks to avoid a single large allocation
+        buffer   = BytesIO()
+        download = file_client.download_file()
+        for chunk in download.chunks():
+            buffer.write(chunk)
+        buffer.seek(0)
+
+        # Parse in row-batches so the CSV parser never materialises the full file
+        chunk_iter = pd.read_csv(
+            buffer,
+            sep=PIPE_DELIMITER,
+            keep_default_na=False,
+            dtype=str,
+            chunksize=CSV_PARSE_CHUNK_ROWS,
+        )
+        chunks: List[pd.DataFrame] = []
+        for chunk_df in chunk_iter:
+            chunks.append(chunk_df)
+
+        buffer.close()
+        del buffer
+
+        if not chunks:
+            return pd.DataFrame()
+
+        df = pd.concat(chunks, ignore_index=True)
+        del chunks
         force_gc()
         return df
+
     except Exception as e:
-        logging.warning(f"[read_csv_from_adls] Cannot read '{full_path}': {e}")
+        logging.error(f"[read_csv_from_adls] Cannot read '{full_path}': {e}", exc_info=True)
         return pd.DataFrame()
 
 
 def discover_json_cols_from_adls(service_client, file_system, export_dir, schema_text_cols) -> List[str]:
     """
-    Identify JSON columns by checking {export_dir}/{col}/{col}.csv exists in ADLS.
-    Uses ADLS structure as ground truth -- works even when the Cassandra table is
-    empty (e.g. after truncate_sink_before_write from a previous run).
+    Finds which text columns were exported as JSON by checking the ADLS folder structure.
+    A column is JSON if a matching sub-folder CSV exists (e.g. address/address.csv).
+    Input  : service_client — ADLS client; file_system — container; export_dir — base export path;
+             schema_text_cols — list of text column names to check
+    Output : list of column names confirmed to be JSON columns
     """
     fs_client = service_client.get_file_system_client(file_system)
     json_cols = []
@@ -1292,10 +1519,10 @@ def discover_json_cols_from_adls(service_client, file_system, export_dir, schema
 
 def discover_json_col_csvs(service_client, file_system, export_dir, json_col_name) -> Dict[str, str]:
     """
-    List every CSV under {export_dir}/{json_col_name}/ -> { arr_name: full_path }.
-    Mirrors upload_json_col_child_tables path formula:
-        arr_name -> dir  : arr_name.replace('.', '/')
-        dir -> arr_name  : dir_part.replace('/', '.')
+    Lists all CSV files under a JSON column's export folder, including nested child arrays.
+    Input  : service_client — ADLS client; file_system — container; export_dir — base path;
+             json_col_name — name of the JSON column (e.g. "address")
+    Output : dict mapping array name → full ADLS path (e.g. {"address": ".../address.csv"})
     """
     fs_client = service_client.get_file_system_client(file_system)
     prefix    = f"{export_dir}/{json_col_name}"
@@ -1324,6 +1551,12 @@ def discover_json_col_csvs(service_client, file_system, export_dir, json_col_nam
 
 
 def _set_nested(d: Dict, dotted_key: str, value) -> None:
+    """
+    Sets a value deep inside a nested dict using a dotted key path.
+    Example: _set_nested(d, "address.city", "London") sets d["address"]["city"] = "London".
+    Input  : d — the target dict; dotted_key — dot-separated path; value — value to set
+    Output : none — mutates d in place
+    """
     parts = dotted_key.split(".")
     for part in parts[:-1]:
         node = d.get(part)
@@ -1334,6 +1567,12 @@ def _set_nested(d: Dict, dotted_key: str, value) -> None:
 
 
 def _infer_csv_value(val):
+    """
+    Converts a CSV cell string back to its original Python type.
+    Empty → None, "true"/"false" → bool, numeric strings → int or float, others unchanged.
+    Input  : val — a value read from a CSV cell (usually a string)
+    Output : the value cast to the most appropriate Python type
+    """
     import math as _math
     if val is None: return None
     if isinstance(val, float) and _math.isnan(val): return None
@@ -1353,16 +1592,12 @@ def _infer_csv_value(val):
 
 def reconstruct_json_for_row(row: Dict, arr_name: str, children_index: Dict[str, Dict[str, List[Dict]]]) -> Dict:
     """
-    Unflatten one CSV row back to a nested dict.
-
-    RID resolution:
-      Root JSON-column CSV (e.g. address.csv): _rid is stripped during forward
-      export; _row_rid is present and matches _parent_rid in child CSVs.
-      Child CSV rows: _rid present, used as _parent_rid by their children.
-      Fix: rid = row.get('_rid') or row.get('_row_rid', '')
-
-    _has_array_<X>: X may be dotted (e.g. 'nestedArrays.departments') for
-    plain-dict-wrapped arrays; child_arr_name = arr_name + '.' + X.
+    Rebuilds one original JSON object from a flat CSV row and its child rows.
+    Reverses the flattening done during export — dotted keys become nested dicts,
+    and _has_array_ markers are expanded back into arrays using the children index.
+    Input  : row — flat dict from CSV; arr_name — JSON column name;
+             children_index — lookup of child rows keyed by parent _rid
+    Output : reconstructed nested dict (the original JSON structure)
     """
     result: Dict = {}
     rid = row.get("_rid") or row.get("_row_rid", "")
@@ -1385,6 +1620,13 @@ def reconstruct_json_for_row(row: Dict, arr_name: str, children_index: Dict[str,
 
 
 def build_children_index(table_dfs: Dict[str, pd.DataFrame], json_col_name: str) -> Dict[str, Dict[str, List[Dict]]]:
+    """
+    Builds a fast lookup so each child row can be matched back to its parent row.
+    Groups child rows by their _parent_rid so reconstruction is O(1) per parent.
+    Input  : table_dfs — {array_name: DataFrame} for all CSVs of a JSON column;
+             json_col_name — root table name to skip
+    Output : {array_name: {parent_rid: [child row dicts]}}
+    """
     children_index: Dict[str, Dict[str, List[Dict]]] = {}
     for arr_name, df in table_dfs.items():
         if arr_name == json_col_name or df.empty:
@@ -1402,6 +1644,13 @@ def build_children_index(table_dfs: Dict[str, pd.DataFrame], json_col_name: str)
 
 
 def reconstruct_json_column(jcol_df: pd.DataFrame, children_index: Dict[str, Dict[str, List[Dict]]], json_col_name: str) -> Dict[str, str]:
+    """
+    Rebuilds the JSON string for every row in a JSON column's CSV.
+    Each row is reconstructed into its original nested JSON and serialised to a string.
+    Input  : jcol_df — the root CSV DataFrame for this JSON column;
+             children_index — output of build_children_index; json_col_name — column name
+    Output : {_row_rid: json_string} — maps each row ID to its reconstructed JSON
+    """
     result: Dict[str, str] = {}
     for row_dict in jcol_df.to_dict(orient="records"):
         row_rid = row_dict.get("_row_rid", "")
@@ -1420,6 +1669,12 @@ def reconstruct_json_column(jcol_df: pd.DataFrame, children_index: Dict[str, Dic
 # ============================================================================
 
 def _group_rows_by_columns(rows: List[Dict]) -> Dict[frozenset, List[Dict]]:
+    """
+    Groups rows by their column set so we can prepare one INSERT statement
+    per unique column combination, rather than one per row.
+    Input  : rows — list of dicts to group
+    Output : {frozenset(column_names): [rows with that exact column set]}
+    """
     groups: Dict[frozenset, List[Dict]] = {}
     for row in rows:
         groups.setdefault(frozenset(row.keys()), []).append(row)
@@ -1427,6 +1682,15 @@ def _group_rows_by_columns(rows: List[Dict]) -> Dict[frozenset, List[Dict]]:
 
 
 def insert_rows_to_cassandra(session, keyspace, table, rows, column_types, retry_strategy) -> int:
+    """
+    Inserts a list of row dicts into a Cassandra table using prepared statements.
+    Automatically strips unknown columns, casts values to the right types,
+    and retries each insert on failure.
+    Input  : session — active Cassandra session; keyspace/table — destination;
+             rows — list of row dicts; column_types — schema type map;
+             retry_strategy — retry policy
+    Output : number of rows successfully inserted
+    """
     if not rows:
         return 0
     schema_cols = set(column_types.keys())
@@ -1463,9 +1727,11 @@ def insert_rows_to_cassandra(session, keyspace, table, rows, column_types, retry
 
 def delete_adls_export_directory(service_client, file_system: str, export_dir: str) -> None:
     """
-    Recursively delete the entire export directory from ADLS.
-    Called when P_Delete_ADLS_Records=true after a successful ADLS->Cassandra load.
-    Removes the parent CSV, all JSON-column sub-folders, and all child array CSVs.
+    Deletes the entire export directory and all its contents from ADLS.
+    Used as a final cleanup step when explicitly requested.
+    Input  : service_client — ADLS client; file_system — container name;
+             export_dir — folder path to delete
+    Output : none
     """
     try:
         fs_client  = service_client.get_file_system_client(file_system)
@@ -1477,10 +1743,116 @@ def delete_adls_export_directory(service_client, file_system: str, export_dir: s
 
 
 # ============================================================================
+# ADLS -> CASSANDRA: BATCH-WISE ROW DELETION
+# ============================================================================
+
+def _delete_batch_rows_from_adls(
+    service_client,
+    file_system: str,
+    main_csv_path: str,
+    export_dir: str,
+    processed_row_rids: set,
+    remaining_rows: List[Dict],
+    json_cols: List[str],
+    batch_num: int,
+    all_columns: List[str],
+) -> None:
+    """
+    After each batch is inserted into Cassandra, removes those rows from the ADLS CSV files.
+    Files and folders are NEVER deleted — only the row content is updated.
+    When all rows are consumed, the file is kept with just its header row intact.
+    If this step fails, it logs a warning but does NOT undo the Cassandra insert.
+
+    Input  : service_client — ADLS client; file_system — container;
+             main_csv_path — path to the main table CSV;
+             export_dir — base folder for this table's export;
+             processed_row_rids — set of _row_rid values just inserted into Cassandra;
+             remaining_rows — rows not yet processed (used to rewrite the main CSV);
+             json_cols — JSON column names (their CSVs are also updated);
+             batch_num — current batch number (for logging);
+             all_columns — full column list used to write header-only when empty
+    Output : none — rewrites ADLS CSV files in place
+    """
+    try:
+        fs_client = service_client.get_file_system_client(file_system)
+
+        # ── Rewrite main CSV with remaining unprocessed rows (never delete) ───
+        main_dir  = main_csv_path.rsplit("/", 1)[0]
+        main_file = main_csv_path.rsplit("/", 1)[1]
+        main_fc   = fs_client.get_file_client(main_csv_path)
+        if remaining_rows:
+            remaining_df = pd.DataFrame(remaining_rows)
+        else:
+            # All rows consumed — preserve header using original column names
+            remaining_df = pd.DataFrame(columns=all_columns)
+        content_bytes = _serialize_df(remaining_df, include_header=True)
+        release_dataframe(remaining_df)
+        _delete_adls_file_if_exists(main_fc)
+        _write_fresh_file(fs_client.get_directory_client(main_dir), main_file, content_bytes)
+        del content_bytes
+        logging.info(
+            f"[delete_batch_rows] batch {batch_num:04d} — main CSV updated: "
+            f"{len(remaining_rows)} rows remaining."
+        )
+
+        # ── Filter processed _row_rids from each JSON column parent CSV ───────
+        for jcol in json_cols:
+            jcol_csv_path = f"{export_dir}/{jcol}/{jcol}.csv"
+            try:
+                jcol_fc = fs_client.get_file_client(jcol_csv_path)
+                buffer  = BytesIO()
+                for chunk in jcol_fc.download_file().chunks():
+                    buffer.write(chunk)
+                buffer.seek(0)
+                jcol_df = pd.read_csv(buffer, sep=PIPE_DELIMITER, keep_default_na=False, dtype=str)
+                buffer.close()
+                del buffer
+
+                jcol_columns = list(jcol_df.columns)
+                if "_row_rid" in jcol_df.columns:
+                    jcol_df = jcol_df[~jcol_df["_row_rid"].isin(processed_row_rids)].reset_index(drop=True)
+
+                # Always rewrite — preserve header even when all rows are filtered out
+                if jcol_df.empty:
+                    jcol_df = pd.DataFrame(columns=jcol_columns)
+                content_bytes = _serialize_df(jcol_df, include_header=True)
+                release_dataframe(jcol_df)
+                _delete_adls_file_if_exists(jcol_fc)
+                _write_fresh_file(
+                    fs_client.get_directory_client(f"{export_dir}/{jcol}"),
+                    f"{jcol}.csv",
+                    content_bytes,
+                )
+                del content_bytes
+                logging.info(
+                    f"[delete_batch_rows] batch {batch_num:04d} — JSON col CSV '{jcol}' updated."
+                )
+            except Exception as je:
+                logging.warning(
+                    f"[delete_batch_rows] batch {batch_num:04d} — could not update JSON col CSV '{jcol}': {je}"
+                )
+
+        force_gc()
+
+    except Exception as e:
+        logging.warning(
+            f"[delete_batch_rows] batch {batch_num:04d} — failed to update batch rows in ADLS: {e}"
+        )
+
+
+# ============================================================================
 # ADLS -> CASSANDRA: PARAMETER VALIDATION
 # ============================================================================
 
 def validate_adls_to_cassandra_params(params: dict) -> dict:
+    """
+    Validates and cleans up the input parameters for the ADLS→Cassandra import job.
+    Checks required fields, fills in defaults, and handles optional settings like
+    truncate-before-write and per-batch record deletion.
+    Input  : params — raw input dict from the HTTP request
+    Output : cleaned params dict ready for use by the pipeline
+    Raises : ValueError listing any missing required fields
+    """
     required = {
         "adls_account_name":               params.get("adls_account_name"),
         "adls_file_system":                params.get("adls_file_system"),
@@ -1503,7 +1875,9 @@ def validate_adls_to_cassandra_params(params: dict) -> dict:
     except: batch_size = DEFAULT_BATCH_SIZE
     raw_trunc = params.get("truncate_sink_before_write", False)
     truncate  = (raw_trunc.strip().lower() in ("true", "1", "yes") if isinstance(raw_trunc, str) else bool(raw_trunc))
-    raw_del   = params.get("P_Delete_ADLS_Records", False)
+    # Accept any casing of this key (e.g. P_DELETE_ADLS_RECORDS, P_Delete_ADLS_Records)
+    _del_key  = next((k for k in params if k.lower() == "p_delete_adls_records"), None)
+    raw_del   = params.get(_del_key, False) if _del_key else False
     delete_adls = (raw_del.strip().lower() in ("true", "1", "yes") if isinstance(raw_del, str) else bool(raw_del))
     extracted = {
         "adls_account_name":               params["adls_account_name"],
@@ -1537,9 +1911,15 @@ def validate_adls_to_cassandra_params(params: dict) -> dict:
 
 def _run_adls_to_cassandra(params: dict):
     """
-    Internal ADLS->Cassandra pipeline called by process_adls_to_cassandra_activity.
-    On success with P_Delete_ADLS_Records=true, deletes the entire ADLS
-    export directory (parent CSV + all JSON-column sub-folders + child CSVs).
+    Imports CSV files from ADLS back into a Cassandra table.
+    Reads the main CSV in batches, reconstructs JSON columns from their child CSVs,
+    then inserts each batch into Cassandra with retry logic.
+    If P_Delete_ADLS_Records is true, processed rows are removed from the CSV
+    after each successful batch insert (files are never deleted, only rows).
+
+    Input  : params — validated pipeline config dict
+    Output : result dict with status, rows_written, rows_failed, batch count,
+             duration, retry stats — or {"status": "error", "message": ...} on failure
     """
     start_time = datetime.utcnow()
     cluster    = None
@@ -1556,6 +1936,7 @@ def _run_adls_to_cassandra(params: dict):
             keyspace=params["cassandra_keyspace"],
             table=params["cassandra_table"],
             preferred_node=params["cassandra_preferred_node"],
+            preferred_port=params.get("cassandra_preferred_port"),
         )
         del cassandra_password
         force_gc()
@@ -1615,6 +1996,7 @@ def _run_adls_to_cassandra(params: dict):
         retry_strategy = CassandraRetryStrategy()
         batch_size     = params["batch_size"]
         rows_written   = 0
+        rows_attempted = 0
         batch_num      = 0
         all_main_rows  = main_df.to_dict(orient="records")
         release_dataframe(main_df)
@@ -1623,6 +2005,7 @@ def _run_adls_to_cassandra(params: dict):
             batch_num += 1
             batch      = all_main_rows[batch_start: batch_start + batch_size]
             cassandra_rows: List[Dict] = []
+            batch_row_rids: set        = set()
             for row in batch:
                 row_rid  = row.get("_row_rid", "")
                 cass_row: Dict = {}
@@ -1635,31 +2018,46 @@ def _run_adls_to_cassandra(params: dict):
                         cass_row[jcol] = json_str
                 if cass_row:
                     cassandra_rows.append(cass_row)
+                    if row_rid:
+                        batch_row_rids.add(row_rid)
+            rows_attempted += len(cassandra_rows)
             written = insert_rows_to_cassandra(session, keyspace, table, cassandra_rows, column_types, retry_strategy)
             rows_written += written
             with memory_managed_batch(f"write_batch_{batch_num:04d}"):
                 pass
             logging.info(f"[adls_to_cassandra] batch {batch_num:04d} -> {written} rows (cumulative: {rows_written})")
 
+            # ── Batch-wise ADLS deletion: remove just-inserted rows from CSV files ──
+            if params.get("delete_adls_records") and written > 0:
+                remaining_rows = all_main_rows[batch_start + batch_size:]
+                _delete_batch_rows_from_adls(
+                    service_client      = service_client,
+                    file_system         = params["adls_file_system"],
+                    main_csv_path       = main_csv_path,
+                    export_dir          = export_dir,
+                    processed_row_rids  = batch_row_rids,
+                    remaining_rows      = remaining_rows,
+                    json_cols           = json_cols,
+                    batch_num           = batch_num,
+                    all_columns         = list(all_main_rows[0].keys()) if all_main_rows else [],
+                )
+
         shutdown_cassandra(cluster, session)
         cluster = session = None
-
-        # Delete ADLS directory only after a fully successful Cassandra write
-        if params.get("delete_adls_records"):
-            logging.info(f"[adls_to_cassandra] P_Delete_ADLS_Records=true -> deleting '{export_dir}'")
-            delete_adls_export_directory(service_client, params["adls_file_system"], export_dir)
 
         retry_stats = retry_strategy.get_stats()
         duration    = (datetime.utcnow() - start_time).total_seconds()
         return {
             "status":                       "success",
             "rows_written":                 rows_written,
+            "rows_failed":                  rows_attempted - rows_written,
+            "rows_attempted":               rows_attempted,
             "json_columns_reconstructed":   json_cols,
             "relational_columns":           relational_cols,
             "batches_processed":            batch_num,
             "batch_size":                   batch_size,
             "duration_seconds":             round(duration, 2),
-            "adls_records_deleted":         params.get("delete_adls_records", False),
+            "adls_records_deleted_per_batch": params.get("delete_adls_records", False),
             "total_retries":                retry_stats.get("total_retries", 0),
             "retries_by_error_type":        retry_stats.get("retries_by_error_type", {}),
         }
@@ -1686,11 +2084,11 @@ def _run_adls_to_cassandra(params: dict):
 @app.activity_trigger(input_name="params")
 def process_adls_to_cassandra_activity(params: dict):
     """
-    Single activity that dispatches to the correct internal pipeline:
-        'cassandra_to_adls'  ->  export Cassandra rows to ADLS CSVs
-        'adls_to_cassandra'  ->  import ADLS CSVs back into Cassandra
-                                 P_Delete_ADLS_Records=true deletes the
-                                 export directory after a successful load.
+    The main Durable Functions activity. Routes the job to the correct pipeline
+    based on the direction field in params.
+    Input  : params — dict (or JSON string) with all pipeline parameters including
+             direction: "adls_to_cassandra" or "cassandra_to_adls"
+    Output : result dict from the underlying pipeline (status, row counts, etc.)
     """
     if isinstance(params, str):
         try:   params = json.loads(params)
@@ -1715,6 +2113,12 @@ def process_adls_to_cassandra_activity(params: dict):
 
 @app.orchestration_trigger(context_name="context")
 def adls_to_cassandra_orchestrator(context: df.DurableOrchestrationContext):
+    """
+    Orchestrates the pipeline by calling the activity function and returning its result.
+    Kept intentionally thin — all real work happens inside the activity.
+    Input  : context — Durable Functions orchestration context carrying the input params
+    Output : the result dict returned by process_adls_to_cassandra_activity
+    """
     params = context.get_input()
     if isinstance(params, str):
         try:   params = json.loads(params)
@@ -1727,14 +2131,13 @@ def adls_to_cassandra_orchestrator(context: df.DurableOrchestrationContext):
 @app.durable_client_input(client_name="client")
 async def adls_to_cassandra_http_start(req: func.HttpRequest, client) -> func.HttpResponse:
     """
-    Single HTTP trigger for both pipeline directions.
-
-    Body must include:
-        direction  : 'cassandra_to_adls'  or  'adls_to_cassandra'
-        ... all other existing parameters unchanged ...
-
-    adls_to_cassandra only:
-        P_Delete_ADLS_Records : true  ->  delete ADLS export folder after load
+    HTTP entry point — receives a POST request and kicks off the pipeline.
+    Immediately returns a 202 response with URLs to check the job status.
+    Input  : req — HTTP POST with a JSON body containing all pipeline parameters;
+             required: adls_account_name, adls_file_system, cassandra_contact_points,
+             cassandra_username, cassandra_keyspace, cassandra_table,
+             Cassandra_key_vault_name, Cassandra_key_vault_secret_name
+    Output : 202 with status-check URLs on success; 400 for bad JSON; 500 on start failure
     """
     try:
         body = req.get_json()
