@@ -85,7 +85,7 @@ services:
              cp VERSION.md dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/VERSION.md &&
              zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl.zip dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/ADLS_to_Cosmos/* dcsazure_Cosmos_NoSQL_to_Cosmos_NoSQL_mask_pl/* ADLS_to_Cosmos.zip &&
 
-             zip -j Cosmos_to_ADLS.zip dcsazure_Cassandra_to_Cassandra_discovery_pl/Cassandra_to_ADLS/function_app.py dcsazure_Cassandra_to_Cassandra_discovery_pl/Cassandra_to_ADLS/host.json dcsazure_Cassandra_to_Cassandra_discovery_pl/Cassandra_to_ADLS/requirements.txt &&
+             zip -j Cassandra_to_ADLS.zip dcsazure_Cassandra_to_Cassandra_discovery_pl/Cassandra_to_ADLS/function_app.py dcsazure_Cassandra_to_Cassandra_discovery_pl/Cassandra_to_ADLS/host.json dcsazure_Cassandra_to_Cassandra_discovery_pl/Cassandra_to_ADLS/requirements.txt &&
              cp LICENSE dcsazure_Cassandra_to_Cassandra_discovery_pl/LICENSE &&
              cp VERSION.md dcsazure_Cassandra_to_Cassandra_discovery_pl/VERSION.md &&
              zip dcsazure_Cassandra_to_Cassandra_discovery_pl.zip dcsazure_Cassandra_to_Cassandra_discovery_pl/Cassandra_to_ADLS/* dcsazure_Cassandra_to_Cassandra_discovery_pl/* Cassandra_to_ADLS.zip &&
