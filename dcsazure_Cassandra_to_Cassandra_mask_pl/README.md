@@ -111,6 +111,7 @@ have customized your metadata store, then these variables may need editing.
   (default `insert_adf_masking_event`).
 * `METADATA_MASKING_PARAMS_PROCEDURE_NAME` - This is the name of the stored procedure used to generate masking
   parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
+* `STORAGE_ACCOUNT` -  Azure Storage account name used during metadata discovery.Default: dcscassandra.
 * `COLUMN_WIDTH_ESTIMATE` - This variable is used for getting the size of the columns need to be masked (default `1000`).
 * `ADLS_TO_CASSANDRA_BATCH_SIZE` - This is a path that specifies where we should stage data as it moves through the pipeline
   and should reference a storage container in a storage account (default: `dcscassandra`)

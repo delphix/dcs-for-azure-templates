@@ -87,6 +87,7 @@ have customized your metadata store, then these variables may need editing.
 * `COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME` - Stored procedure used to derive column metadata from ADLS file structures.  
   Default: get_columns_from_delimited_file_structure_sp.
 * `STORAGE_ACCOUNT` -  Azure Storage account name used during metadata discovery.Default: dcscassandra.
+* `MAX_LEVELS_TO_RECURSE` - Maximum directory recursion depth (default `10`)
 * `CASSANDRA_TO_ADLS_BATCH_SIZE` –  This is the number of rows per batch while copying the data from Cassandra DB to ADLS.
 * `CASSANDRA_KEY_VAULT_NAME` –  Name of the Azure Key Vault that stores the Cassandra DB access key
 * `CASSANDRA_SECRET_NAME` – Name of the secret in Key Vault containing the Cassandra DB access key
@@ -101,10 +102,10 @@ have customized your metadata store, then these variables may need editing.
 * `P_CASSANDRA_USERNAME` - String - Username used to authenticate against the Cassandra cluster.
 * `P_CASSANDRA_KEYSPACE` - String - Cassandra keyspace that contains the target table.
 * `P_CASSANDRA_TABLE` - String - Name of the Cassandra table to be read from or written to.
-* `P_CASSANDRA_PREFERRED` - String - Preferred Cassandra node (IP or hostname) for node-specific read or write operations.
+* `P_CASSANDRA_PREFERRED_NODE` - String - Preferred Cassandra node (IP or hostname) for node-specific read or write operations.
 * `P_CASSANDRA_PREFERRED_PORT` - Int - Preferred port number of the Cassandra node to be used for node-specific read operations.
 * `P_CASSANDRA_PARTITION_KEY` - String - Partition key value used to control data distribution and node-level reads/writes.
-* `P_CASSANDRA_PARTITION_VALUE` - String - Partition key value to filter and process a specific subset of records.
+* `P_CASSANDRA_PARTITION_KEY_VALUE` - String - Partition key value to filter and process a specific subset of records.
 * `P_ADLS_SOURCE_CONTAINER_NAME` - String - ADLS container name where data will be written or read.
 * `P_REDISCOVER` - Bool - Flag to indicate whether metadata discovery or rediscovery should be performed for the Cassandra source.
 * `P_COPY_CASSANDRA_DATA_TO_ADLS` - Bool - Specifies whether data should be copied from Cassandra DB to ADLS (default `true`)
