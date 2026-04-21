@@ -460,7 +460,7 @@ class StreamingCassandraReader:
 
         pkv_list = _normalise_to_list(self.partition_key_value)
 
-        bind_values  = [coerce_to_cql_type(v, pk_type) for v in pkv_list]
+        bind_values = [coerce_to_cql_type(v, pk_type) for v in pkv_list]
         placeholders = ",".join(["?"] * len(bind_values))
         where_clause = f'WHERE "{self.partition_key}" IN ({placeholders})'
 
@@ -470,8 +470,8 @@ class StreamingCassandraReader:
             ckv_list = _normalise_to_list(self.clustering_key_value)
 
             coerced_ck_values = [coerce_to_cql_type(v, ck_type) for v in ckv_list]
-            ck_placeholders   = ",".join(["?"] * len(coerced_ck_values))
-            where_clause     += f' AND "{self.clustering_key}" IN ({ck_placeholders})'
+            ck_placeholders = ",".join(["?"] * len(coerced_ck_values))
+            where_clause += f' AND "{self.clustering_key}" IN ({ck_placeholders})'
             bind_values.extend(coerced_ck_values)
             logging.info(f"[stream_rows] CLUSTERING filter — key={self.clustering_key!r} value={ckv_list!r}")
 
