@@ -8,7 +8,8 @@ from collections import deque
 from contextlib import contextmanager
 from datetime import datetime
 from io import StringIO
-from typing import Dict, Iterator, List, Optional, Tuple
+from enum import Enum
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
 import azure.durable_functions as df
 import azure.functions as func
@@ -32,6 +33,17 @@ DEFAULT_BASE_DELAY           = 0.5
 DEFAULT_MAX_DELAY            = 60.0
 PIPE_DELIMITER               = "|"
 ESCAPE_CHARACTER             = "\\"
+
+# Parameter key names — defined once here so they are never hard-coded as
+# repeated string literals elsewhere in the file.
+PARAM_ADLS_ACCOUNT_NAME               = "adls_account_name"
+PARAM_ADLS_FILE_SYSTEM                = "adls_file_system"
+PARAM_CASSANDRA_CONTACT_POINTS        = "cassandra_contact_points"
+PARAM_CASSANDRA_USERNAME              = "cassandra_username"
+PARAM_CASSANDRA_KEYSPACE              = "cassandra_keyspace"
+PARAM_CASSANDRA_TABLE                 = "cassandra_table"
+PARAM_CASSANDRA_KEY_VAULT_NAME        = "cassandra_key_vault_name"
+PARAM_CASSANDRA_KEY_VAULT_SECRET_NAME = "cassandra_key_vault_secret_name"
 
 # ============================================================================
 # AZURE FUNCTIONS APP
@@ -192,18 +204,41 @@ def get_column_type(session, keyspace: str, table: str, column: str) -> str:
 
 
 def coerce_to_cql_type(value: str, cql_type: str):
+    """
+    Coerce a raw string value to the appropriate Python type that matches the
+    column's CQL type.  Used to ensure IN-clause bind parameters have consistent
+    internal types before being passed to the Cassandra driver.
+    """
     t = (cql_type or "text").lower().strip()
     try:
-        if t in ("int", "smallint", "tinyint", "varint"):  return int(value)
-        if t in ("bigint", "counter"):                     return int(value)
-        if t in ("float",):                                return float(value)
-        if t in ("double", "decimal"):                     return float(value)
-        if t in ("boolean",):                              return value.strip().lower() in ("true", "1", "yes")
-        if t in ("uuid", "timeuuid"):                      return uuid.UUID(value)
-        return value
+        if t in ("bigint", "counter", "int", "smallint", "tinyint", "varint",):
+            return int(value)
+        elif t in ("decimal", "double", "float",):
+            return float(value)
+        elif t in ("boolean",):
+            return value.strip().lower() in ("true", "1", "yes")
+        elif t in ("timeuuid", "uuid",):
+            return uuid.UUID(value)
+        else:
+            return value
     except Exception as e:
         logging.warning(f"[coerce_to_cql_type] Cannot coerce {value!r} → {cql_type!r}: {e}")
         return value
+
+
+def _normalise_to_list(value) -> list:
+    """
+    Normalise a partition/clustering key value into a plain list suitable for
+    a CQL IN clause.  Handles three input shapes:
+      - str  → split on commas, strip whitespace, drop blanks
+      - list → returned as-is
+      - anything else (e.g. int/UUID) → wrapped in a single-element list
+    """
+    if isinstance(value, str):
+        return [v.strip() for v in value.split(",") if v.strip()]
+    if isinstance(value, list):
+        return value
+    return [value]
 
 
 class CassandraMetadata:
@@ -221,11 +256,26 @@ class CassandraMetadata:
         return result
 
     @staticmethod
+    def _is_json_candidate(cql_type: str) -> bool:
+        """
+        Return True when a column's CQL type means its values *might* contain
+        JSON.  Only text-like types are candidates.
+
+        Note: ``get_column_type`` falls back to ``"text"`` when the type cannot
+        be resolved from the system schema.  That means an unknown-type column
+        will be treated as a JSON candidate and go through JSON detection.  In
+        practice this is the safer default — a false-positive candidate is just
+        inspected and ruled out at runtime, whereas a false-negative would cause
+        real JSON to be treated as a plain string.
+        """
+        return cql_type in ("text", "varchar")
+
+    @staticmethod
     def classify_columns(column_metadata: List[Dict]) -> Tuple[List[str], List[str]]:
         relational, json_candidates = [], []
         for col in column_metadata:
             cname, ctype = col["column_name"], col["type"].lower()
-            if ctype in ("text", "varchar"):
+            if CassandraMetadata._is_json_candidate(ctype):
                 json_candidates.append(cname)
             else:
                 relational.append(cname)
@@ -258,20 +308,15 @@ class CassandraMetadata:
 
             pk_type = get_column_type(session, keyspace, table, partition_key)
 
-            # Ensure value is list for IN
-            if isinstance(partition_key_value, str):
-                partition_key_value = [v.strip() for v in partition_key_value.split(",") if v.strip()]
-            elif not isinstance(partition_key_value, list):
-                partition_key_value = [partition_key_value]
+            partition_key_value = _normalise_to_list(partition_key_value)
 
-            coerced_values = [
+            bind_values = [
                 coerce_to_cql_type(v, pk_type) for v in partition_key_value
             ]
 
-            placeholders = ",".join(["%s"] * len(coerced_values))
+            placeholders = ",".join(["%s"] * len(bind_values))
 
             where_clause = f'WHERE "{partition_key}" IN ({placeholders})'
-            bind_values = coerced_values
 
             logging.info(f"{clustering_key}clustering_key_value {clustering_key_value}")
 
@@ -279,10 +324,7 @@ class CassandraMetadata:
 
                 ck_type = get_column_type(session, keyspace, table, clustering_key)
 
-                if isinstance(clustering_key_value, str):
-                    clustering_key_value = [v.strip() for v in clustering_key_value.split(",") if v.strip()]
-                elif not isinstance(clustering_key_value, list):
-                    clustering_key_value = [clustering_key_value]
+                clustering_key_value = _normalise_to_list(clustering_key_value)
 
                 coerced_ck_values = [
                     coerce_to_cql_type(v, ck_type) for v in clustering_key_value
@@ -305,8 +347,17 @@ class CassandraMetadata:
             rows = list(session.execute(cql))
 
         confirmed_json: set = set()
+        # Assumption: a column is either consistently JSON-valued or consistently
+        # not — we do not expect mixed columns (e.g. sometimes "{}", sometimes plain
+        # text).  Given that assumption we only need ONE confirming row per column,
+        # so we skip a column once it is confirmed and short-circuit the whole loop
+        # once every candidate has been confirmed.
         for row in rows:
-            for col in candidate_columns:
+            remaining = [col for col in candidate_columns if col not in confirmed_json]
+            if not remaining:
+                # All candidates confirmed — no need to examine further rows.
+                break
+            for col in remaining:
                 val = getattr(row, col, None)
                 if val and isinstance(val, str):
                     stripped = val.strip()
@@ -325,6 +376,15 @@ class CassandraMetadata:
 # RETRY STRATEGY
 # ============================================================================
 
+class CassandraErrorType(str, Enum):
+    """Categorises Cassandra errors for retry-stat tracking and log messages."""
+    UNAVAILABLE      = "UnavailableException"
+    TIMEOUT          = "Timeout"
+    OVERLOADED       = "Overloaded"
+    CONNECTION_ERROR = "ConnectionError"
+    OTHER            = "Other"
+
+
 class CassandraRetryStrategy:
 
     def __init__(self, max_retries=DEFAULT_MAX_RETRIES, base_delay=DEFAULT_BASE_DELAY, max_delay=DEFAULT_MAX_DELAY):
@@ -333,7 +393,9 @@ class CassandraRetryStrategy:
         self.max_delay   = max_delay
         self.retry_count_by_error: Dict[str, int] = {}
 
-    def execute_with_retry(self, operation, operation_name: str = "operation"):
+    def execute_with_retry(self, operation: Callable, operation_name: str):
+        # operation_name is used only in log/warning messages — it is not
+        # passed to the operation itself.
         import random
         for attempt in range(self.max_retries + 1):
             try:
@@ -350,13 +412,13 @@ class CassandraRetryStrategy:
                     logging.error(f"{operation_name} failed after {self.max_retries+1} attempts: {e}")
                     raise
 
-    def _classify_error(self, msg: str) -> str:
+    def _classify_error(self, msg: str) -> CassandraErrorType:
         m = msg.lower()
-        if "unavailable" in m:                 return "UnavailableException"
-        if "timeout" in m or "timed out" in m: return "Timeout"
-        if "overloaded" in m:                  return "Overloaded"
-        if "connection" in m:                  return "ConnectionError"
-        return "Other"
+        if "unavailable" in m:                 return CassandraErrorType.UNAVAILABLE
+        if "timeout" in m or "timed out" in m: return CassandraErrorType.TIMEOUT
+        if "overloaded" in m:                  return CassandraErrorType.OVERLOADED
+        if "connection" in m:                  return CassandraErrorType.CONNECTION_ERROR
+        return CassandraErrorType.OTHER
 
     def get_stats(self) -> Dict:
         return {"total_retries": sum(self.retry_count_by_error.values()), "retries_by_error_type": self.retry_count_by_error.copy()}
@@ -375,9 +437,9 @@ class StreamingCassandraReader:
         self.keyspace              = keyspace
         self.table                 = table
         self.batch_size            = batch_size
-        self.partition_key         = (partition_key         or "").strip() or None
+        self.partition_key         = (partition_key or "").strip() or None
         self.partition_key_value   = partition_key_value
-        self.clustering_key        = (clustering_key        or "").strip() or None
+        self.clustering_key        = (clustering_key or "").strip() or None
         self.clustering_key_value  = clustering_key_value
         self.retry_strategy        = retry_strategy or CassandraRetryStrategy()
         self._rows_read            = 0
@@ -394,34 +456,22 @@ class StreamingCassandraReader:
             yield from self._stream_all()
 
     def _stream_partition(self) -> Iterator[List]:
-        pk_type       = get_column_type(self.session, self.keyspace, self.table, self.partition_key)
-        
-        # Ensure values are lists for IN operator
-        if isinstance(self.partition_key_value, str):
-            pkv_list = [v.strip() for v in self.partition_key_value.split(",") if v.strip()]
-        elif isinstance(self.partition_key_value, list):
-            pkv_list = self.partition_key_value
-        else:
-            pkv_list = [self.partition_key_value]
+        pk_type  = get_column_type(self.session, self.keyspace, self.table, self.partition_key)
 
-        coerced_values = [coerce_to_cql_type(v, pk_type) for v in pkv_list]
-        placeholders = ",".join(["?"] * len(coerced_values))
-        bind_values  = coerced_values
+        pkv_list = _normalise_to_list(self.partition_key_value)
+
+        bind_values  = [coerce_to_cql_type(v, pk_type) for v in pkv_list]
+        placeholders = ",".join(["?"] * len(bind_values))
         where_clause = f'WHERE "{self.partition_key}" IN ({placeholders})'
 
         if self.clustering_key and self.clustering_key_value:
-            ck_type = get_column_type(self.session, self.keyspace, self.table, self.clustering_key)
-            
-            if isinstance(self.clustering_key_value, str):
-                ckv_list = [v.strip() for v in self.clustering_key_value.split(",") if v.strip()]
-            elif isinstance(self.clustering_key_value, list):
-                ckv_list = self.clustering_key_value
-            else:
-                ckv_list = [self.clustering_key_value]
+            ck_type  = get_column_type(self.session, self.keyspace, self.table, self.clustering_key)
+
+            ckv_list = _normalise_to_list(self.clustering_key_value)
 
             coerced_ck_values = [coerce_to_cql_type(v, ck_type) for v in ckv_list]
-            ck_placeholders = ",".join(["?"] * len(coerced_ck_values))
-            where_clause    += f' AND "{self.clustering_key}" IN ({ck_placeholders})'
+            ck_placeholders   = ",".join(["?"] * len(coerced_ck_values))
+            where_clause     += f' AND "{self.clustering_key}" IN ({ck_placeholders})'
             bind_values.extend(coerced_ck_values)
             logging.info(f"[stream_rows] CLUSTERING filter — key={self.clustering_key!r} value={ckv_list!r}")
 
@@ -430,7 +480,7 @@ class StreamingCassandraReader:
             f'{where_clause} ALLOW FILTERING'
         )
         logging.info(f"filter query: {cql}")
-                     
+
         def _execute():
             stmt = self.session.prepare(cql)
             stmt.fetch_size = self.batch_size
@@ -567,6 +617,22 @@ def extract_arrays_streaming(
 # ROW-LEVEL PROCESSING
 # ============================================================================
 
+def _append_raw_to_json_col_output(
+    json_col_output: Dict,
+    jcol: str,
+    row_rid: str,
+    value,
+) -> None:
+    """
+    Write a single un-parseable / scalar value for *jcol* into the output dict
+    as a plain parent record.  Extracted to avoid duplicating the
+    setdefault + append pattern which appears for both the JSON-parse-failure
+    path and the non-dict/non-list scalar path.
+    """
+    json_col_output.setdefault(jcol, {"parent": [], "children": {}})
+    json_col_output[jcol]["parent"].append({"_row_rid": row_rid, jcol: value})
+
+
 def _process_single_row(
     row,
     column_names: List[str],
@@ -595,8 +661,7 @@ def _process_single_row(
         try:
             parsed = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, ValueError):
-            json_col_output.setdefault(jcol, {"parent": [], "children": {}})
-            json_col_output[jcol]["parent"].append({"_row_rid": row_rid, jcol: raw})
+            _append_raw_to_json_col_output(json_col_output, jcol, row_rid, raw)
             continue
 
         if isinstance(parsed, dict):
@@ -604,8 +669,7 @@ def _process_single_row(
         elif isinstance(parsed, list):
             doc = {jcol: parsed}
         else:
-            json_col_output.setdefault(jcol, {"parent": [], "children": {}})
-            json_col_output[jcol]["parent"].append({"_row_rid": row_rid, jcol: parsed})
+            _append_raw_to_json_col_output(json_col_output, jcol, row_rid, parsed)
             continue
 
         parent_fields, child_rows = extract_arrays_streaming(doc, row_rid, base_table=jcol)
@@ -689,12 +753,20 @@ def clean_dataframe(df_obj: Optional[pd.DataFrame]) -> pd.DataFrame:
         return pd.DataFrame()
 
     def fix_value(val):
-        if val is None:                                                  return None
-        if isinstance(val, (str, int, float, bool)):                    return val
-        if isinstance(val, list) and all(not isinstance(i, dict) for i in val): return val
-        if isinstance(val, (dict, list)):                               return None
-        try:                                                             return str(val)
-        except Exception:                                               return None
+        # Return the value as-is for scalar types and primitive-only lists.
+        if isinstance(val, (str, int, float, bool)):
+            return val
+        if isinstance(val, list) and all(not isinstance(i, dict) for i in val):
+            return val
+        # Return None for explicit null, or for complex types that can't be
+        # flattened to a scalar cell value (dicts, mixed lists).
+        if val is None or isinstance(val, (dict, list)):
+            return None
+        # Last resort: stringify anything else (e.g. UUID, Decimal).
+        try:
+            return str(val)
+        except Exception:
+            return None
 
     for col in df_obj.columns:
         if df_obj[col].dtype == object:
@@ -703,7 +775,7 @@ def clean_dataframe(df_obj: Optional[pd.DataFrame]) -> pd.DataFrame:
     meta_cols = {"_rid", "_parent_rid", "_row_rid"}
     data_cols = [c for c in df_obj.columns if c not in meta_cols]
     if data_cols:
-        df_obj = df_obj.dropna(subset=data_cols, how="all")
+        df_obj.dropna(subset=data_cols, how="all", inplace=True)
 
     return df_obj.reset_index(drop=True)
 
@@ -763,9 +835,37 @@ def _get_committed_file_size(file_client) -> int:
 
 def _write_fresh_file(dir_client, file_name: str, content_bytes: bytes) -> None:
     """Create a brand-new ADLS file and write content_bytes starting at offset 0."""
-    fc = dir_client.create_file(file_name)
-    fc.append_data(content_bytes, offset=0, length=len(content_bytes))
-    fc.flush_data(len(content_bytes))
+    file_client = dir_client.create_file(file_name)
+    file_client.append_data(content_bytes, offset=0, length=len(content_bytes))
+    file_client.flush_data(len(content_bytes))
+
+
+class _AdlsAppendClient:
+    """
+    Thin wrapper around an ADLS DataLake file client that enforces the project's
+    correctness rule: the committed file size MUST be re-fetched from the service
+    immediately before every append — never tracked locally across calls.
+
+    Using this wrapper makes it structurally impossible to pass a stale offset to
+    append_data / flush_data, because callers never touch the raw offset at all.
+    """
+
+    def __init__(self, file_client):
+        self._client = file_client
+
+    # ── Delegate attribute access so callers can still reach the underlying ──
+    # client for operations like delete_file, get_file_properties, etc.
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+    def safe_append(self, content_bytes: bytes) -> None:
+        """
+        Append *content_bytes* to the file, always using a freshly fetched
+        committed offset.  Flushes immediately after appending.
+        """
+        offset = _get_committed_file_size(self._client)
+        self._client.append_data(content_bytes, offset=offset, length=len(content_bytes))
+        self._client.flush_data(offset + len(content_bytes))
 
 
 def upload_csv_to_adls(
@@ -798,7 +898,9 @@ def upload_csv_to_adls(
     _ensure_adls_directory(fs_client, directory)
 
     dir_client      = fs_client.get_directory_client(directory)
-    file_client     = dir_client.get_file_client(file_name)
+    # Wrap in _AdlsAppendClient so all appends go through safe_append(), which
+    # always re-fetches the committed offset — never uses a locally tracked value.
+    file_client     = _AdlsAppendClient(dir_client.get_file_client(file_name))
     current_columns = set(df_input.columns)
 
     if known_columns is None:
@@ -858,17 +960,16 @@ def upload_csv_to_adls(
             del content_bytes
 
         else:
-            committed_size = _get_committed_file_size(file_client)
-            file_is_new    = committed_size == 0
+            file_is_new = _get_committed_file_size(file_client) == 0
 
             content_bytes = _serialize_df(df_input, include_header=file_is_new)
             release_dataframe(df_input)
 
             if file_is_new:
-                file_client = dir_client.create_file(file_name)
+                # Re-wrap the newly created file client so safe_append still applies.
+                file_client = _AdlsAppendClient(dir_client.create_file(file_name))
 
-            file_client.append_data(content_bytes, offset=committed_size, length=len(content_bytes))
-            file_client.flush_data(committed_size + len(content_bytes))
+            file_client.safe_append(content_bytes)
             del content_bytes
 
     except Exception as e:
@@ -918,14 +1019,14 @@ def upload_json_col_child_tables(
 
 def validate_and_extract_params(params: dict) -> dict:
     required = {
-        "adls_account_name":               params.get("adls_account_name"),
-        "adls_file_system":                params.get("adls_file_system"),
-        "cassandra_contact_points":        params.get("cassandra_contact_points"),
-        "cassandra_username":              params.get("cassandra_username"),
-        "cassandra_keyspace":              params.get("cassandra_keyspace"),
-        "cassandra_table":                 params.get("cassandra_table"),
-        "Cassandra_key_vault_name":        params.get("Cassandra_key_vault_name"),
-        "Cassandra_key_vault_secret_name": params.get("Cassandra_key_vault_secret_name"),
+        PARAM_ADLS_ACCOUNT_NAME:               params.get(PARAM_ADLS_ACCOUNT_NAME),
+        PARAM_ADLS_FILE_SYSTEM:                params.get(PARAM_ADLS_FILE_SYSTEM),
+        PARAM_CASSANDRA_CONTACT_POINTS:        params.get(PARAM_CASSANDRA_CONTACT_POINTS),
+        PARAM_CASSANDRA_USERNAME:              params.get(PARAM_CASSANDRA_USERNAME),
+        PARAM_CASSANDRA_KEYSPACE:              params.get(PARAM_CASSANDRA_KEYSPACE),
+        PARAM_CASSANDRA_TABLE:                 params.get(PARAM_CASSANDRA_TABLE),
+        PARAM_CASSANDRA_KEY_VAULT_NAME:        params.get(PARAM_CASSANDRA_KEY_VAULT_NAME),
+        PARAM_CASSANDRA_KEY_VAULT_SECRET_NAME: params.get(PARAM_CASSANDRA_KEY_VAULT_SECRET_NAME),
     }
     missing = [k for k, v in required.items() if not v]
     if missing:
@@ -950,14 +1051,14 @@ def validate_and_extract_params(params: dict) -> dict:
     try:    array_batch = max(1, int(params.get("array_processing_batch_size", ARRAY_PROCESSING_BATCH_SIZE)))
     except: array_batch = ARRAY_PROCESSING_BATCH_SIZE
 
-    raw_pk  = (params.get("cassandra_partition_key")       or "").strip()
+    raw_pk  = (params.get("cassandra_partition_key") or "").strip()
     raw_pkv = params.get("cassandra_partition_key_value")
 
     if bool(raw_pk) != (raw_pkv is not None):
         logging.warning("[validate_params] Both partition key and value must be set. Falling back to full-table scan.")
         raw_pk, raw_pkv = "", None
 
-    raw_ck  = (params.get("cassandra_clustering_key")       or "").strip()
+    raw_ck  = (params.get("cassandra_clustering_key") or "").strip()
     raw_ckv = params.get("cassandra_clustering_key_value")
 
     if bool(raw_ck) != (raw_ckv is not None):
@@ -972,22 +1073,22 @@ def validate_and_extract_params(params: dict) -> dict:
     truncate  = (raw_trunc.strip().lower() in ("true", "1", "yes") if isinstance(raw_trunc, str) else bool(raw_trunc))
 
     extracted = {
-        "adls_account_name":              params["adls_account_name"],
-        "adls_file_system":               params["adls_file_system"],
+        "adls_account_name":              params[PARAM_ADLS_ACCOUNT_NAME],
+        "adls_file_system":               params[PARAM_ADLS_FILE_SYSTEM],
         "adls_directory":                 (params.get("adls_directory") or "").strip(),
         "cassandra_contact_points":       contact_points,
         "cassandra_port":                 port,
         "cassandra_preferred_node":       (params.get("cassandra_preferred_node") or "").strip() or None,
         "cassandra_preferred_port":       preferred_port,
-        "cassandra_username":             params["cassandra_username"],
-        "cassandra_keyspace":             params["cassandra_keyspace"],
-        "cassandra_table":                params["cassandra_table"],
+        "cassandra_username":             params[PARAM_CASSANDRA_USERNAME],
+        "cassandra_keyspace":             params[PARAM_CASSANDRA_KEYSPACE],
+        "cassandra_table":                params[PARAM_CASSANDRA_TABLE],
         "cassandra_partition_key":        raw_pk  or None,
         "cassandra_partition_key_value":  raw_pkv,
         "cassandra_clustering_key":       raw_ck  or None,
         "cassandra_clustering_key_value": raw_ckv,
-        "key_vault_name":                 params["Cassandra_key_vault_name"],
-        "key_vault_secret_name":          params["Cassandra_key_vault_secret_name"],
+        "key_vault_name":                 params[PARAM_CASSANDRA_KEY_VAULT_NAME],
+        "key_vault_secret_name":          params[PARAM_CASSANDRA_KEY_VAULT_SECRET_NAME],
         "batch_size":                     batch_size,
         "array_processing_batch_size":    array_batch,
         "truncate_sink_before_write":     truncate,
@@ -1107,9 +1208,9 @@ def process_cassandra_to_adls_activity(params: dict):
         )
 
         # ── Always delete the output directory before starting ───────────────
-        fs_c = service_client.get_file_system_client(params["adls_file_system"])
+        fs_client = service_client.get_file_system_client(params["adls_file_system"])
         try:
-            fs_c.get_directory_client(export_dir).delete_directory()
+            fs_client.get_directory_client(export_dir).delete_directory()
             logging.info(f"[init] Cleared existing output directory: {export_dir}")
         except Exception:
             logging.info(f"[init] Output directory did not exist yet: {export_dir}")

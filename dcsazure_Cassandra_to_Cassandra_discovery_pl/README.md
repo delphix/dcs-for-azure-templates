@@ -20,7 +20,6 @@ your Cassandra containers.
 These linked services types are needed for the following steps:
 
 `Azure Function` (Cassandra to ADLS) – Linked service associated with exporting Cassandra DB data to ADLS. This will be used for the following steps:
-
 * Check If We Should Copy Cassandra to ADLS (If Condition activity)
 
 `Azure Data Lake Storage Gen2` (staging) - Linked service associated with the ADLS account used for staging Cassandra DB exports. This will be used for the following steps:
@@ -55,11 +54,6 @@ steps:
 * Discover Sensitive Data
   * Check If We Should Rediscover Data
     * If we should, Mark Tables Undiscovered. This is done by updating the metadata store to indicate that tables have not had their sensitive data discovered
-  * Identify Nested Schemas
-    * Using the child pipeline `dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_pl`, we collect all the identified schemas under the specified directory.
-    * For each item in that list, identify if the schema of the files in that child directory is expected to be homogeneous.
-  * Schema Discovery
-    * For each of the directories with homogeneous schema, identify the schema for each file with one of the suffixes to scan, determine the structure of the file by calling the child `dcsazure_Cassandra_to_Cassandra_ADLS_delimited_file_discovery_pl` pipeline with the appropriate parameters.
   * Select Discovered Tables - In this case, we consider the table to be items with the same schema.
     * After the previous step, we query the database for all tables (file suffixes within each distinct path of the storage container) and perform profiling for sensitive data discovery in those files that have not yet been discovered.
   * ForEach Discovered Table
@@ -109,6 +103,7 @@ have customized your metadata store, then these variables may need editing.
 * `P_ADLS_SOURCE_CONTAINER_NAME` - String - ADLS container name where data will be written or read.
 * `P_REDISCOVER` - Bool - Flag to indicate whether metadata discovery or rediscovery should be performed for the Cassandra source.
 * `P_COPY_CASSANDRA_DATA_TO_ADLS` - Bool - Specifies whether data should be copied from Cassandra DB to ADLS (default `true`)
+* `P_FUNCTION_NAME` - String - Name of the Azure Function.
 
 ### Notes
 

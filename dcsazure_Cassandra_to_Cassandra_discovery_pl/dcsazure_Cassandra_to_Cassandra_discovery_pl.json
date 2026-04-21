@@ -15,7 +15,7 @@
     "AzureDataLakeStorage_Source": {
       "type": "string"
     },
-    "ProdDCSForAzureService": {
+    "DCSForAzureDiscoveryService": {
       "type": "string"
     }
   },
@@ -70,7 +70,7 @@
             "type": "IfCondition",
             "dependsOn": [
               {
-                "activity": "Until Cassandra To ADLS Duraable Function Is Success",
+                "activity": "Until Cassandra To ADLS Durable Function Is Success",
                 "dependencyConditions": [
                   "Succeeded"
                 ]
@@ -117,7 +117,7 @@
                       },
                       "execution_end_time": {
                         "value": {
-                          "value": "@activity('Until Cassandra To ADLS Duraable Function Is Success').ExecutionEndTime",
+                          "value": "@activity('Until Cassandra To ADLS Durable Function Is Success').ExecutionEndTime",
                           "type": "Expression"
                         },
                         "type": "DateTimeOffset"
@@ -131,7 +131,7 @@
                       },
                       "input_parameters": {
                         "value": {
-                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"Cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"Cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
+                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -220,7 +220,7 @@
             }
           },
           {
-            "name": "Until Cassandra To ADLS Duraable Function Is Success",
+            "name": "Until Cassandra To ADLS Durable Function Is Success",
             "type": "Until",
             "dependsOn": [
               {
@@ -300,9 +300,12 @@
                   },
                   "userProperties": [],
                   "typeProperties": {
-                    "functionName": "Cassandra_to_ADLS_V1",
+                    "functionName": {
+                      "value": "@pipeline().parameters.P_FUNCTION_NAME",
+                      "type": "Expression"
+                    },
                     "body": {
-                      "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"Cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"Cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
+                      "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
                       "type": "Expression"
                     },
                     "headers": {},
@@ -379,7 +382,7 @@
                       },
                       "input_parameters": {
                         "value": {
-                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"Cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"Cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
+                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -474,16 +477,11 @@
                   "value": "@concat(pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE,'/',pipeline().parameters.P_CASSANDRA_TABLE)",
                   "type": "Expression"
                 },
-                "P_SUFFIXES_TO_SCAN": "[[\"CSV\"]",
+                "P_SUFFIXES_TO_SCAN": "[[\"csv\"]",
                 "P_SUFFIX_DELIMITER_MAP": {
                   "value": "@json('{\n    \"csv\": {\n        \"column_delimiter\": \"|\",\n        \"quote_character\": \"\\\"\",\n        \"escape_character\": \"\\\\\",\n        \"null_value\": \"\"\n    }\n}')\n",
                   "type": "Expression"
                 },
-                "P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS": {
-                  "value": "[[]",
-                  "type": "Expression"
-                },
-                "P_MIXED_FILE_SCHEMA_DISAMBIGUATION": "{\"DCS_EXAMPLE_PREFIX\":{\"suffixes\":[\"csv\",\"txt\",\"NO_EXT\"]}}",
                 "P_REDISCOVER": {
                   "value": "@pipeline().parameters.P_REDISCOVER",
                   "type": "Expression"
@@ -566,15 +564,18 @@
             "type": "bool",
             "defaultValue": true
           },
+          "P_REDISCOVER": {
+            "type": "bool",
+            "defaultValue": true
+          },
           "P_CASSANDRA_PREFERRED_NODE": {
             "type": "string"
           },
           "P_CASSANDRA_PREFERRED_PORT": {
             "type": "string"
           },
-          "P_REDISCOVER": {
-            "type": "bool",
-            "defaultValue": true
+          "P_FUNCTION_NAME": {
+            "type": "string"
           }
         },
         "variables": {
@@ -629,7 +630,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-16T08:30:59Z"
+        "lastPublishTime": "2026-04-14T07:02:48Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_discovery_pl')]"
@@ -640,7 +641,6 @@
       "type": "Microsoft.DataFactory/factories/pipelines",
       "apiVersion": "2018-06-01",
       "properties": {
-        "description": "The storage account is set to a DCS_PLACEHOLDER, please make sure you update it to actual storage account name before publishing this pipeline",
         "activities": [
           {
             "name": "For Each Folder",
@@ -663,7 +663,7 @@
               "batchCount": 50,
               "activities": [
                 {
-                  "name": "Get Files Under Homogenous Schemas",
+                  "name": "Get csv Files In Directory",
                   "type": "ExecutePipeline",
                   "dependsOn": [],
                   "policy": {
@@ -709,7 +709,7 @@
                   "type": "IfCondition",
                   "dependsOn": [
                     {
-                      "activity": "Get Files Under Homogenous Schemas",
+                      "activity": "Get csv Files In Directory",
                       "dependencyConditions": [
                         "Succeeded"
                       ]
@@ -718,7 +718,7 @@
                   "userProperties": [],
                   "typeProperties": {
                     "expression": {
-                      "value": "@greater(length(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV), 0)",
+                      "value": "@greater(length(activity('Get csv Files In Directory').output.pipelineReturnValue.CSV), 0)",
                       "type": "Expression"
                     },
                     "ifTrueActivities": [
@@ -751,7 +751,7 @@
                               "type": "Expression"
                             },
                             "P_DIRECTORY": {
-                              "value": "@if(\n    contains(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        '/'\n    ),\n    substring(\n        activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n        0, \n        lastIndexOf(\n            activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
+                              "value": "@if(\n    contains(\n        activity('Get csv Files In Directory').output.pipelineReturnValue.CSV[0], \n        '/'\n    ),\n    substring(\n        activity('Get csv Files In Directory').output.pipelineReturnValue.CSV[0], \n        0, \n        lastIndexOf(\n            activity('Get csv Files In Directory').output.pipelineReturnValue.CSV[0], \n            '/'\n        )\n    ),\n    ''\n)\n\n",
                               "type": "Expression"
                             },
                             "P_SUFFIX": {
@@ -779,7 +779,7 @@
                               "type": "Expression"
                             },
                             "P_FILENAME": {
-                              "value": "@last(split(activity('Get Files Under Homogenous Schemas').output.pipelineReturnValue.CSV[0], '/'))",
+                              "value": "@last(split(activity('Get csv Files In Directory').output.pipelineReturnValue.CSV[0], '/'))",
                               "type": "Expression"
                             },
                             "P_DATASET": {
@@ -831,10 +831,6 @@
                 },
                 "P_MAX_RESULTS": {
                   "value": "@pipeline().parameters.P_MAX_RESULTS",
-                  "type": "Expression"
-                },
-                "P_DIRECTORIES_TO_EXCLUDE": {
-                  "value": "@pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE",
                   "type": "Expression"
                 },
                 "P_MAX_LEVELS_TO_RECURSE": {
@@ -1359,9 +1355,7 @@
           "P_SUFFIXES_TO_SCAN": {
             "type": "array",
             "defaultValue": [
-              "csv",
-              "txt",
-              "NO_EXT"
+              "csv"
             ]
           },
           "P_SUFFIX_DELIMITER_MAP": {
@@ -1372,34 +1366,6 @@
                 "quote_character": "\"",
                 "escape_character": "\\",
                 "null_value": ""
-              },
-              "txt": {
-                "column_delimiter": "|",
-                "quote_character": "\"",
-                "escape_character": "\\",
-                "null_value": ""
-              },
-              "NO_EXT": {
-                "column_delimiter": "|",
-                "quote_character": "\"",
-                "escape_character": "\\",
-                "null_value": ""
-              }
-            }
-          },
-          "P_SUB_DIRECTORY_WITH_MIXED_FILE_SCHEMAS": {
-            "type": "array",
-            "defaultValue": []
-          },
-          "P_MIXED_FILE_SCHEMA_DISAMBIGUATION": {
-            "type": "object",
-            "defaultValue": {
-              "DCS_EXAMPLE_PREFIX": {
-                "suffixes": [
-                  "csv",
-                  "txt",
-                  "NO_EXT"
-                ]
               }
             }
           },
@@ -1407,17 +1373,13 @@
             "type": "bool",
             "defaultValue": true
           },
-          "P_DIRECTORIES_TO_EXCLUDE": {
-            "type": "array",
-            "defaultValue": []
-          },
           "P_MAX_LEVELS_TO_RECURSE": {
             "type": "int",
             "defaultValue": 5
           },
           "P_METADATA_SCHEMA": {
             "type": "string",
-            "defaultValue": "dcsazure_metadata_store"
+            "defaultValue": "dbo"
           },
           "P_METADATA_RULESET_TABLE": {
             "type": "string",
@@ -1453,14 +1415,14 @@
           },
           "P_STORAGE_ACCOUNT": {
             "type": "string",
-            "defaultValue": "dcscassandra"
+            "defaultValue": "DCS_PLACEHOLDER"
           }
         },
         "folder": {
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-16T08:27:38Z"
+        "lastPublishTime": "2026-04-14T05:47:10Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_pl')]",
@@ -1721,7 +1683,7 @@
                       "type": "Expression"
                     },
                     "condition": {
-                      "value": "@and(\n    not(contains(pipeline().parameters.P_DIRECTORIES_TO_EXCLUDE, item())), \n    lessOrEquals(\n        sub(length(split(item(), '/')), 1), \n        variables('MAX_LEVELS_TO_RECURSE')\n    )\n)",
+                      "value": "@lessOrEquals(sub(length(split(item(), '/')), 1), variables('MAX_LEVELS_TO_RECURSE'))",
                       "type": "Expression"
                     }
                   }
@@ -1956,10 +1918,6 @@
             "type": "string",
             "defaultValue": "1000"
           },
-          "P_DIRECTORIES_TO_EXCLUDE": {
-            "type": "array",
-            "defaultValue": []
-          },
           "P_MAX_LEVELS_TO_RECURSE": {
             "type": "int",
             "defaultValue": 5
@@ -2004,7 +1962,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-16T08:27:36Z"
+        "lastPublishTime": "2026-04-14T05:47:09Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_ds')]"
@@ -2290,7 +2248,7 @@
               "variableName": "pipelineReturnValue",
               "value": [
                 {
-                  "key": "CSV",
+                  "key": "csv",
                   "value": {
                     "type": "Expression",
                     "content": "@activity('Filter CSV').output.Value"
@@ -2372,7 +2330,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-02-03T11:24:35Z"
+        "lastPublishTime": "2026-04-14T05:47:09Z"
       },
       "dependsOn": []
     },
@@ -2615,7 +2573,7 @@
             {
               "name": "CallDCSForAzureProfiling",
               "linkedService": {
-                "referenceName": "[parameters('ProdDCSForAzureService')]",
+                "referenceName": "[parameters('DCSForAzureDiscoveryService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -2999,7 +2957,7 @@
                 },
                 "schema": {
                   "value": {
-                    "value": "@concat(pipeline().parameters.P_DIRECTORY,'/',pipeline().parameters.P_PREFIX)",
+                    "value": "@concat(pipeline().parameters.P_DIRECTORY,'/')",
                     "type": "Expression"
                   },
                   "type": "String"
@@ -3043,15 +3001,13 @@
             "type": "string"
           },
           "P_SUFFIX": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "csv"
           },
           "P_COLUMN_DELIMITER": {
             "type": "string"
           },
           "P_COLUMNS_FROM_ADLS_FILE_STRUCTURE_PROCEDURE_NAME": {
-            "type": "string"
-          },
-          "P_PREFIX": {
             "type": "string"
           },
           "P_QUOTE_CHARACTER": {
@@ -3088,7 +3044,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-16T08:27:36Z"
+        "lastPublishTime": "2026-04-16T06:40:39Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_header_file_schema_discovery_ds')]"
