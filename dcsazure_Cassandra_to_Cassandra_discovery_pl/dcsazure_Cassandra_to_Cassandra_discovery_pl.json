@@ -15,7 +15,7 @@
     "AzureDataLakeStorage_Source": {
       "type": "string"
     },
-    "DCSForAzureDiscoveryService": {
+    "ProdDCSForAzureService": {
       "type": "string"
     }
   },
@@ -486,7 +486,6 @@
                   "value": "@pipeline().parameters.P_REDISCOVER",
                   "type": "Expression"
                 },
-                "P_DIRECTORIES_TO_EXCLUDE": "[[]",
                 "P_MAX_LEVELS_TO_RECURSE": {
                   "value": "@variables('MAX_LEVELS_TO_RECURSE')",
                   "type": "Expression"
@@ -2573,7 +2572,7 @@
             {
               "name": "CallDCSForAzureProfiling",
               "linkedService": {
-                "referenceName": "[parameters('DCSForAzureDiscoveryService')]",
+                "referenceName": "[parameters('ProdDCSForAzureService')]",
                 "type": "LinkedServiceReference"
               }
             },
@@ -2640,7 +2639,7 @@
             "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_DATASET as string ('ADLS-DELIMITED'),",
+            "     DF_DATASET as string ('CASSANDRA'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_COLUMN_DELIMITER as string (''),",
             "     DF_QUOTE_CHARACTER as string ('\\\"'),",
