@@ -1,7 +1,7 @@
 # dcsazure_Cassandra_to_Cassandra_mask_pl
 ## Delphix Compliance Services (DCS) for Azure - Cassandra to Cassandra Masking Pipeline
 
-This pipeline will perform masking of your Cassandra Instance.
+This pipeline will mask Cassandra data that has been staged to ADLS and then write that masked data back to a Cassandra instance.
 
 ### Prerequisites
 
@@ -22,71 +22,70 @@ Data.
 
 These linked services types are needed for the following steps:
 
-`Azure Function` (Cassandra to ADLS) – Linked service associated with exporting Cassandra DB data to ADLS. This will be used for the following steps:
+`Azure Function` (Cassandra to ADLS) - Linked service associated with exporting Cassandra DB data to ADLS. This will be used for the following steps:
 * Check If We Should Copy Data To Cassandra (If Condition activity)
 
-`Azure Data Lake Storage Gen2` (Source) – Linked service associated with the ADLS account used for staging Source Cassandra DB data. This will be used for the following steps:
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_filter_test_utility_df/Source (dataFlow),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds (DelimitedText dataset),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df/Source (dataFlow),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_filtered_mask_df/Source (dataFlow),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df/Source (dataFlow)
+`Azure Data Lake Storage Gen2` (Sink) - Linked service associated with the ADLS account used for staging Sink Cassandra DB data. This will be used for the following steps:
+  * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df/Sink (dataFlow)
+  * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df/Sink (dataFlow)
 
-`Azure Data Lake Storage Gen2` (Sink) – Linked service associated with the ADLS account used for staging Sink Cassandra DB data. This will be used for the following steps:
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_filter_test_utility_df/Sink (dataFlow),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df/Sink (dataFlow),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_filtered_mask_df/Sink (dataFlow),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df/Sink (dataFlow)
+  `Azure Data Lake Storage Gen2` (Source) - Linked service associated with the ADLS account used for staging Source Cassandra DB data. This will be used for the following steps:
+  * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df/Source (dataFlow)
+  * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df/Source (dataFlow)
 
-`Azure SQL` (metadata) – Linked service associated with your hosted metadata store. This will be used for the following steps:
-* Check ADLS To Cassandra Status (If Condition activity),
-* Update logs If Copy Data To ADLS Is True (If Condition activity),
-* Check For Conditional Masking (If Condition activity),
-* Check For Conditional Masking (If Condition activity),
-* Check For Conditional Masking (If Condition activity),
-* Check For Conditional Masking (If Condition activity),
-* If Copy Via Dataflow (If Condition activity),
-* If Copy Via Dataflow (If Condition activity),
-* If Copy Via Dataflow (If Condition activity),
-* If Copy Via Dataflow (If Condition activity),
-* Check If We Should Reapply Mapping (If Condition activity),
-* Configure Masked Status (Script activity),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds (Azure SQL Database dataset)
+* `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following steps:
+  * Check ADLS To Cassandra Status (If Condition activity)
+  * Update Logs If Copy Data To ADLS Is True (If Condition activity)
+  * Update Masked State (Stored procedure activity)
+  * Update Masked State Failed (Stored procedure activity)
+  * If Copy Via Dataflow (If Condition activity)
+  * If Copy Via Dataflow (If Condition activity)
+  * If Copy Via Dataflow (If Condition activity)
+  * If Copy Via Dataflow (If Condition activity)
+  * Check If We Should Reapply Mapping (If Condition activity)
+  * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds (Azure SQL Database dataset)
 
-`REST` (DCS for Azure) – Linked service associated with calling DCS for Azure. This will be used for the following steps:
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df (dataFlow),
-* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_filtered_mask_df (dataFlow)
+`REST` (DCS for Azure) - Linked service associated with calling DCS for Azure. This will be used for the following steps:
+* dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df (dataFlow)
 
 ### How It Works
-* Check If We Should Reapply Mapping
-  * If we should, Mark Table Mapping Incomplete. This is done by updating the metadata store to indicate that tables
-    have not had their mapping applied
-* Select Tables We Should Truncate
-  * Select sink tables with an incomplete mapping and based on the value of `P_TRUNCATE_SINK_BEFORE_WRITE`, create a
-    list of tables that we should truncate
-    * For Each Table To Truncate, execute a query to truncate the sink table
-* Select Tables Without Required Masking. This is done by querying the metadata data store.
-  * Filter If Copy Unmasked Enabled. This is done by applying a filter based on the value of `P_COPY_UNMASKED_TABLES`
-    * For Each Table With No Masking. Provided we have any rows left after applying the filter
-      * If Copy Via Dataflow - based on the value of `P_COPY_USE_DATAFLOW`
-        * If the data flow is to be used for copy, then call `dcsazure_Cassandra_to_Cassandra_copy_df`
-        * If the data flow is not to be used for copy, then use a copy activity
-        * Update the mapped status based on the success of this dataflow, and fail accordingly
-* Select Tables That Require Masking. This is done by querying the metadata store. This will provide a list of tables
-  that need masking, and if they need to be masked leveraging conditional algorithms, the set of required filters.
-  * For Each Table To Mask
-    * Check if the table must be masked with a filter condition
-      * If no filter needs to be applied:
-        * Call the `dcsazure_Cassandra_to_Cassandra_unfiltered_mask_df` data flow, passing in parameters as generated by
-          the `Lookup Masking Parameters` activity
-        * Update the mapped status based on the success of this dataflow, and fail accordingly
-      * If a filter needs to be applied:
-        * Call the `dcsazure_Cassandra_to_Cassandra_filtered_mask_df` data flow, passing in parameters as generated by
-          the `Lookup Masking Parameters` activity and the filter as determined by the output of For Each Table To Mask
-        * Update the mapped status based on the success of this dataflow, and fail accordingly
-* Note that there is a deactivated activity `Test Filter Conditions` that exists in order to support importing the
-  filter test utility dataflow, this is making it easier to test writing filter conditions leveraging a dataflow debug
-  session
+
+* Execute ADLS Masking Pipeline
+  * Check If We Should Reapply Mapping
+    * If we should, Mark Table Mapping Incomplete. This is done by updating the metadata store to indicate that tables have not had their mapping applied
+  * Select Directories We Should Purge
+    * Select sink directories with an incomplete mapping and based on the value of P_TRUNCATE_SINK_BEFORE_WRITE, create a list of directories that we should purge
+      * For Each Directory To Purge:
+        * Check For The Directory
+        * If the directory exists, delete everything in that directory
+  * Select Tables Without Required Masking. This is done by querying the metadata store.
+    * Filter If Copy Unmask Enabled. This is done by applying a filter based on the value of P_COPY_UNMASKED_TABLES
+      * For Each Table With No Masking. Provided we have any rows left after applying the filter
+        * If Copy Via Dataflow - based on the value of P_COPY_USE_DATAFLOW
+          * If the data flow is to be used for copy then call `dcsazure_Cassandra_to_Cassandra_ADLS_delimited_copy_df`
+            * Update the mapped status based on the success of this dataflow, and fail accordingly
+          * If the data flow is not to be used for copy, then use a copy activity
+            * Update the mapped status based on the success of this dataflow, and fail accordingly
+  * Select Tables That Require Masking. This is done by querying the metadata store. This will provide a list of tables that need masking, and if they need to be masked leveraging conditional algorithms, the set of required filters.
+    * Configure Masked Status. Set the masked status based on the defined filters that need to be applied for the table to be marked as completely mapped.
+    * For Each Table To Mask
+      * Check if the table must be masked with a filter condition
+        * If no filter needs to be applied:
+          * Call the `dcsazure_Cassandra_to_Cassandra_ADLS_delimited_unfiltered_mask_df` data flow, passing in parameters as generated by the Lookup Masking Parameters activity
+          * Update the mapped status based on the success of this dataflow, and fail accordingly
+        * If a filter is used:
+          * Fail the pipeline with the message `Conditional Masking is not supported`.
+  * Note that there is a deactivated activity Test Filter Conditions that exists in order to support importing the filter test utility dataflow, this is making it easier to test writing filter conditions leveraging a dataflow debug session
+* Check If We Should Copy Data To Cassandra
+  * Copy ADLS Data to Cassandra
+    * Export documents from ADLS to Cassandra DB container using an Azure Function
+* Until ADLS to Cassandra Durable Function is Success
+  * Poll the Azure Function execution status until the export completes
+* Check ADLS to Cassandra Status
+  * Validate that the export completed successfully, otherwise fail the pipeline
+* Delete ADLS Directory. Based on the value of the `P_DELETE_ADLS_AFTER_LOAD` parameter, this cleans up the temporary ADLS staging area.
+  * Select Directories We Should Purge. Creates a list of directories that are no longer needed.
+  * For Each Directory To Purge. Iterates through the list and deletes the staged data from ADLS.
 
 ### Variables
 
@@ -103,39 +102,35 @@ have customized your metadata store, then these variables may need editing.
   associated datatype required in ADF as needed for the pipeline (default `adf_type_mapping`)
 * `TARGET_BATCH_SIZE` - This is the target number of rows per batch (default `50000`)
 * `DATASET` - This is the way this data set is referred to in the metadata store (default `CASSANDRA`)
-* `CONDITIONAL_MASKING_RESERVED_CHARACTER` - This is a string (preferably a character) reserved as for shorthand for
-  when referring to the key column when defining filter conditions, in the pipeline this will be expanded out to use the
-  ADF syntax for referencing the key column (default `%`)
 * `METADATA_EVENT_PROCEDURE_NAME` - This is the name of the procedure used to capture pipeline information in the
   metadata data store and sets the masked and mapping states on the items processed during execution
   (default `insert_adf_masking_event`).
 * `METADATA_MASKING_PARAMS_PROCEDURE_NAME` - This is the name of the stored procedure used to generate masking
   parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
-* `STORAGE_ACCOUNT` -  Azure Storage account name used during metadata discovery.Default: dcscassandra.
+* `STORAGE_ACCOUNT` -  Azure Storage account name used during metadata discovery.(`Default: dcscassandra`).
 * `COLUMN_WIDTH_ESTIMATE` - This variable is used for getting the size of the columns need to be masked (default `1000`).
-* `ADLS_TO_CASSANDRA_BATCH_SIZE` - This is a path that specifies where we should stage data as it moves through the pipeline
-  and should reference a storage container in a storage account (default: `dcscassandra`)
-  * `ADLS_TO_CASSANDRA_BATCH_SIZE` - This is the number of rows per batch while copying the data from Cassandra database to ADLS (default `1000`)
-* `CASSANDRA_KEY_VAULT_NAME` – Name of the Azure Key Vault that stores the Cassandra DB access key
-* `CASSANDRA_SECRET_NAME` – Name of the secret in Key Vault containing the Cassandra DB access key
+* `ADLS_TO_CASSANDRA_BATCH_SIZE` - This is the number of rows per batch while copying the data from Cassandra database to ADLS(default`1000`).
+* `CASSANDRA_USERNAME` - String - Username used to authenticate against the Cassandra cluster.
+* `CASSANDRA_KEY_VAULT_NAME` - Name of the Azure Key Vault that stores the Cassandra DB access key(`Default: DCS_PLACEHOLDER`).
+* `CASSANDRA_SECRET_NAME` - Name of the secret in Key Vault containing the Cassandra DB access key(`Default: DCS_PLACEHOLDER`).
 
 ### Parameters
 
-* `P_CASSANDRA_CONTACT_POINTS` – String - Hostname or IP address(es) of the Cassandra node(s) used to establish the initial cluster connection (seed or preferred nodes)
-* `P_CASSANDRA_PORT` – Int - Port number on which the Cassandra service is listening (default: `9042`).
-* `P_CASSANDRA_USERNAME` – String - Username used to authenticate against the Cassandra cluster.
-* `P_CASSANDRA_SOURCE_KEYSPACE` – String - Source Cassandra keyspace that contains the input (source) tables.
-* `P_CASSANDRA_SINK_KEYSPACE` – String - Target Cassandra keyspace where the output (masked or transformed) data will be written.
-* `P_CASSANDRA_TABLE` – String -  Name of the Cassandra table to be processed.
-* `P_CASSANDRA_PREFERRED_NODE` – String - Specific Cassandra node (IP/hostname) to be preferred for read/write operations, enabling node-level control.
-* `P_CASSANDRA_PREFERRED_PORT` – String - Specific Cassandra node (IP/hostname) to be preferred for read/write operations, enabling node-level control.
-* `P_ADLS_SOURCE_CONTAINER_NAME` - String - ADLS container name where the data should be taken.
+* `P_CASSANDRA_CONTACT_POINTS` - String - Hostname or IP address(es) of the Cassandra node(s) used to establish the initial cluster connection (seed or preferred nodes)
+* `P_CASSANDRA_PORT` - Int - Port number on which the Cassandra service is listening.
+* `P_CASSANDRA_SOURCE_KEYSPACE` - String - Source Cassandra keyspace that contains the input (source) tables.
+* `P_CASSANDRA_SINK_KEYSPACE` - String - Target Cassandra keyspace where the output (masked or transformed) data will be written.
+* `P_CASSANDRA_TABLE` - String -  Name of the Cassandra table to be processed.
 * `P_ADLS_SINK_CONTAINER_NAME` - String - ADLS container name where processed data will be written.
- `P_COPY_USE_DATAFLOW` - Bool - Indicates whether the pipeline should use a Copy Data Flow instead of a Copy Activity.
-* `P_COPY_UNMASKED_TABLES` - Bool - Determines whether unmasked tables should also be copied as part of the pipeline execution.
-* `P_REAPPLY_MAPPING` - Bool - Controls whether source-to-sink mappings should be reset and reapplied (default: true).
-* `P_TRUNCATE_SINK_BEFORE_WRITE` - Bool - Controls whether existing data in the sink location should be truncated before writing new data (default: true).
+* `P_ADLS_SOURCE_CONTAINER_NAME` - String - ADLS container name where the data should be taken.
+* `P_CASSANDRA_PREFERRED_NODE` - String - Specific Cassandra node (IP/hostname) to be preferred for read/write operations, enabling node-level control.
+* `P_CASSANDRA_PREFERRED_PORT` - String - Specific Cassandra node (IP/hostname) to be preferred for read/write operations, enabling node-level control.
+* `P_COPY_USE_DATAFLOW` - Bool - Indicates whether the pipeline should use a Copy Data Flow instead of a Copy Activity.
 * `P_FAIL_ON_NONCONFORMANT_DATA` - Bool - Determines whether the pipeline should fail when non-conformant data is encountered (default: true).
+* `P_REAPPLY_MAPPING` - Bool - Controls whether source-to-sink mappings should be reset and reapplied (default: true).
+* `P_COPY_UNMASKED_TABLES` - Bool - Determines whether unmasked tables should also be copied as part of the pipeline execution.
+* `P_TRUNCATE_SINK_BEFORE_WRITE` - Bool - Controls whether existing data in the sink location should be truncated before writing new data (default: true).
+
 * `P_COPY_ADLS_DATA_TO_CASSANDRA` - Bool - Determines whether the pipeline should fail when non-conformant data is encountered (default: true).
 * `P_DELETE_ADLS_AFTER_LOAD` - Bool - Determines whether the extracted files in ADLS should be deleted after the data has been successfully loaded into the target system (default: false).
 * `P_DELETE_ADLS_RECORDS` - Bool - Determines whether existing records/files in the ADLS staging location should be deleted before the pipeline execution begins (default: false).
@@ -149,8 +144,8 @@ have customized your metadata store, then these variables may need editing.
     * This allows the function to run without time limits until all records are processed.
     * This approach is especially recommended when the target container has low RU provisioning or a very large number of records.
     * The Azure Function timeout is explicitly configured to **12 hours** using the `functionTimeout` setting to support large Cassandra DB containers.
-* If the Azure Function fails with out-of-memory errors (exit code 137), adjust the `Cassandra_TO_ADLS_BATCH_SIZE` to reduce memory pressure.
-* Update the `Cassandra_KEY_VAULT_NAME` and `Cassandra_SECRET_NAME` variables to match the target Cassandra DB account before triggering the pipeline.
+* If the Azure Function fails with out-of-memory errors (exit code 137), adjust the `CASSANDRA_TO_ADLS_BATCH_SIZE` to reduce memory pressure.
+* Update the `CASSANDRA_KEY_VAULT_NAME` and `CASSANDRA_SECRET_NAME` variables to match the target Cassandra DB account before triggering the pipeline.
 * The `source_metadata` column in the `discovered_ruleset` table can be used to determine which partition data is currently staged in ADLS prior to running the masking pipeline. For example:
   ```sql
   SELECT

@@ -131,7 +131,7 @@
                       },
                       "input_parameters": {
                         "value": {
-                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
+                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{variables('CASSANDRA_USERNAME')}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -305,7 +305,7 @@
                       "type": "Expression"
                     },
                     "body": {
-                      "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
+                      "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{variables('CASSANDRA_USERNAME')}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
                       "type": "Expression"
                     },
                     "headers": {},
@@ -382,7 +382,7 @@
                       },
                       "input_parameters": {
                         "value": {
-                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
+                          "value": "{\n  \"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n   \"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n  \"cassandra_preferred_node\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n  \"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n  \"cassandra_username\": \"@{variables('CASSANDRA_USERNAME')}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n  \"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\",\n  \"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n  \"cassandra_partition_key\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY}\",\n  \"cassandra_partition_key_value\": \"@{pipeline().parameters.P_CASSANDRA_PARTITION_KEY_VALUE}\",\n  \"cassandra_clustering_key\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY}\",\n  \"cassandra_clustering_key_value\": \"@{pipeline().parameters.P_CASSANDRA_CLUSTERING_KEY_VALUE}\",\n  \"adls_batch_size\": \"@{variables('CASSANDRA_TO_ADLS_BATCH_SIZE')}\",\n   \"array_processing_batch_size\": \"@{variables('ARRAY_PROCESSING_BATCH_SIZE')}\",\n  \"adls_account_name\": \"@{variables('STORAGE_ACCOUNT')}\",\n   \"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}\",\n  \"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE}\"\n}\n",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -535,9 +535,6 @@
           "P_CASSANDRA_PORT": {
             "type": "string"
           },
-          "P_CASSANDRA_USERNAME": {
-            "type": "string"
-          },
           "P_CASSANDRA_SOURCE_KEYSPACE": {
             "type": "string"
           },
@@ -623,13 +620,16 @@
           "ARRAY_PROCESSING_BATCH_SIZE": {
             "type": "String",
             "defaultValue": "2000"
+          },
+          "CASSANDRA_USERNAME": {
+            "type": "String"
           }
         },
         "folder": {
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-04-14T07:02:48Z"
+        "lastPublishTime": "2026-04-26T11:24:37Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_discovery_pl')]"
@@ -2639,7 +2639,7 @@
             "     DF_NUM_ROWS_TO_PROFILE as integer (1000),",
             "     DF_METADATA_SCHEMA as string ('dbo'),",
             "     DF_METADATA_RULESET_TABLE as string ('discovered_ruleset'),",
-            "     DF_DATASET as string ('CASSANDRA'),",
+            "     DF_DATASET as string ('ADLS-DELIMITED'),",
             "     DF_SOURCE_CONTAINER as string (''),",
             "     DF_COLUMN_DELIMITER as string (''),",
             "     DF_QUOTE_CHARACTER as string ('\\\"'),",

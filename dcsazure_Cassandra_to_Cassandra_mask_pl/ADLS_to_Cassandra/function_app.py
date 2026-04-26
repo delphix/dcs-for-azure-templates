@@ -32,8 +32,13 @@ DEFAULT_BASE_DELAY           = 0.5
 DEFAULT_MAX_DELAY            = 60.0
 PIPE_DELIMITER               = "|"
 ESCAPE_CHARACTER             = "\\"
-ADLS_DOWNLOAD_CHUNK_BYTES    = 4 * 1024 * 1024   # 4 MB per streaming download chunk
-CSV_PARSE_CHUNK_ROWS         = 50_000             # rows per pandas CSV parse chunk
+ADLS_DOWNLOAD_CHUNK_BYTES    = 4 * 1024 * 1024   # 4 MiB per streaming download chunk
+CSV_PARSE_CHUNK_ROWS         = 50_000
+
+GC_BATCH_INTERVAL            = 5
+META_COLS                    = {"_rid", "_parent_rid", "_row_rid"}
+PARENT_KEY                   = "parent"
+CHILDREN_KEY                 = "children"
 
 # ============================================================================
 # AZURE FUNCTIONS APP
@@ -257,11 +262,11 @@ def _parse_cassandra_timestamp(value: str):
     v = value.strip()
     for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
                 "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S",
-                "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"):
+                "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ"):
         try: return _dt.strptime(v, fmt)
         except ValueError: continue
     logging.warning(f"[_parse_cassandra_timestamp] Cannot parse {v!r}.")
-    return v
+    return value
 
 def _parse_cassandra_date(value: str):
     from datetime import date as _date, datetime as _dt
@@ -270,11 +275,12 @@ def _parse_cassandra_date(value: str):
     try: return _date.fromisoformat(v)
     except ValueError: pass
     for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
+                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d"):
         try: return _dt.strptime(v, fmt).date()
         except ValueError: continue
     logging.warning(f"[_parse_cassandra_date] Cannot parse {v!r}.")
-    return v
+    return value
 
 def _parse_cassandra_time(value: str):
     from datetime import datetime as _dt
@@ -284,15 +290,13 @@ def _parse_cassandra_time(value: str):
         try: return _dt.strptime(v, fmt).time()
         except ValueError: continue
     logging.warning(f"[_parse_cassandra_time] Cannot parse {v!r}.")
-    return v
+    return value
 
 def coerce_to_cql_type(value: str, cql_type: str):
     t = (cql_type or "text").lower().strip()
     try:
-        if t in ("int", "smallint", "tinyint", "varint"):  return int(value)
-        if t in ("bigint", "counter"):                     return int(value)
-        if t in ("float",):                                return float(value)
-        if t in ("double", "decimal"):                     return float(value)
+        if t in ("int", "smallint", "tinyint", "varint", "bigint", "counter"): return int(value)
+        if t in ("float", "double", "decimal"):                                 return float(value)
         if t in ("boolean",):                              return value.strip().lower() in ("true", "1", "yes")
         if t in ("uuid", "timeuuid"):                      return uuid.UUID(value)
         if t in ("timestamp",):                            return _parse_cassandra_timestamp(value)
@@ -302,6 +306,15 @@ def coerce_to_cql_type(value: str, cql_type: str):
     except Exception as e:
         logging.warning(f"[coerce_to_cql_type] Cannot coerce {value!r} → {cql_type!r}: {e}")
         return value
+
+
+def _parse_key_value_list(raw_value, delimiter=",") -> list:
+    """Normalises a partition/clustering key value to a list, handling str, list, or scalar."""
+    if isinstance(raw_value, str):
+        return [v.strip() for v in raw_value.split(delimiter) if v.strip()]
+    elif isinstance(raw_value, list):
+        return raw_value
+    return [raw_value]
 
 
 class CassandraMetadata:
@@ -388,20 +401,11 @@ class CassandraMetadata:
 
             pk_type = get_column_type(session, keyspace, table, partition_key)
 
-            # Ensure value is list for IN
-            if isinstance(partition_key_value, str):
-                partition_key_value = [v.strip() for v in partition_key_value.split(",") if v.strip()]
-            elif not isinstance(partition_key_value, list):
-                partition_key_value = [partition_key_value]
-
-            coerced_values = [
-                coerce_to_cql_type(v, pk_type) for v in partition_key_value
-            ]
-
-            placeholders = ",".join(["%s"] * len(coerced_values))
-
+            pkv_list = _parse_key_value_list(partition_key_value)
+            coerced_pk_values = [coerce_to_cql_type(v, pk_type) for v in pkv_list]
+            placeholders = ",".join(["%s"] * len(coerced_pk_values))
             where_clause = f'WHERE "{partition_key}" IN ({placeholders})'
-            bind_values = coerced_values
+            bind_values  = list(coerced_pk_values)
 
             logging.info(
                 f"[detect_json_columns] Applying clustering filter — "
@@ -412,19 +416,10 @@ class CassandraMetadata:
 
                 ck_type = get_column_type(session, keyspace, table, clustering_key)
 
-                if isinstance(clustering_key_value, str):
-                    clustering_key_value = [v.strip() for v in clustering_key_value.split(",") if v.strip()]
-                elif not isinstance(clustering_key_value, list):
-                    clustering_key_value = [clustering_key_value]
-
-                coerced_ck_values = [
-                    coerce_to_cql_type(v, ck_type) for v in clustering_key_value
-                ]
-
+                ckv_list = _parse_key_value_list(clustering_key_value)
+                coerced_ck_values = [coerce_to_cql_type(v, ck_type) for v in ckv_list]
                 ck_placeholders = ",".join(["%s"] * len(coerced_ck_values))
-
                 where_clause += f' AND "{clustering_key}" IN ({ck_placeholders})'
-
                 bind_values.extend(coerced_ck_values)
 
             cql = (
@@ -540,8 +535,8 @@ class StreamingCassandraReader:
         Input  : session — active Cassandra connection; keyspace/table — what to read;
                  batch_size — how many rows per batch;
                  partition_key/value — optional filter to read specific partitions only;
-                 clustering_key/value — optional secondary filter (requires partition filter);
-                 retry_strategy — retry policy (a default one is used if not provided)
+                 retry_strategy — retry policy (a default one is used if not provided);
+                 clustering_key/value — optional secondary filter (requires partition filter)
         """
         self.session               = session
         self.keyspace              = keyspace
@@ -576,34 +571,19 @@ class StreamingCassandraReader:
         Values are automatically cast to the correct Cassandra type before querying.
         Output : yields batches of matching Cassandra rows
         """
-        pk_type       = get_column_type(self.session, self.keyspace, self.table, self.partition_key)
-        
-        # Ensure values are lists for IN operator
-        if isinstance(self.partition_key_value, str):
-            pkv_list = [v.strip() for v in self.partition_key_value.split(",") if v.strip()]
-        elif isinstance(self.partition_key_value, list):
-            pkv_list = self.partition_key_value
-        else:
-            pkv_list = [self.partition_key_value]
-
+        pk_type  = get_column_type(self.session, self.keyspace, self.table, self.partition_key)
+        pkv_list = _parse_key_value_list(self.partition_key_value)
         coerced_values = [coerce_to_cql_type(v, pk_type) for v in pkv_list]
-        placeholders = ",".join(["?"] * len(coerced_values))
-        bind_values  = coerced_values
-        where_clause = f'WHERE "{self.partition_key}" IN ({placeholders})'
+        placeholders   = ",".join(["?"] * len(coerced_values))
+        bind_values    = list(coerced_values)
+        where_clause   = f'WHERE "{self.partition_key}" IN ({placeholders})'
 
         if self.clustering_key and self.clustering_key_value:
-            ck_type = get_column_type(self.session, self.keyspace, self.table, self.clustering_key)
-            
-            if isinstance(self.clustering_key_value, str):
-                ckv_list = [v.strip() for v in self.clustering_key_value.split(",") if v.strip()]
-            elif isinstance(self.clustering_key_value, list):
-                ckv_list = self.clustering_key_value
-            else:
-                ckv_list = [self.clustering_key_value]
-
+            ck_type  = get_column_type(self.session, self.keyspace, self.table, self.clustering_key)
+            ckv_list = _parse_key_value_list(self.clustering_key_value)
             coerced_ck_values = [coerce_to_cql_type(v, ck_type) for v in ckv_list]
-            ck_placeholders = ",".join(["?"] * len(coerced_ck_values))
-            where_clause    += f' AND "{self.clustering_key}" IN ({ck_placeholders})'
+            ck_placeholders   = ",".join(["?"] * len(coerced_ck_values))
+            where_clause      += f' AND "{self.clustering_key}" IN ({ck_placeholders})'
             bind_values.extend(coerced_ck_values)
             logging.info(f"[stream_rows] CLUSTERING filter — key={self.clustering_key!r} value={ckv_list!r}")
 
@@ -612,7 +592,7 @@ class StreamingCassandraReader:
             f'{where_clause} ALLOW FILTERING'
         )
         logging.info(f"[_stream_partition] Executing partition-filtered query: {cql}")
-                     
+
         def _execute():
             stmt = self.session.prepare(cql)
             stmt.fetch_size = self.batch_size
@@ -644,7 +624,7 @@ class StreamingCassandraReader:
     def _paginate(self, result_set) -> Iterator[List]:
         """
         Groups rows from a Cassandra result set into fixed-size batches and yields each one.
-        Cleans up memory every 5 batches to keep usage bounded.
+        Cleans up memory every GC_BATCH_INTERVAL batches to keep usage bounded.
         Input  : result_set — a Cassandra query result
         Output : yields List of rows, each list up to batch_size long
         """
@@ -657,7 +637,7 @@ class StreamingCassandraReader:
                 yield batch
                 batch = []
                 batch_count += 1
-                if batch_count % 5 == 0:
+                if batch_count % GC_BATCH_INTERVAL == 0:
                     force_gc()
         if batch:
             yield batch
@@ -678,19 +658,19 @@ def flatten_no_arrays(d: Dict, parent: str = "") -> Dict:
     Input  : d — the nested dict to flatten; parent — key prefix (used internally)
     Output : flat dict with dotted keys
     """
-    flat: Dict = {}
+    flattened: Dict = {}
     stack = [(d, parent)]
     while stack:
         current_dict, current_parent = stack.pop()
         for k, v in current_dict.items():
             key = f"{current_parent}.{k}" if current_parent else k
             if isinstance(v, list):
-                flat[key] = v
+                flattened[key] = v
             elif isinstance(v, dict):
                 stack.append((v, key))
             else:
-                flat[key] = v
-    return flat
+                flattened[key] = v
+    return flattened
 
 
 def _process_flat_fields(
@@ -792,8 +772,8 @@ def _process_single_row(
         try:
             parsed = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, ValueError):
-            json_col_output.setdefault(jcol, {"parent": [], "children": {}})
-            json_col_output[jcol]["parent"].append({"_row_rid": row_rid, jcol: raw})
+            json_col_output.setdefault(jcol, {PARENT_KEY: [], CHILDREN_KEY: {}})
+            json_col_output[jcol][PARENT_KEY].append({"_row_rid": row_rid, jcol: raw})
             continue
 
         if isinstance(parsed, dict):
@@ -801,19 +781,19 @@ def _process_single_row(
         elif isinstance(parsed, list):
             doc = {jcol: parsed}
         else:
-            json_col_output.setdefault(jcol, {"parent": [], "children": {}})
-            json_col_output[jcol]["parent"].append({"_row_rid": row_rid, jcol: parsed})
+            json_col_output.setdefault(jcol, {PARENT_KEY: [], CHILDREN_KEY: {}})
+            json_col_output[jcol][PARENT_KEY].append({"_row_rid": row_rid, jcol: parsed})
             continue
 
         parent_fields, child_rows = extract_arrays_streaming(doc, row_rid, base_table=jcol)
         parent_fields["_row_rid"] = row_rid
         parent_fields.pop("_rid", None)
 
-        entry = json_col_output.setdefault(jcol, {"parent": [], "children": {}})
+        entry = json_col_output.setdefault(jcol, {PARENT_KEY: [], CHILDREN_KEY: {}})
         if parent_fields:
-            entry["parent"].append(parent_fields)
+            entry[PARENT_KEY].append(parent_fields)
         for arr_name, rows_list in child_rows.items():
-            entry["children"].setdefault(arr_name, []).extend(rows_list)
+            entry[CHILDREN_KEY].setdefault(arr_name, []).extend(rows_list)
 
         del child_rows, parent_fields, parsed, doc
 
@@ -834,16 +814,16 @@ def process_cassandra_batch_streaming(
     Output : (parent DataFrame, {json_col: {parent: DataFrame, children: {name: DataFrame}}})
     """
     parent_records: List[Dict] = []
-    accumulator: Dict[str, Dict] = {jcol: {"parent": [], "children": {}} for jcol in json_cols}
+    accumulator: Dict[str, Dict] = {jcol: {PARENT_KEY: [], CHILDREN_KEY: {}} for jcol in json_cols}
 
     for row in rows:
         parent_record, json_col_output = _process_single_row(row, relational_cols, json_cols)
         parent_records.append(parent_record)
 
         for jcol, data in json_col_output.items():
-            accumulator[jcol]["parent"].extend(data["parent"])
-            for arr_name, child_list in data["children"].items():
-                accumulator[jcol]["children"].setdefault(arr_name, []).extend(child_list)
+            accumulator[jcol][PARENT_KEY].extend(data[PARENT_KEY])
+            for arr_name, child_list in data[CHILDREN_KEY].items():
+                accumulator[jcol][CHILDREN_KEY].setdefault(arr_name, []).extend(child_list)
 
         del json_col_output
 
@@ -854,15 +834,15 @@ def process_cassandra_batch_streaming(
     json_col_results: Dict[str, Dict[str, pd.DataFrame]] = {}
 
     for jcol, data in accumulator.items():
-        parent_df_jcol = pd.DataFrame(data["parent"]) if data["parent"] else pd.DataFrame()
+        parent_df_jcol = pd.DataFrame(data[PARENT_KEY]) if data[PARENT_KEY] else pd.DataFrame()
 
         children_dfs: Dict[str, pd.DataFrame] = {}
-        for arr_name, row_list in data["children"].items():
+        for arr_name, row_list in data[CHILDREN_KEY].items():
             if row_list:
                 children_dfs[arr_name] = pd.DataFrame(row_list)
             del row_list
 
-        json_col_results[jcol] = {"parent": parent_df_jcol, "children": children_dfs}
+        json_col_results[jcol] = {PARENT_KEY: parent_df_jcol, CHILDREN_KEY: children_dfs}
         del parent_df_jcol, children_dfs, data
 
     del accumulator
@@ -896,14 +876,11 @@ def clean_dataframe(df_obj: Optional[pd.DataFrame]) -> pd.DataFrame:
         if df_obj[col].dtype == object:
             df_obj[col] = df_obj[col].apply(fix_value)
 
-    meta_cols = {"_rid", "_parent_rid", "_row_rid"}
-    data_cols = [c for c in df_obj.columns if c not in meta_cols]
+    data_cols = [c for c in df_obj.columns if c not in META_COLS]
     if data_cols:
         df_obj = df_obj.dropna(subset=data_cols, how="all")
 
     return df_obj.reset_index(drop=True)
-
-
 
 
 # ============================================================================
@@ -1151,8 +1128,8 @@ def validate_and_extract_params(params: dict) -> dict:
         "cassandra_username":              params.get("cassandra_username"),
         "cassandra_keyspace":              params.get("cassandra_keyspace"),
         "cassandra_table":                 params.get("cassandra_table"),
-        "Cassandra_key_vault_name":        params.get("Cassandra_key_vault_name"),
-        "Cassandra_key_vault_secret_name": params.get("Cassandra_key_vault_secret_name"),
+        "cassandra_key_vault_name":        params.get("cassandra_key_vault_name"),
+        "cassandra_key_vault_secret_name": params.get("cassandra_key_vault_secret_name"),
     }
     missing = [k for k, v in required.items() if not v]
     if missing:
@@ -1213,8 +1190,8 @@ def validate_and_extract_params(params: dict) -> dict:
         "cassandra_partition_key_value":  raw_pkv,
         "cassandra_clustering_key":       raw_ck  or None,
         "cassandra_clustering_key_value": raw_ckv,
-        "key_vault_name":                 params["Cassandra_key_vault_name"],
-        "key_vault_secret_name":          params["Cassandra_key_vault_secret_name"],
+        "key_vault_name":                 params["cassandra_key_vault_name"],
+        "key_vault_secret_name":          params["cassandra_key_vault_secret_name"],
         "batch_size":                     batch_size,
         "array_processing_batch_size":    array_batch,
         "truncate_sink_before_write":     truncate,
@@ -1384,7 +1361,7 @@ def _run_cassandra_to_adls(params: dict):
                 # ── STEP 3: Upload each JSON column's parent + children ────────
                 for jcol, data in json_col_results.items():
                     jcol_dir       = f"{export_dir}/{jcol}"
-                    jcol_parent_df = data["parent"]
+                    jcol_parent_df = data[PARENT_KEY]
 
                     if not jcol_parent_df.empty:
                         json_col_parent_schemas[jcol] = upload_csv_to_adls(
@@ -1400,11 +1377,11 @@ def _run_cassandra_to_adls(params: dict):
                         adls_file_system=params["adls_file_system"],
                         export_dir=export_dir,
                         json_col_name=jcol,
-                        children=data["children"],
+                        children=data[CHILDREN_KEY],
                         child_schemas=json_col_child_schemas[jcol],
                         mode=mode,
                     )
-                    data["children"].clear()
+                    data[CHILDREN_KEY].clear()
 
                 del json_col_results
                 force_gc()
@@ -1577,17 +1554,22 @@ def _infer_csv_value(val):
     if val is None: return None
     if isinstance(val, float) and _math.isnan(val): return None
     if not isinstance(val, str): return val
-    s = val.strip()
+    s     = val.strip()
+    lower = s.lower()
     if s == "": return None
-    lo = s.lower()
-    if lo == "true":  return True
-    if lo == "false": return False
+    if lower == "true":  return True
+    if lower == "false": return False
     try:
-        if "." not in s and "e" not in lo: return int(s)
+        if "." not in s and "e" not in lower: return int(s)
     except ValueError: pass
     try:    return float(s)
     except ValueError: pass
     return s
+
+
+def _is_falsy_string(value) -> bool:
+    """Returns True if value is empty, "false", "0", "nan", or "none"."""
+    return not value or str(value).strip().lower() in ("", "false", "0", "nan", "none")
 
 
 def reconstruct_json_for_row(row: Dict, arr_name: str, children_index: Dict[str, Dict[str, List[Dict]]]) -> Dict:
@@ -1602,10 +1584,10 @@ def reconstruct_json_for_row(row: Dict, arr_name: str, children_index: Dict[str,
     result: Dict = {}
     rid = row.get("_rid") or row.get("_row_rid", "")
     for key, value in row.items():
-        if key in ("_rid", "_parent_rid", "_row_rid"):
+        if key in META_COLS:
             continue
         if key.startswith("_has_array_"):
-            if not value or str(value).strip().lower() in ("", "false", "0", "nan", "none"):
+            if _is_falsy_string(value):
                 continue
             array_key      = key[len("_has_array_"):]
             child_arr_name = f"{arr_name}.{array_key}"
@@ -1860,8 +1842,8 @@ def validate_adls_to_cassandra_params(params: dict) -> dict:
         "cassandra_username":              params.get("cassandra_username"),
         "cassandra_keyspace":              params.get("cassandra_keyspace"),
         "cassandra_table":                 params.get("cassandra_table"),
-        "Cassandra_key_vault_name":        params.get("Cassandra_key_vault_name"),
-        "Cassandra_key_vault_secret_name": params.get("Cassandra_key_vault_secret_name"),
+        "cassandra_key_vault_name":        params.get("cassandra_key_vault_name"),
+        "cassandra_key_vault_secret_name": params.get("cassandra_key_vault_secret_name"),
     }
     missing = [k for k, v in required.items() if not v]
     if missing:
@@ -1889,8 +1871,8 @@ def validate_adls_to_cassandra_params(params: dict) -> dict:
         "cassandra_username":              params["cassandra_username"],
         "cassandra_keyspace":              params["cassandra_keyspace"],
         "cassandra_table":                 params["cassandra_table"],
-        "key_vault_name":                  params["Cassandra_key_vault_name"],
-        "key_vault_secret_name":           params["Cassandra_key_vault_secret_name"],
+        "key_vault_name":                  params["cassandra_key_vault_name"],
+        "key_vault_secret_name":           params["cassandra_key_vault_secret_name"],
         "batch_size":                      batch_size,
         "truncate_sink_before_write":      truncate,
         "delete_adls_records":             delete_adls,
@@ -2048,18 +2030,18 @@ def _run_adls_to_cassandra(params: dict):
         retry_stats = retry_strategy.get_stats()
         duration    = (datetime.utcnow() - start_time).total_seconds()
         return {
-            "status":                       "success",
-            "rows_written":                 rows_written,
-            "rows_failed":                  rows_attempted - rows_written,
-            "rows_attempted":               rows_attempted,
-            "json_columns_reconstructed":   json_cols,
-            "relational_columns":           relational_cols,
-            "batches_processed":            batch_num,
-            "batch_size":                   batch_size,
-            "duration_seconds":             round(duration, 2),
+            "status":                         "success",
+            "rows_written":                   rows_written,
+            "rows_failed":                    rows_attempted - rows_written,
+            "rows_attempted":                 rows_attempted,
+            "json_columns_reconstructed":     json_cols,
+            "relational_columns":             relational_cols,
+            "batches_processed":              batch_num,
+            "batch_size":                     batch_size,
+            "duration_seconds":               round(duration, 2),
             "adls_records_deleted_per_batch": params.get("delete_adls_records", False),
-            "total_retries":                retry_stats.get("total_retries", 0),
-            "retries_by_error_type":        retry_stats.get("retries_by_error_type", {}),
+            "total_retries":                  retry_stats.get("total_retries", 0),
+            "retries_by_error_type":          retry_stats.get("retries_by_error_type", {}),
         }
 
     except Exception as e:
@@ -2136,7 +2118,7 @@ async def adls_to_cassandra_http_start(req: func.HttpRequest, client) -> func.Ht
     Input  : req — HTTP POST with a JSON body containing all pipeline parameters;
              required: adls_account_name, adls_file_system, cassandra_contact_points,
              cassandra_username, cassandra_keyspace, cassandra_table,
-             Cassandra_key_vault_name, Cassandra_key_vault_secret_name
+             cassandra_key_vault_name, cassandra_key_vault_secret_name
     Output : 202 with status-check URLs on success; 400 for bad JSON; 500 on start failure
     """
     try:
@@ -2145,7 +2127,7 @@ async def adls_to_cassandra_http_start(req: func.HttpRequest, client) -> func.Ht
         return func.HttpResponse("Invalid JSON body", status_code=400)
 
     direction = "adls_to_cassandra"
-    
+
     try:
         instance_id = await client.start_new("adls_to_cassandra_orchestrator", None, body)
         logging.info(f"[adls_to_cassandra_http_start] instance={instance_id} direction={direction}")

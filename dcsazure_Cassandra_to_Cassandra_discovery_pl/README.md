@@ -19,13 +19,13 @@ your Cassandra containers.
 
 These linked services types are needed for the following steps:
 
-`Azure Function` (Cassandra to ADLS) – Linked service associated with exporting Cassandra DB data to ADLS. This will be used for the following steps:
-* Check If We Should Copy Cassandra to ADLS (If Condition activity)
-
 `Azure Data Lake Storage Gen2` (staging) - Linked service associated with the ADLS account used for staging Cassandra DB exports. This will be used for the following steps:
 * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_discovery_ds (DelimitedText dataset),
 * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_data_discovery_df/SourceData1MillRowDataSampling (dataFlow),
 * dcsazure_Cassandra_to_Cassandra_ADLS_delimited_header_file_schema_discovery_ds (DelimitedText dataset)
+
+`Azure Function` (Cassandra to ADLS) - Linked service associated with exporting Cassandra DB data to ADLS. This will be used for the following steps:
+* Check If We Should Copy Cassandra to ADLS (If Condition activity)
 
 `Azure SQL` (metadata) - Linked service associated with your hosted metadata store. This will be used for the following
 steps:
@@ -82,9 +82,10 @@ have customized your metadata store, then these variables may need editing.
   Default: get_columns_from_delimited_file_structure_sp.
 * `STORAGE_ACCOUNT` -  Azure Storage account name used during metadata discovery.Default: dcscassandra.
 * `MAX_LEVELS_TO_RECURSE` - Maximum directory recursion depth (default `10`)
-* `CASSANDRA_TO_ADLS_BATCH_SIZE` –  This is the number of rows per batch while copying the data from Cassandra DB to ADLS.
-* `CASSANDRA_KEY_VAULT_NAME` –  Name of the Azure Key Vault that stores the Cassandra DB access key
-* `CASSANDRA_SECRET_NAME` – Name of the secret in Key Vault containing the Cassandra DB access key
+* `CASSANDRA_USERNAME` - String - Username used to authenticate against the Cassandra cluster.
+* `CASSANDRA_TO_ADLS_BATCH_SIZE` -  This is the number of rows per batch while copying the data from Cassandra DB to ADLS.
+* `CASSANDRA_KEY_VAULT_NAME` -  Name of the Azure Key Vault that stores the Cassandra DB access key
+* `CASSANDRA_SECRET_NAME` - Name of the secret in Key Vault containing the Cassandra DB access key
 * `ARRAY_PROCESSING_BATCH_SIZE` - This is the number of arrays per batch while copying the data from Cassandra DB database to ADLS (default `50000`)
 
 
@@ -93,7 +94,6 @@ have customized your metadata store, then these variables may need editing.
 
 * `P_CASSANDRA_CONTACT_POINTS` - String - Hostname or IP address(es) of the Cassandra node(s) used to establish the initial connection to the cluster.
 * `P_CASSANDRA_PORT` - Int - Port number on which the Cassandra service is listening.
-* `P_CASSANDRA_USERNAME` - String - Username used to authenticate against the Cassandra cluster.
 * `P_CASSANDRA_KEYSPACE` - String - Cassandra keyspace that contains the target table.
 * `P_CASSANDRA_TABLE` - String - Name of the Cassandra table to be read from or written to.
 * `P_CASSANDRA_PREFERRED_NODE` - String - Preferred Cassandra node (IP or hostname) for node-specific read or write operations.

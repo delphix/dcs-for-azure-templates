@@ -107,10 +107,6 @@
                   "value": "@variables('DATASET')",
                   "type": "Expression"
                 },
-                "P_CONDITIONAL_MASKING_RESERVED_CHARACTER": {
-                  "value": "@variables('CONDITIONAL_MASKING_RESERVED_CHARACTER')",
-                  "type": "Expression"
-                },
                 "P_METADATA_EVENT_PROCEDURE_NAME": {
                   "value": "@variables('METADATA_EVENT_PROCEDURE_NAME')",
                   "type": "Expression"
@@ -145,7 +141,7 @@
               },
               "ifTrueActivities": [
                 {
-                  "name": "Update Copy ADLS Data to Cassandra State Fail_copy",
+                  "name": "Update Copy ADLS Data to Cassandra State Fail copy",
                   "type": "SqlServerStoredProcedure",
                   "dependsOn": [],
                   "policy": {
@@ -197,7 +193,7 @@
                       },
                       "input_parameters": {
                         "value": {
-                          "value": "{\n\"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n\"cassandra_preferred_node\":\"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n\"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n\"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n\"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"Cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"Cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n\"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n\"adls_account_name\":  \"@{variables('STORAGE_ACCOUNT')}\",\n\"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}\",\n\"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"truncate_sink_before_write\": \"@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}\",\n  \"adls_batch_size\": \"@{variables('ADLS_TO_CASSANDRA_BATCH_SIZE')}\",\n\"P_DELETE_ADLS_RECORDS\": \"@{pipeline().parameters.P_DELETE_ADLS_RECORDS}\"\n  }",
+                          "value": "{\n\"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n\"cassandra_preferred_node\":\"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n\"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n\"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n\"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"cassandra_username\":  \"@{variables('CASSANDRA_USERNAME')}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n\"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n\"adls_account_name\":  \"@{variables('STORAGE_ACCOUNT')}\",\n\"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}\",\n\"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"truncate_sink_before_write\": \"@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}\",\n  \"adls_batch_size\": \"@{variables('ADLS_TO_CASSANDRA_BATCH_SIZE')}\",\n\"P_DELETE_ADLS_RECORDS\": \"@{pipeline().parameters.P_DELETE_ADLS_RECORDS}\"\n  }",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -329,9 +325,12 @@
                   },
                   "userProperties": [],
                   "typeProperties": {
-                    "functionName": "ADLS_to_Cassandra_V1",
+                    "functionName": {
+                      "value": "@pipeline().parameters.P_FUNCTION_NAME",
+                      "type": "Expression"
+                    },
                     "body": {
-                      "value": "{\n\"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n\"cassandra_preferred_node\":\"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n\"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n\"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n\"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"Cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"Cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n\"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n\"adls_account_name\":  \"@{variables('STORAGE_ACCOUNT')}\",\n\"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}\",\n\"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"truncate_sink_before_write\": \"@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}\",\n  \"adls_batch_size\": \"@{variables('ADLS_TO_CASSANDRA_BATCH_SIZE')}\",\n\"P_DELETE_ADLS_RECORDS\": \"@{pipeline().parameters.P_DELETE_ADLS_RECORDS}\"\n  }",
+                      "value": "{\n\"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n\"cassandra_preferred_node\":\"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n\"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n\"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n\"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"cassandra_username\":  \"@{variables('CASSANDRA_USERNAME')}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n\"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n\"adls_account_name\":  \"@{variables('STORAGE_ACCOUNT')}\",\n\"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}\",\n\"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"truncate_sink_before_write\": \"@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}\",\n  \"adls_batch_size\": \"@{variables('ADLS_TO_CASSANDRA_BATCH_SIZE')}\",\n\"P_DELETE_ADLS_RECORDS\": \"@{pipeline().parameters.P_DELETE_ADLS_RECORDS}\"\n  }",
                       "type": "Expression"
                     },
                     "headers": {
@@ -478,7 +477,7 @@
                       },
                       "input_parameters": {
                         "value": {
-                          "value": "{\n\"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n\"cassandra_preferred_node\":\"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n\"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n\"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n\"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"cassandra_username\": \"@{pipeline().parameters.P_CASSANDRA_USERNAME}\",\n  \"Cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"Cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n\"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n\"adls_account_name\":  \"@{variables('STORAGE_ACCOUNT')}\",\n\"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}\",\n\"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"truncate_sink_before_write\": \"@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}\",\n  \"adls_batch_size\": \"@{variables('ADLS_TO_CASSANDRA_BATCH_SIZE')}\",\n\"P_DELETE_ADLS_RECORDS\": \"@{pipeline().parameters.P_DELETE_ADLS_RECORDS}\"\n  }",
+                          "value": "{\n\"cassandra_contact_points\": \"@{pipeline().parameters.P_CASSANDRA_CONTACT_POINTS}\",\n\"cassandra_preferred_node\":\"@{pipeline().parameters.P_CASSANDRA_PREFERRED_NODE}\",\n\"cassandra_port\": \"@{pipeline().parameters.P_CASSANDRA_PORT}\",\n\"cassandra_preferred_port\": \"@{pipeline().parameters.P_CASSANDRA_PREFERRED_PORT}\",\n\"cassandra_keyspace\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"cassandra_username\":  \"@{variables('CASSANDRA_USERNAME')}\",\n  \"cassandra_key_vault_name\": \"@{variables('CASSANDRA_KEY_VAULT_NAME')}\",\n  \"cassandra_key_vault_secret_name\": \"@{variables('CASSANDRA_SECRET_NAME')}\",\n\"cassandra_table\": \"@{pipeline().parameters.P_CASSANDRA_TABLE}\",\n\"adls_account_name\":  \"@{variables('STORAGE_ACCOUNT')}\",\n\"adls_file_system\": \"@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}\",\n\"adls_directory\": \"@{pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE}\",\n\"truncate_sink_before_write\": \"@{pipeline().parameters.P_TRUNCATE_SINK_BEFORE_WRITE}\",\n  \"adls_batch_size\": \"@{variables('ADLS_TO_CASSANDRA_BATCH_SIZE')}\",\n\"P_DELETE_ADLS_RECORDS\": \"@{pipeline().parameters.P_DELETE_ADLS_RECORDS}\"\n  }",
                           "type": "Expression"
                         },
                         "type": "String"
@@ -577,7 +576,7 @@
                   }
                 },
                 {
-                  "name": "ADLS to Cassandra Fails_copy",
+                  "name": "ADLS to Cassandra Fails copy",
                   "type": "Fail",
                   "dependsOn": [
                     {
@@ -603,7 +602,7 @@
             }
           },
           {
-            "name": "Delete_ADLS_Directory",
+            "name": "Delete ADLS Directory",
             "type": "IfCondition",
             "dependsOn": [
               {
@@ -618,30 +617,11 @@
               "expression": {
                 "value": "@equals(pipeline().parameters.P_DELETE_ADLS_AFTER_LOAD, true)",
                 "type": "Expression"
-              }
-            }
-          },
-          {
-            "name": "For Each Directory To Purge",
-            "type": "ForEach",
-            "dependsOn": [
-              {
-                "activity": "Select Directories We Should Purge",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "userProperties": [],
-            "typeProperties": {
-              "items": {
-                "value": "@if(equals(pipeline().parameters.P_DELETE_ADLS_AFTER_LOAD, true),\n    activity('Select Directories We Should Purge').output.value,\n    json('[]')\n)",
-                "type": "Expression"
               },
-              "activities": [
+              "ifTrueActivities": [
                 {
-                  "name": "Check For Files",
-                  "type": "GetMetadata",
+                  "name": "Purge Sink Directory",
+                  "type": "Delete",
                   "dependsOn": [],
                   "policy": {
                     "timeout": "0.12:00:00",
@@ -657,131 +637,24 @@
                       "type": "DatasetReference",
                       "parameters": {
                         "DS_CONTAINER": {
-                          "value": "@item().sink_database",
+                          "value": "@pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME",
                           "type": "Expression"
                         },
                         "DS_DIRECTORY": {
-                          "value": "@item().sink_directory",
+                          "value": "@concat(pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE,'/',pipeline().parameters.P_CASSANDRA_TABLE)",
                           "type": "Expression"
                         }
                       }
                     },
-                    "fieldList": [
-                      "exists"
-                    ],
+                    "enableLogging": false,
                     "storeSettings": {
                       "type": "AzureBlobFSReadSettings",
                       "recursive": true,
                       "enablePartitionDiscovery": false
-                    },
-                    "formatSettings": {
-                      "type": "DelimitedTextReadSettings"
                     }
-                  }
-                },
-                {
-                  "name": "If Sink Directory Exists",
-                  "type": "IfCondition",
-                  "dependsOn": [
-                    {
-                      "activity": "Check For Files",
-                      "dependencyConditions": [
-                        "Succeeded"
-                      ]
-                    }
-                  ],
-                  "userProperties": [],
-                  "typeProperties": {
-                    "expression": {
-                      "value": "@activity('Check For Files').output.exists",
-                      "type": "Expression"
-                    },
-                    "ifTrueActivities": [
-                      {
-                        "name": "Purge Sink Directory",
-                        "type": "Delete",
-                        "dependsOn": [],
-                        "policy": {
-                          "timeout": "0.12:00:00",
-                          "retry": 0,
-                          "retryIntervalInSeconds": 30,
-                          "secureOutput": false,
-                          "secureInput": false
-                        },
-                        "userProperties": [],
-                        "typeProperties": {
-                          "dataset": {
-                            "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds",
-                            "type": "DatasetReference",
-                            "parameters": {
-                              "DS_CONTAINER": {
-                                "value": "@item().sink_database",
-                                "type": "Expression"
-                              },
-                              "DS_DIRECTORY": {
-                                "value": "@item().sink_directory",
-                                "type": "Expression"
-                              }
-                            }
-                          },
-                          "enableLogging": false,
-                          "storeSettings": {
-                            "type": "AzureBlobFSReadSettings",
-                            "recursive": false,
-                            "enablePartitionDiscovery": false
-                          }
-                        }
-                      }
-                    ]
                   }
                 }
               ]
-            }
-          },
-          {
-            "name": "Select Directories We Should Purge",
-            "type": "Lookup",
-            "dependsOn": [
-              {
-                "activity": "Delete_ADLS_Directory",
-                "dependencyConditions": [
-                  "Succeeded"
-                ]
-              }
-            ],
-            "policy": {
-              "timeout": "0.12:00:00",
-              "retry": 0,
-              "retryIntervalInSeconds": 30,
-              "secureOutput": false,
-              "secureInput": false
-            },
-            "userProperties": [],
-            "typeProperties": {
-              "source": {
-                "type": "AzureSqlSource",
-                "sqlReaderQuery": {
-                  "value": "SELECT DISTINCT\n    dm.sink_dataset,\n    dm.sink_database,\n    dm.sink_schema,\n    REVERSE(SUBSTRING(REVERSE(dm.sink_schema), CHARINDEX('/', REVERSE(dm.sink_schema)), LEN(dm.sink_schema))) AS sink_directory\nFROM\n    @{concat(variables('METADATA_SCHEMA'),'.',variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE'))} dm\nWHERE\n    dm.source_dataset = '@{variables('DATASET')}'\n    AND dm.source_database = '@{pipeline().parameters.P_ADLS_SOURCE_CONTAINER_NAME}'\n    AND dm.source_schema LIKE '@{concat(pipeline().parameters.P_CASSANDRA_SOURCE_KEYSPACE,'/',pipeline().parameters.P_CASSANDRA_TABLE)}%'\n    AND dm.sink_dataset = '@{variables('DATASET')}'\n    AND dm.sink_database = '@{pipeline().parameters.P_ADLS_SINK_CONTAINER_NAME}'\n    AND dm.sink_schema LIKE '@{concat(pipeline().parameters.P_CASSANDRA_SINK_KEYSPACE,'/',pipeline().parameters.P_CASSANDRA_TABLE)}%'\n",
-                  "type": "Expression"
-                },
-                "queryTimeout": "02:00:00",
-                "partitionOption": "None"
-              },
-              "dataset": {
-                "referenceName": "dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds",
-                "type": "DatasetReference",
-                "parameters": {
-                  "DS_METADATA_SCHEMA": {
-                    "value": "@variables('METADATA_SCHEMA')",
-                    "type": "Expression"
-                  },
-                  "DS_METADATA_TABLE": {
-                    "value": "@variables('METADATA_SOURCE_TO_SINK_MAPPING_TABLE')",
-                    "type": "Expression"
-                  }
-                }
-              },
-              "firstRowOnly": false
             }
           }
         ],
@@ -794,9 +667,6 @@
           },
           "P_CASSANDRA_PORT": {
             "type": "int"
-          },
-          "P_CASSANDRA_USERNAME": {
-            "type": "string"
           },
           "P_CASSANDRA_SOURCE_KEYSPACE": {
             "type": "string"
@@ -813,31 +683,31 @@
           "P_ADLS_SOURCE_CONTAINER_NAME": {
             "type": "string"
           },
-          "P_COPY_USE_DATAFLOW": {
-            "type": "string",
-            "defaultValue": "false"
-          },
-          "P_COPY_UNMASKED_TABLES": {
-            "type": "bool",
-            "defaultValue": true
-          },
-          "P_REAPPLY_MAPPING": {
-            "type": "string",
-            "defaultValue": "true"
-          },
-          "P_TRUNCATE_SINK_BEFORE_WRITE": {
-            "type": "bool",
-            "defaultValue": true
-          },
-          "P_FAIL_ON_NONCONFORMANT_DATA": {
-            "type": "string",
-            "defaultValue": "true"
-          },
           "P_CASSANDRA_PREFERRED_NODE": {
             "type": "string"
           },
           "P_CASSANDRA_PREFERRED_PORT": {
             "type": "string"
+          },
+          "P_COPY_USE_DATAFLOW": {
+            "type": "bool",
+            "defaultValue": false
+          },
+          "P_FAIL_ON_NONCONFORMANT_DATA": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_REAPPLY_MAPPING": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_COPY_UNMASKED_TABLES": {
+            "type": "bool",
+            "defaultValue": true
+          },
+          "P_TRUNCATE_SINK_BEFORE_WRITE": {
+            "type": "bool",
+            "defaultValue": true
           },
           "P_COPY_ADLS_DATA_TO_CASSANDRA": {
             "type": "bool",
@@ -850,6 +720,9 @@
           "P_DELETE_ADLS_RECORDS": {
             "type": "bool",
             "defaultValue": false
+          },
+          "P_FUNCTION_NAME": {
+            "type": "string"
           }
         },
         "variables": {
@@ -877,10 +750,6 @@
             "type": "String",
             "defaultValue": "CASSANDRA"
           },
-          "CONDITIONAL_MASKING_RESERVED_CHARACTER": {
-            "type": "String",
-            "defaultValue": "%"
-          },
           "METADATA_EVENT_PROCEDURE_NAME": {
             "type": "String",
             "defaultValue": "insert_adf_masking_event"
@@ -895,7 +764,7 @@
           },
           "STORAGE_ACCOUNT": {
             "type": "String",
-            "defaultValue": "DCS_PLACHOLDER"
+            "defaultValue": "DCS_PLACEHOLDER"
           },
           "CASSANDRA_KEY_VAULT_NAME": {
             "type": "String"
@@ -904,19 +773,20 @@
             "type": "String"
           },
           "ADLS_TO_CASSANDRA_BATCH_SIZE": {
-            "type": "Integer",
-            "defaultValue": 50000
+            "type": "Integer"
+          },
+          "CASSANDRA_USERNAME": {
+            "type": "String"
           }
         },
         "folder": {
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-24T08:14:52Z"
+        "lastPublishTime": "2026-04-24T10:50:45Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/pipelines/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_mask_pl')]",
-        "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds')]",
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_container_and_directory_mask_ds')]"
       ]
     },
@@ -928,7 +798,7 @@
         "activities": [
           {
             "name": "Select Tables That Require Masking",
-            "description": "Select tables with a data mapping and assigned algorithms, as well as filters that may be needed for conditional masking.",
+            "description": "Select tables with a data mapping and assigned algorithms.",
             "type": "Lookup",
             "dependsOn": [
               {
@@ -1230,7 +1100,7 @@
                   }
                 },
                 {
-                  "name": "Fail After Updating Masked State No Filter",
+                  "name": "Fail After Updating Masked State",
                   "type": "Fail",
                   "dependsOn": [
                     {
@@ -1250,7 +1120,7 @@
                   }
                 },
                 {
-                  "name": "Update Masked State No Filter",
+                  "name": "Update Masked State",
                   "type": "SqlServerStoredProcedure",
                   "dependsOn": [
                     {
@@ -2868,7 +2738,7 @@
           "name": "dcsazure_Cassandra_to_Cassandra"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-23T05:55:08Z"
+        "lastPublishTime": "2026-04-24T10:37:25Z"
       },
       "dependsOn": [
         "[concat(variables('factoryId'), '/datasets/dcsazure_Cassandra_to_Cassandra_ADLS_delimited_metadata_mask_ds')]",
