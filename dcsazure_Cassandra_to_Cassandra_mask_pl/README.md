@@ -109,10 +109,10 @@ have customized your metadata store, then these variables may need editing.
   parameters for both conditional and non-conditional masking scenarios (default `generate_masking_parameters`).
 * `STORAGE_ACCOUNT` -  Azure Storage account name used during metadata discovery.(`Default: dcscassandra`).
 * `COLUMN_WIDTH_ESTIMATE` - This variable is used for getting the size of the columns need to be masked (default `1000`).
-* `ADLS_TO_CASSANDRA_BATCH_SIZE` - This is the number of rows per batch while copying the data from Cassandra database to ADLS(default`1000`).
-* `CASSANDRA_USERNAME` - String - Username used to authenticate against the Cassandra cluster.
 * `CASSANDRA_KEY_VAULT_NAME` - Name of the Azure Key Vault that stores the Cassandra DB access key(`Default: DCS_PLACEHOLDER`).
 * `CASSANDRA_SECRET_NAME` - Name of the secret in Key Vault containing the Cassandra DB access key(`Default: DCS_PLACEHOLDER`).
+* `ADLS_TO_CASSANDRA_BATCH_SIZE` - This is the number of rows per batch while copying the data from Cassandra database to ADLS(default`1000`).
+* `CASSANDRA_USERNAME` - String - Username used to authenticate against the Cassandra cluster.
 
 ### Parameters
 
@@ -130,10 +130,10 @@ have customized your metadata store, then these variables may need editing.
 * `P_REAPPLY_MAPPING` - Bool - Controls whether source-to-sink mappings should be reset and reapplied (default: true).
 * `P_COPY_UNMASKED_TABLES` - Bool - Determines whether unmasked tables should also be copied as part of the pipeline execution.
 * `P_TRUNCATE_SINK_BEFORE_WRITE` - Bool - Controls whether existing data in the sink location should be truncated before writing new data (default: true).
-
 * `P_COPY_ADLS_DATA_TO_CASSANDRA` - Bool - Determines whether the pipeline should fail when non-conformant data is encountered (default: true).
 * `P_DELETE_ADLS_AFTER_LOAD` - Bool - Determines whether the extracted files in ADLS should be deleted after the data has been successfully loaded into the target system (default: false).
 * `P_DELETE_ADLS_RECORDS` - Bool - Determines whether existing records/files in the ADLS staging location should be deleted before the pipeline execution begins (default: false).
+* `P_FUNCTION_NAME` - String - Name of the Azure Function.
 
 ### Notes
 

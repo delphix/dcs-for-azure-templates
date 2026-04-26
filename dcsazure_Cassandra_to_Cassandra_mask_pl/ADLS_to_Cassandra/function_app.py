@@ -154,8 +154,7 @@ def build_cassandra_cluster(
         connect_timeout=30,
         control_connection_timeout=30,
         compression=True,
-        protocol_version=4,
-        executor_threads=4,
+        protocol_version=None
     )
 
 
