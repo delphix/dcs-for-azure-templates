@@ -1,0 +1,7 @@
+azure-functions
+azure-functions-durable
+azure-identity
+azure-keyvault-secrets
+azure-storage-file-datalake
+cassandra-driver
+pandas
